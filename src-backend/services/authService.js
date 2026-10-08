@@ -94,13 +94,16 @@ function cleanTop5Item(item) {
 
 function isAdmin(user) {
     if (!user) return false;
-    // 1. Revisar campo role en prefs (configurable en Firestore)
-    const userRole = (user.prefs && user.prefs.role) || "";
-    if (userRole && userRole.toString().trim().toLowerCase() === "admin") return true;
-    // 2. Revisar email dominios comunes de pruebas (ej. admin@dominio.com)
+    // 1. Rol canónico: campo "role" del documento (lo que escribe el panel admin)
+    const canonRole = user.role && String(user.role).trim().toLowerCase();
+    if (canonRole === USER_ROLES.ADMIN) return true;
+    // 2. Compatibilidad: role guardado en prefs (configurable en Firestore)
+    const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
+    if (prefRole === "admin") return true;
+    // 3. Revisar email dominios comunes de pruebas (ej. admin@dominio.com)
     const adminEmails = ["admin@test.com", "admin@example.com"];
     if (adminEmails.includes(user.email)) return true;
-    // 3. Fallback: si el nickname contiene "admin"
+    // 4. Fallback: si el nickname contiene "admin"
     if (user.nickname && user.nickname.toString().toLowerCase().includes("admin")) return true;
     return false;
 }

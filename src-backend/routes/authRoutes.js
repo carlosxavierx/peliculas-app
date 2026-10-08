@@ -61,7 +61,8 @@ router.get("/auth/me", async (req, res) => {
 });
 
 // PUT /api/auth/prefs { favoriteGenres, likesMovies, onboardingDone }
-router.put("/api/auth/prefs", async (req, res) => {
+// OJO: este router se monta en "/api" (server.js), por eso aquí va "/auth/..."
+router.put("/auth/prefs", async (req, res) => {
     try {
         const token = tokenFromHeader(req);
         const body = req.body || {};

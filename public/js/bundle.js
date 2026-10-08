@@ -96,7 +96,16 @@ const USER_ROLES = {
 };
 
 function isAdmin(user) {
-    return user && user.role === USER_ROLES.ADMIN;
+    if (!user) return false;
+    // Misma regla que el backend (authService.js): rol canónico en "role",
+    // compatibilidad con "prefs.role", emails de prueba y nickname con "admin".
+    if (user.role && String(user.role).trim().toLowerCase() === USER_ROLES.ADMIN) return true;
+    const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
+    if (prefRole === "admin") return true;
+    const adminEmails = ["admin@test.com", "admin@example.com"];
+    if (adminEmails.includes(user.email)) return true;
+    if (user.nickname && String(user.nickname).toLowerCase().includes("admin")) return true;
+    return false;
 }
 
 function hasRole(user, role) {
