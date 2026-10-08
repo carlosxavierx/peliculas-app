@@ -1794,3 +1794,102 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
         transform: translateY(0) scale(1);
     }
 }
+
+/* ============================================================
+   Panel de Administración (Tarea 3)
+   ============================================================ */
+.admin-section { margin-bottom: 2rem; }
+.admin-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+}
+.admin-section-head h2 {
+    font-size: 1.05rem; color: var(--text); margin: 0;
+    border-left: 4px solid var(--bronze); padding-left: 0.6rem; border-radius: 2px;
+}
+
+/* Etiqueta pequeña (chip) */
+.chip {
+    display: inline-flex; align-items: center;
+    font-size: 0.72rem; line-height: 1; font-weight: 500;
+    color: var(--muted); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 0.3rem 0.6rem; white-space: nowrap;
+}
+.chip--soon {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.35);
+    background: rgba(201, 162, 39, 0.08);
+}
+
+/* Cards de resumen */
+.admin-cards {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+}
+.admin-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+    border-top: 3px solid var(--accent);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.admin-card:hover { border-color: var(--line); transform: translateY(-2px); }
+.admin-card:nth-child(2) { border-top-color: var(--sky); }
+.admin-card:nth-child(3) { border-top-color: var(--bronze); }
+.admin-card:nth-child(4) { border-top-color: var(--accent-deep); }
+.admin-card-label {
+    font-size: 0.78rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+}
+.admin-card-value { font-size: 1.9rem; font-weight: 900; color: var(--text); line-height: 1.15; }
+.admin-card-note { font-size: 0.78rem; color: var(--muted-dim); }
+
+/* Menú de administración */
+.admin-menu {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem;
+}
+.admin-menu-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem;
+    text-align: left; font-family: inherit; font-size: 0.95rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem 1.2rem; cursor: pointer; color: var(--text);
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.admin-menu-card:hover { background: var(--card-hover); border-color: var(--sky); transform: translateY(-2px); }
+.admin-menu-title { font-weight: 700; font-size: 0.98rem; }
+.admin-menu-desc { font-size: 0.8rem; color: var(--muted); }
+
+/* Actividad reciente */
+.admin-activity {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden;
+}
+.admin-activity-item {
+    display: grid; grid-template-columns: 170px 1fr 120px;
+    gap: 0.75rem 1rem; align-items: baseline;
+    padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--line);
+}
+.admin-activity-item:last-child { border-bottom: 0; }
+.admin-activity-user { font-size: 0.88rem; font-weight: 700; }
+.admin-activity-action { font-size: 0.85rem; color: var(--muted); }
+.admin-activity-date { font-size: 0.78rem; color: var(--muted-dim); text-align: right; }
+
+/* Panel placeholder (futuras tareas) */
+.admin-placeholder {
+    border: 1px dashed var(--line); border-radius: var(--radius);
+    background: var(--surface); padding: 2.5rem 1.5rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center;
+}
+.admin-placeholder h2 { font-size: 1.2rem; margin: 0; }
+.admin-placeholder .btn-primary { margin-top: 0.8rem; }
+
+.admin-back { margin-top: 1.5rem; }
+
+@media (max-width: 900px) {
+    .admin-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .admin-cards { grid-template-columns: 1fr; }
+    .admin-activity-item { grid-template-columns: 1fr; gap: 0.25rem; }
+    .admin-activity-date { text-align: left; }
+}

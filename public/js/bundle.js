@@ -3988,6 +3988,15 @@ function AdminRoute(props) {
 function AdminDashboard(props) {
     const user = props.user;
     const onNavigate = props.onNavigate;
+    // Datos simulados para las cards de resumen (Tarea 6 conectará las reviews).
+    const SAMPLE_REVIEWS = { total: 128, positive: 92, negative: 36 };
+    // Actividad reciente de ejemplo (aún sin backend).
+    const SAMPLE_ACTIVITY = [
+        { user: "pablo", action: "Promovió a Héctor a administrador", date: "Hace 2 h" },
+        { user: "Daniel", action: "Añadió una reseña a 'Dune: Parte Dos'", date: "Hace 5 h" },
+        { user: "Carlos Xavier", action: "Actualizó su colección de series", date: "Ayer" },
+        { user: "Héctor", action: "Reportó un contenido inapropiado", date: "Ayer" }
+    ];
     const statsState = React.useState({ users: 0, movies: 0, series: 0 });
     const stats = statsState[0];
     const setStats = statsState[1];
@@ -4000,9 +4009,10 @@ function AdminDashboard(props) {
     const errorState = React.useState(null);
     const error = errorState[0];
     const setError = errorState[1];
-    const activeTabState = React.useState("stats");
-    const activeTab = activeTabState[0];
-    const setActiveTab = activeTabState[1];
+    // Sección activa del dashboard: main | stats | users | reviews | sentiment
+    const sectionState = React.useState("main");
+    const section = sectionState[0];
+    const setSection = sectionState[1];
 
     const loadStats = async () => {
         try {
@@ -4049,53 +4059,141 @@ function AdminDashboard(props) {
         }
     };
 
-    if (loading && activeTab === "users") {
+    if (loading && section === "users") {
         return h("div", { className: "movies-page" }, h("p", { className: "muted" }, "Cargando..."));
     }
 
-    return h("div", { className: "movies-page" },
-        h("div", { className: "page-head" },
-            h("h1", null, "Panel de Administración"),
-            h("p", { className: "muted" }, "Gestión de usuarios y estadísticas del sistema")
-        ),
-        h("div", { className: "admin-tabs" },
-            h("button", { className: "tab" + (activeTab === "stats" ? " active" : ""), onClick: () => setActiveTab("stats") }, "Estadísticas"),
-            h("button", { className: "tab" + (activeTab === "users" ? " active" : ""), onClick: () => setActiveTab("users") }, "Usuarios (" + users.length + ")")
-        ),
-        error ? h("p", { className: "error" }, error) : null,
-        activeTab === "stats" && h("div", { className: "admin-stats" },
-            h("div", { className: "hero-stats account-stats" },
-                h("div", null, h("strong", null, String(stats.users)), h("span", null, "Usuarios")),
-                h("div", null, h("strong", null, String(stats.movies)), h("span", null, "Películas guardadas")),
-                h("div", null, h("strong", null, String(stats.series)), h("span", null, "Series guardadas"))
+    const backToMain = () => setSection("main");
+
+    const views = {
+        main: h("div", { className: "admin-main" }, [
+            error ? h("p", { className: "error" }, error) : null,
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" },
+                    h("h2", null, "Resumen"),
+                    h("span", { className: "chip" }, "Reviews: datos de ejemplo")
+                ),
+                h("div", { className: "admin-cards" },
+                    h("div", { key: "u", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Total Usuarios"),
+                        h("strong", { className: "admin-card-value" }, String(stats.users)),
+                        h("span", { className: "admin-card-note" }, "Usuarios registrados")
+                    ),
+                    h("div", { key: "r", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Total Reviews"),
+                        h("strong", { className: "admin-card-value" }, String(SAMPLE_REVIEWS.total)),
+                        h("span", { className: "admin-card-note" }, "Datos de ejemplo · Tarea 6")
+                    ),
+                    h("div", { key: "p", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reviews Positivas"),
+                        h("strong", { className: "admin-card-value" }, String(SAMPLE_REVIEWS.positive)),
+                        h("span", { className: "admin-card-note" }, "Datos de ejemplo · Tarea 6")
+                    ),
+                    h("div", { key: "n", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reviews Negativas"),
+                        h("strong", { className: "admin-card-value" }, String(SAMPLE_REVIEWS.negative)),
+                        h("span", { className: "admin-card-note" }, "Datos de ejemplo · Tarea 6")
+                    )
+                )
             ),
-            h("p", { className: "muted", style: { marginTop: "1rem" } }, "Bienvenido, " + user.name + " (Administrador)")
-        ),
-        activeTab === "users" && h("div", { className: "admin-users" },
-            h("div", { className: "movies-grid" },
-                users.map((u) =>
-                    h("div", { key: u.id, className: "movie-card", style: { maxWidth: "400px", flex: "1 1 300px" } },
-                        h("div", { className: "movie-card-body" },
-                            h("h3", null, u.name || u.nickname || "Sin nombre"),
-                            h("p", { className: "movie-meta" }, u.email),
-                            h("p", { className: "movie-meta" }, "Rol: " + (u.role || "user")),
-                            u.createdAt && h("p", { className: "muted", style: { fontSize: "0.8rem" } }, "Registrado: " + new Date(u.createdAt).toLocaleDateString("es-ES")),
-                            h("div", { className: "result-actions", style: { marginTop: "1rem" } },
-                                h("select", {
-                                    value: u.role || "user",
-                                    onChange: (e) => changeUserRole(u.id, e.target.value),
-                                    className: "role-select"
-                                },
-                                    h("option", { value: "user" }, "Usuario"),
-                                    h("option", { value: "admin" }, "Administrador")
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" }, h("h2", null, "Menú de administración")),
+                h("div", { className: "admin-menu" },
+                    h("button", { key: "stats", className: "admin-menu-card", onClick: () => setSection("stats") },
+                        h("span", { className: "admin-menu-title" }, "Estadísticas"),
+                        h("span", { className: "admin-menu-desc" }, "Usuarios, películas y series del sistema")
+                    ),
+                    h("button", { key: "users", className: "admin-menu-card", onClick: () => setSection("users") },
+                        h("span", { className: "admin-menu-title" }, "Gestión de Usuarios"),
+                        h("span", { className: "admin-menu-desc" }, "Cuentas y roles")
+                    ),
+                    h("button", { key: "reviews", className: "admin-menu-card", onClick: () => setSection("reviews") },
+                        h("span", { className: "admin-menu-title" }, "Gestión de Reviews"),
+                        h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo"),
+                        h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 6")
+                    ),
+                    h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
+                        h("span", { className: "admin-menu-title" }, "Análisis de Sentimiento"),
+                        h("span", { className: "admin-menu-desc" }, "Valoración automática de reseñas"),
+                        h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 9")
+                    )
+                )
+            ),
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" },
+                    h("h2", null, "Actividad reciente"),
+                    h("span", { className: "chip" }, "Datos de ejemplo")
+                ),
+                h("div", { className: "admin-activity" },
+                    SAMPLE_ACTIVITY.map((a, i) =>
+                        h("div", { key: i, className: "admin-activity-item" },
+                            h("strong", { className: "admin-activity-user" }, a.user),
+                            h("span", { className: "admin-activity-action" }, a.action),
+                            h("time", { className: "admin-activity-date" }, a.date)
+                        )
+                    )
+                )
+            )
+        ]),
+        stats: h("div", { className: "admin-main" }, [
+            h("div", { className: "admin-stats" },
+                h("div", { className: "hero-stats account-stats" },
+                    h("div", null, h("strong", null, String(stats.users)), h("span", null, "Usuarios")),
+                    h("div", null, h("strong", null, String(stats.movies)), h("span", null, "Películas guardadas")),
+                    h("div", null, h("strong", null, String(stats.series)), h("span", null, "Series guardadas"))
+                ),
+                h("p", { className: "muted", style: { marginTop: "1rem" } }, "Bienvenido, " + user.name + " (Administrador)")
+            ),
+            h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+        ]),
+        users: h("div", { className: "admin-main" }, [
+            h("div", { className: "admin-users" },
+                h("div", { className: "movies-grid" },
+                    users.map((u) =>
+                        h("div", { key: u.id, className: "movie-card", style: { maxWidth: "400px", flex: "1 1 300px" } },
+                            h("div", { className: "movie-card-body" },
+                                h("h3", null, u.name || u.nickname || "Sin nombre"),
+                                h("p", { className: "movie-meta" }, u.email),
+                                h("p", { className: "movie-meta" }, "Rol: " + (u.role || "user")),
+                                u.createdAt && h("p", { className: "muted", style: { fontSize: "0.8rem" } }, "Registrado: " + new Date(u.createdAt).toLocaleDateString("es-ES")),
+                                h("div", { className: "result-actions", style: { marginTop: "1rem" } },
+                                    h("select", {
+                                        value: u.role || "user",
+                                        onChange: (e) => changeUserRole(u.id, e.target.value),
+                                        className: "role-select"
+                                    },
+                                        h("option", { value: "user" }, "Usuario"),
+                                        h("option", { value: "admin" }, "Administrador")
+                                    )
                                 )
                             )
                         )
                     )
-                )
+                ),
+                users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
             ),
-            users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
+            h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+        ]),
+        reviews: h("div", { className: "admin-placeholder" },
+            h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 6"),
+            h("h2", null, "Gestión de Reviews"),
+            h("p", { className: "muted" }, "Aquí podrás moderar y administrar las reseñas de películas y series."),
+            h("button", { className: "btn-primary admin-back", onClick: backToMain }, "← Volver al resumen")
+        ),
+        sentiment: h("div", { className: "admin-placeholder" },
+            h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 9"),
+            h("h2", null, "Análisis de Sentimiento"),
+            h("p", { className: "muted" }, "Aquí podrás ver la valoración automática del tono de las reseñas."),
+            h("button", { className: "btn-primary admin-back", onClick: backToMain }, "← Volver al resumen")
         )
+    };
+
+    return h("div", { className: "movies-page" },
+        h("div", { className: "page-head" },
+            h("h1", null, "Panel de Administración"),
+            h("p", { className: "muted" }, "Gestiona reviews, estadísticas y herramientas de administración.")
+        ),
+        h("div", { className: "admin-view" }, views[section] || views.main)
     );
 }
 
