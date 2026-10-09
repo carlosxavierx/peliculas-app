@@ -4029,6 +4029,16 @@ function AdminDashboard(props) {
     const searchDoneState = React.useState(false);
     const searchDone = searchDoneState[0];
     const setSearchDone = searchDoneState[1];
+    // Paginación del Buscador (el backend devuelve 10 resultados/página por tipo).
+    const searchPageState = React.useState(1);
+    const searchPage = searchPageState[0];
+    const setSearchPage = searchPageState[1];
+    const searchTotalState = React.useState(0);
+    const searchTotal = searchTotalState[0];
+    const setSearchTotal = searchTotalState[1];
+    const searchMoreLoadingState = React.useState(false);
+    const searchMoreLoading = searchMoreLoadingState[0];
+    const setSearchMoreLoading = searchMoreLoadingState[1];
     // Contenido seleccionado: base para Tareas 5, 6, 8 y 9.
     const selectedContentState = React.useState(null);
     const selectedContent = selectedContentState[0];
@@ -4052,6 +4062,23 @@ function AdminDashboard(props) {
     const reviewNoticeState = React.useState(null);
     const reviewNotice = reviewNoticeState[0];
     const setReviewNotice = reviewNoticeState[1];
+    // Tarea 8 — Resumen agregado del backend (TODAS las reviews de la obra, /api/reviews/summary).
+    const reviewsSummaryState = React.useState(null);
+    const reviewsSummary = reviewsSummaryState[0];
+    const setReviewsSummary = reviewsSummaryState[1];
+    const reviewsSummaryLoadingState = React.useState(false);
+    const reviewsSummaryLoading = reviewsSummaryLoadingState[0];
+    const setReviewsSummaryLoading = reviewsSummaryLoadingState[1];
+    const reviewsSummaryErrorState = React.useState(null);
+    const reviewsSummaryError = reviewsSummaryErrorState[0];
+    const setReviewsSummaryError = reviewsSummaryErrorState[1];
+    // Tarea 6 — Paginación real de la lista (el backend devuelve como máximo 50 reviews por página).
+    const reviewsPageState = React.useState(1);
+    const reviewsPage = reviewsPageState[0];
+    const setReviewsPage = reviewsPageState[1];
+    const reviewsLoadingMoreState = React.useState(false);
+    const reviewsLoadingMore = reviewsLoadingMoreState[0];
+    const setReviewsLoadingMore = reviewsLoadingMoreState[1];
 
     const loadStats = async () => {
         try {
@@ -4083,7 +4110,8 @@ function AdminDashboard(props) {
         loadUsers();
     }, []);
 
-    // Tarea 6 — Carga las reviews del contenido seleccionado cada vez que cambia.
+    // Tarea 6 — Carga la lista del contenido (paginada, 50/página) y, en paralelo,
+    // el resumen agregado (TODAS las reviews) que alimenta las estadísticas de T8.
     React.useEffect(() => {
         if (!selectedContent) {
             setReviews([]);
@@ -4091,33 +4119,80 @@ function AdminDashboard(props) {
             setReviewsLoading(false);
             setReviewsError(null);
             setReviewNotice(null);
+            setReviewsSummary(null);
+            setReviewsSummaryLoading(false);
+            setReviewsSummaryError(null);
+            setReviewsPage(1);
             return;
         }
         let alive = true;
         setReviewsLoading(true);
         setReviewsError(null);
         setReviewNotice(null);
+        setReviewsSummaryError(null);
+        setReviewsSummaryLoading(true);
         setReviews([]);
         setReviewsTotal(0);
+        setReviewsPage(1);
         const mediaType = reviewMediaTypeOf(selectedContent, selectedContent.mediaType);
+        const q = reviewQueryOf(mediaType, selectedContent);
         (async () => {
             try {
-                const q = reviewQueryOf(mediaType, selectedContent);
-                const res = await fetch("/api/reviews?" + q + "&sort=relevance&limit=100", { headers: authHeaders() });
-                const data = await res.json().catch(() => ({}));
+                const [listRes, sumRes] = await Promise.all([
+                    fetch("/api/reviews?" + q + "&sort=relevance&page=1&limit=50", { headers: authHeaders() }),
+                    fetch("/api/reviews/summary?" + q, { headers: authHeaders() })
+                ]);
+                const listData = await listRes.json().catch(() => ({}));
+                const sumData = await sumRes.json().catch(() => ({}));
                 if (!alive) return;
-                if (!res.ok) throw new Error(data.error || "No se pudieron cargar las reviews");
-                const list = Array.isArray(data.results) ? data.results.map(toFrontReview) : [];
+                if (!listRes.ok) throw new Error(listData.error || "No se pudieron cargar las reviews");
+                const list = Array.isArray(listData.results) ? listData.results.map(toFrontReview) : [];
                 setReviews(list);
-                setReviewsTotal(typeof data.total === "number" ? data.total : list.length);
+                setReviewsTotal(typeof listData.total === "number" ? listData.total : list.length);
+                if (sumRes.ok && typeof sumData.count === "number") {
+                    setReviewsSummary(sumData);
+                } else {
+                    setReviewsSummaryError((sumData && sumData.error) || "Resumen no disponible");
+                }
             } catch (e) {
-                if (alive) setReviewsError(e.message || "Error recuperando reviews");
+                if (!alive) return;
+                const msg = e.message || "Error recuperando reviews";
+                setReviewsError(msg);
+                setReviewsSummaryError(msg);
             } finally {
-                if (alive) setReviewsLoading(false);
+                if (alive) {
+                    setReviewsLoading(false);
+                    setReviewsSummaryLoading(false);
+                }
             }
         })();
         return () => { alive = false; };
     }, [selectedContent]);
+
+    // Tarea 6 — Carga la siguiente página (50 más) de la lista de reviews y la añade.
+    const loadMoreReviews = async () => {
+        if (!selectedContent || reviewsLoadingMore) return;
+        setReviewsLoadingMore(true);
+        try {
+            const mediaType = reviewMediaTypeOf(selectedContent, selectedContent.mediaType);
+            const q = reviewQueryOf(mediaType, selectedContent);
+            const next = (reviewsPage || 1) + 1;
+            const res = await fetch("/api/reviews?" + q + "&sort=relevance&page=" + next + "&limit=50", { headers: authHeaders() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "No se pudieron cargar más reviews");
+            const more = Array.isArray(data.results) ? data.results.map(toFrontReview) : [];
+            setReviews((prev) => {
+                const seen = new Set(prev.map((r) => r.id));
+                return prev.concat(more.filter((r) => !seen.has(r.id)));
+            });
+            setReviewsPage(next);
+            if (typeof data.total === "number") setReviewsTotal(data.total);
+        } catch (e) {
+            setReviewsError(e.message || "Error cargando más reviews");
+        } finally {
+            setReviewsLoadingMore(false);
+        }
+    };
 
     const changeUserRole = async (userId, newRole) => {
         try {
@@ -4140,7 +4215,30 @@ function AdminDashboard(props) {
 
     const backToMain = () => setSection("main");
 
-    // Búsqueda combinada de películas y series reutilizando el catálogo existente.
+    // Búsqueda combinada de películas y series reutilizando el catálogo existente
+    // (el backend pagina a 10 resultados por tipo: guardamos el total real para paginar).
+    const mergeSearchPayload = (mData, sData) => {
+        const mItems = Array.isArray(mData.results) ? mData.results : (Array.isArray(mData) ? mData : []);
+        const sItems = Array.isArray(sData.results) ? sData.results : (Array.isArray(sData) ? sData : []);
+        const withType = [
+            ...mItems.map((m) => Object.assign({}, m, { mediaType: "movie" })),
+            ...sItems.map((s) => Object.assign({}, s, { mediaType: "series" }))
+        ];
+        const seen = new Set();
+        const merged = [];
+        for (const it of withType) {
+            const key = it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year));
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(it);
+        }
+        return {
+            merged,
+            totalMovies: Number(mData.totalResults) || 0,
+            totalSeries: Number(sData.totalResults) || 0
+        };
+    };
+
     const runSearch = async (e) => {
         e.preventDefault();
         const q = searchQuery.trim();
@@ -4153,29 +4251,43 @@ function AdminDashboard(props) {
         setSearchDone(false);
         try {
             const [mData, sData] = await Promise.all([
-                fetch("/api/movies/search-list?s=" + encodeURIComponent(q)).then((r) => r.json().catch(() => ({}))),
-                fetch("/api/series/search-list?s=" + encodeURIComponent(q)).then((r) => r.json().catch(() => ({})))
+                fetch("/api/movies/search-list?s=" + encodeURIComponent(q) + "&page=1").then((r) => r.json().catch(() => ({}))),
+                fetch("/api/series/search-list?s=" + encodeURIComponent(q) + "&page=1").then((r) => r.json().catch(() => ({})))
             ]);
-            const mItems = Array.isArray(mData.results) ? mData.results : (Array.isArray(mData) ? mData : []);
-            const sItems = Array.isArray(sData.results) ? sData.results : (Array.isArray(sData) ? sData : []);
-            const withType = [
-                ...mItems.map((m) => Object.assign({}, m, { mediaType: "movie" })),
-                ...sItems.map((s) => Object.assign({}, s, { mediaType: "series" }))
-            ];
-            const seen = new Set();
-            const merged = [];
-            for (const it of withType) {
-                const key = it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year));
-                if (seen.has(key)) continue;
-                seen.add(key);
-                merged.push(it);
-            }
+            const { merged, totalMovies, totalSeries } = mergeSearchPayload(mData, sData);
             setSearchResults(merged);
+            setSearchPage(1);
+            setSearchTotal(totalMovies + totalSeries);
         } catch (err) {
             setSearchError("No se pudo buscar en el catálogo. Inténtalo de nuevo.");
         } finally {
             setSearching(false);
             setSearchDone(true);
+        }
+    };
+
+    // Carga la siguiente página de resultados (10 más por tipo) y los añade a la lista.
+    const loadMoreSearchResults = async () => {
+        if (!searchQuery.trim() || searchMoreLoading || searchTotal <= searchResults.length) return;
+        const q = searchQuery.trim();
+        setSearchMoreLoading(true);
+        try {
+            const next = searchPage + 1;
+            const [mData, sData] = await Promise.all([
+                fetch("/api/movies/search-list?s=" + encodeURIComponent(q) + "&page=" + next).then((r) => r.json().catch(() => ({}))),
+                fetch("/api/series/search-list?s=" + encodeURIComponent(q) + "&page=" + next).then((r) => r.json().catch(() => ({})))
+            ]);
+            const { merged, totalMovies, totalSeries } = mergeSearchPayload(mData, sData);
+            setSearchResults((prev) => {
+                const seen = new Set(prev.map((it) => it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year))));
+                return prev.concat(merged.filter((it) => !seen.has(it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year)))));
+            });
+            setSearchPage(next);
+            setSearchTotal(totalMovies + totalSeries);
+        } catch (err) {
+            setSearchError("No se pudieron cargar más resultados.");
+        } finally {
+            setSearchMoreLoading(false);
         }
     };
 
@@ -4231,12 +4343,8 @@ function AdminDashboard(props) {
         )
         : null;
 
-    // Tarea 8 — Métricas de estadísticas por contenido (derivadas de las reviews reales ya cargadas en T6).
-    const ratedReviews = reviews.filter((r) => typeof r.rating === "number");
-    const avgRating = ratedReviews.length ? ratedReviews.reduce((s, r) => s + r.rating, 0) / ratedReviews.length : null;
-    const positiveReviews = ratedReviews.filter((r) => r.rating >= 7).length;
-    const negativeReviews = ratedReviews.filter((r) => r.rating <= 4).length;
-    const neutralReviews = Math.max(0, reviews.length - positiveReviews - negativeReviews);
+    // Tarea 8 — Métricas por contenido: ahora provienen del resumen agregado del backend
+    // (/api/reviews/summary), calculado sobre TODAS las reviews de la obra sin límite de página.
 
     const statCard = (label, value, note, extra) =>
         h("div", { key: label, className: "admin-card" + (extra || "") },
@@ -4327,23 +4435,26 @@ function AdminDashboard(props) {
                         h("h2", null, "Estadísticas del contenido"),
                         h("span", { className: "chip chip--selected" }, selectedContent.title || "Contenido seleccionado")
                     ),
-                    reviewsError ? h("p", { className: "error" }, reviewsError) : null,
-                    reviewsLoading
+                    reviewsSummaryError ? h("p", { className: "error" }, reviewsSummaryError) : null,
+                    reviewsSummaryLoading
                         ? h("div", { className: "admin-loader" },
                             h("span", { className: "admin-spinner", "aria-hidden": "true" }),
                             h("span", null, "Calculando estadísticas…")
                         )
                         : null,
-                    !reviewsLoading && !reviewsError ? h("div", { className: "admin-cards" },
-                        statCard("Total Reviews", String(reviewsTotal), "Reviews de este contenido", ""),
-                        statCard("Reviews Positivas", String(positiveReviews), "Valoración ★ ≥ 7", " stat-positive"),
-                        statCard("Reviews Negativas", String(negativeReviews), "Valoración ★ ≤ 4", " stat-negative"),
-                        statCard("Reviews Neutras", String(neutralReviews), "Sin valoración o ★ 5-6", " stat-neutral"),
-                        statCard("Nota media", avgRating != null ? avgRating.toFixed(1) : "—", "Sobre las reviews con valoración", ""),
-                        statCard("Con valoración", String(ratedReviews.length), "Reviews que incluyen estrellas", "")
-                    ) : null,
-                    !reviewsLoading && !reviewsError ? h("p", { className: "muted admin-stats-note" },
-                        "Métricas calculadas con las reviews reales del contenido. Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? h("div", { className: "admin-cards" },
+                            statCard("Total Reviews", String(reviewsSummary.count), "Reviews de este contenido", ""),
+                            statCard("Reviews Positivas", String(reviewsSummary.positive), "Valoración ★ ≥ 7", " stat-positive"),
+                            statCard("Reviews Negativas", String(reviewsSummary.negative), "Valoración ★ ≤ 4", " stat-negative"),
+                            statCard("Reviews Neutras", String(Math.max(0, reviewsSummary.count - reviewsSummary.positive - reviewsSummary.negative)), "Sin valoración o ★ 5-6", " stat-neutral"),
+                            statCard("Nota media", reviewsSummary.avgRating != null ? Number(reviewsSummary.avgRating).toFixed(1) : "—", "Sobre las reviews con valoración", ""),
+                            statCard("Con valoración", String(reviewsSummary.ratingsCount), "Reviews que incluyen estrellas", "")
+                        )
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? h("p", { className: "muted admin-stats-note" },
+                            "Métricas calculadas sobre el total de reviews de la obra (resumen del backend). Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
                     // Zona reservada: Tarea 9 y Tarea 12 insertarán aquí sus gráficas.
                     h("div", { className: "admin-content-tools" },
                         h("span", { className: "chip chip--soon" }, "Gráfico de sentimiento · Tarea 9"),
@@ -4477,7 +4588,9 @@ function AdminDashboard(props) {
                     h("h2", null, "Buscar Serie o Película"),
                     searchDone && searchResults.length > 0
                         ? h("span", { className: "chip" },
-                            searchResults.length + (searchResults.length === 1 ? " resultado" : " resultados"))
+                            searchResults.length +
+                            (searchTotal > searchResults.length ? " de " + searchTotal : "") +
+                            (searchResults.length === 1 && searchTotal <= 1 ? " resultado" : " resultados"))
                         : h("span", { className: "chip" }, "Catálogo del sistema")
                 ),
                 h("form", { className: "search-form", onSubmit: runSearch },
@@ -4517,6 +4630,17 @@ function AdminDashboard(props) {
                             );
                         })
                     )
+                    : null,
+                !searching && searchDone && searchResults.length > 0 && searchTotal > searchResults.length
+                    ? h("div", { className: "admin-reviews-more" },
+                        h("button", {
+                            className: "btn-ghost btn-small",
+                            onClick: loadMoreSearchResults,
+                            disabled: searchMoreLoading
+                        },
+                            searchMoreLoading
+                                ? "Cargando más…"
+                                : "Cargar más resultados (" + (searchTotal - searchResults.length) + " restantes)"))
                     : null
             ),
             h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
@@ -4565,6 +4689,18 @@ function AdminDashboard(props) {
                         : null,
                     !reviewsLoading && reviews.length > 0
                         ? h("div", { className: "admin-reviews-list" }, reviews.map(reviewCard))
+                        : null,
+                    !reviewsLoading && reviews.length > 0 && reviews.length < reviewsTotal
+                        ? h("div", { className: "admin-reviews-more" },
+                            h("button", {
+                                className: "btn-ghost btn-small",
+                                onClick: loadMoreReviews,
+                                disabled: reviewsLoadingMore
+                            },
+                                reviewsLoadingMore
+                                    ? "Cargando más…"
+                                    : "Cargar más reviews (" + (reviewsTotal - reviews.length) + " restantes)")
+                        )
                         : null
                 ),
                 confirmDialog,
@@ -4631,6 +4767,8 @@ function CookieConsentBanner() {
 function App() {
     const pageState = useState(() => {
         const params = new URLSearchParams(window.location.search);
+        // Ruta administrativa: /admin abre el panel (AdminRoute exige sesión + rol).
+        if (window.location.pathname === "/admin") return "admin";
         if (!params.get("oobCode")) return "home";
         if (params.get("mode") === "resetPassword") return "reset-password";
         if (params.get("mode") === "verifyEmail") return "verify-email";
@@ -4638,6 +4776,9 @@ function App() {
     });
     const page = pageState[0];
     const setPage = pageState[1];
+    // Ref para que el listener de popstate lea siempre la página actual.
+    const pageRef = React.useRef(page);
+    pageRef.current = page;
     const moviesState = useState([]);
     const movies = moviesState[0];
     const setMovies = moviesState[1];
@@ -4687,6 +4828,19 @@ function App() {
         fetchMovies();
         fetchSeries();
         restoreSession();
+    }, []);
+
+    // Sincroniza la ruta /admin con los botones atrás/adelante del navegador.
+    useEffect(() => {
+        const onPop = () => {
+            if (window.location.pathname === "/admin") {
+                setPage("admin");
+            } else if (pageRef.current === "admin") {
+                setPage("home");
+            }
+        };
+        window.addEventListener("popstate", onPop);
+        return () => window.removeEventListener("popstate", onPop);
     }, []);
 
     // Aplicar tema de color del usuario al cargar y cuando cambia
@@ -4775,6 +4929,14 @@ function App() {
     const navigate = (target) => {
         setToast(null);
         setPage(target);
+        // Ruta /admin: se refleja en la URL (compartible y compatible con back/forward).
+        if (target === "admin") {
+            if (window.location.pathname !== "/admin") {
+                window.history.pushState(null, "", "/admin");
+            }
+        } else if (window.location.pathname === "/admin") {
+            window.history.pushState(null, "", "/");
+        }
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 

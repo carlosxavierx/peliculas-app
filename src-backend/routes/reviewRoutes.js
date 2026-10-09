@@ -67,7 +67,8 @@ router.get("/reviews", async (req, res) => {
     }
 });
 
-// GET /api/reviews/summary?mediaType=movie&imdbID=tt0111161 -> { count, avgRating, score }
+// GET /api/reviews/summary?mediaType=movie&imdbID=tt0111161 -> { count, avgRating, ratingsCount, positive, negative, score }
+// (positive = valoración ★>=7, negative = ★<=4; el resto cuenta como neutra, incluidas las sin valoración)
 router.get("/reviews/summary", async (req, res) => {
     try {
         const q = mediaQuery(req);

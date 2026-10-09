@@ -255,11 +255,15 @@ const ReviewModel = {
             docs = snap.docs.map((d) => d.data());
         }
         const ratings = docs.map((d) => d.rating).filter((n) => Number.isInteger(n));
+        const positive = ratings.filter((n) => n >= 7).length;
+        const negative = ratings.filter((n) => n <= 4).length;
         return {
             mediaKey: key,
             count: docs.length,
             avgRating: ratings.length ? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2)) : null,
             ratingsCount: ratings.length,
+            positive,
+            negative,
             score: docs.reduce((a, d) => a + (Number(d.score) || 0), 0)
         };
     },

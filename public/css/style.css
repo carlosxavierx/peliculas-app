@@ -2096,3 +2096,4 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
 .admin-card.stat-neutral .admin-card-value { color: var(--bronze-bright); }
 .admin-stats-note { margin: 0.6rem 0 0; font-size: 0.8rem; max-width: 720px; }
 .admin-content-empty .btn-ghost { flex-shrink: 0; }
+.admin-reviews-more { margin-top: 1rem; text-align: center; }
