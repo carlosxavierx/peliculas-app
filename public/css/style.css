@@ -2087,3 +2087,12 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     .admin-reviews-media { flex-wrap: wrap; }
     .admin-change { width: 100%; }
 }
+
+/* ============================================================
+   Tarea 8 — Estadísticas por contenido (Admin)
+   ============================================================ */
+.admin-card.stat-positive .admin-card-value { color: #7bd88f; }
+.admin-card.stat-negative .admin-card-value { color: #ff7a8f; }
+.admin-card.stat-neutral .admin-card-value { color: var(--bronze-bright); }
+.admin-stats-note { margin: 0.6rem 0 0; font-size: 0.8rem; max-width: 720px; }
+.admin-content-empty .btn-ghost { flex-shrink: 0; }

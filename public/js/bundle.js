@@ -4097,6 +4097,8 @@ function AdminDashboard(props) {
         setReviewsLoading(true);
         setReviewsError(null);
         setReviewNotice(null);
+        setReviews([]);
+        setReviewsTotal(0);
         const mediaType = reviewMediaTypeOf(selectedContent, selectedContent.mediaType);
         (async () => {
             try {
@@ -4229,6 +4231,19 @@ function AdminDashboard(props) {
         )
         : null;
 
+    // Tarea 8 — Métricas de estadísticas por contenido (derivadas de las reviews reales ya cargadas en T6).
+    const ratedReviews = reviews.filter((r) => typeof r.rating === "number");
+    const avgRating = ratedReviews.length ? ratedReviews.reduce((s, r) => s + r.rating, 0) / ratedReviews.length : null;
+    const positiveReviews = ratedReviews.filter((r) => r.rating >= 7).length;
+    const negativeReviews = ratedReviews.filter((r) => r.rating <= 4).length;
+    const neutralReviews = Math.max(0, reviews.length - positiveReviews - negativeReviews);
+
+    const statCard = (label, value, note, extra) =>
+        h("div", { key: label, className: "admin-card" + (extra || "") },
+            h("span", { className: "admin-card-label" }, label),
+            h("strong", { className: "admin-card-value" }, value),
+            h("span", { className: "admin-card-note" }, note));
+
     const views = {
         main: h("div", { className: "admin-main" }, [
             error ? h("p", { className: "error" }, error) : null,
@@ -4269,7 +4284,8 @@ function AdminDashboard(props) {
                     ),
                     h("button", { key: "stats", className: "admin-menu-card", onClick: () => setSection("stats") },
                         h("span", { className: "admin-menu-title" }, "Estadísticas"),
-                        h("span", { className: "admin-menu-desc" }, "Usuarios, películas y series del sistema")
+                        h("span", { className: "admin-menu-desc" }, "Métricas del contenido seleccionado"),
+                        h("span", { className: "chip chip--done" }, "Tarea 8 · Lista")
                     ),
                     h("button", { key: "users", className: "admin-menu-card", onClick: () => setSection("users") },
                         h("span", { className: "admin-menu-title" }, "Gestión de Usuarios"),
@@ -4304,6 +4320,42 @@ function AdminDashboard(props) {
             )
         ]),
         stats: h("div", { className: "admin-main" }, [
+            // Tarea 8 — Estadísticas del contenido seleccionado (datos reales de reviews).
+            selectedContent
+                ? h("section", { className: "admin-section" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Estadísticas del contenido"),
+                        h("span", { className: "chip chip--selected" }, selectedContent.title || "Contenido seleccionado")
+                    ),
+                    reviewsError ? h("p", { className: "error" }, reviewsError) : null,
+                    reviewsLoading
+                        ? h("div", { className: "admin-loader" },
+                            h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                            h("span", null, "Calculando estadísticas…")
+                        )
+                        : null,
+                    !reviewsLoading && !reviewsError ? h("div", { className: "admin-cards" },
+                        statCard("Total Reviews", String(reviewsTotal), "Reviews de este contenido", ""),
+                        statCard("Reviews Positivas", String(positiveReviews), "Valoración ★ ≥ 7", " stat-positive"),
+                        statCard("Reviews Negativas", String(negativeReviews), "Valoración ★ ≤ 4", " stat-negative"),
+                        statCard("Reviews Neutras", String(neutralReviews), "Sin valoración o ★ 5-6", " stat-neutral"),
+                        statCard("Nota media", avgRating != null ? avgRating.toFixed(1) : "—", "Sobre las reviews con valoración", ""),
+                        statCard("Con valoración", String(ratedReviews.length), "Reviews que incluyen estrellas", "")
+                    ) : null,
+                    !reviewsLoading && !reviewsError ? h("p", { className: "muted admin-stats-note" },
+                        "Métricas calculadas con las reviews reales del contenido. Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
+                    // Zona reservada: Tarea 9 y Tarea 12 insertarán aquí sus gráficas.
+                    h("div", { className: "admin-content-tools" },
+                        h("span", { className: "chip chip--soon" }, "Gráfico de sentimiento · Tarea 9"),
+                        h("span", { className: "chip chip--soon" }, "Gráfico por género · Tarea 12")
+                    )
+                )
+                : h("div", { className: "admin-content-empty" },
+                    h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
+                    h("p", { className: "muted", style: { margin: 0 } },
+                        "Selecciona una serie o película para visualizar sus estadísticas."),
+                    h("button", { className: "btn-ghost btn-small", onClick: () => setSection("search") }, "Ir al buscador")
+                ),
             h("div", { className: "admin-stats" },
                 h("div", { className: "hero-stats account-stats" },
                     h("div", null, h("strong", null, String(stats.users)), h("span", null, "Usuarios")),
@@ -4401,11 +4453,12 @@ function AdminDashboard(props) {
                                         h("dd", null, selectedContent.imdbID))
                                     : null
                             ),
-                            // Zona reservada: la Tarea 6 ya ocupa su sitio; 8/9/12 llegarán en próximas tareas.
+                            // Zona reservada: las Tareas 6 y 8 ya ocupan su sitio; 9/12 llegarán próximamente.
                             h("div", { className: "admin-content-tools" },
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("reviews") },
                                     "Gestionar Reviews"),
-                                h("span", { className: "chip chip--soon" }, "Estadísticas · Tarea 8"),
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
+                                    "Ver Estadísticas"),
                                 h("span", { className: "chip chip--soon" }, "Sentimiento · Tarea 9"),
                                 h("span", { className: "chip chip--soon" }, "Gráficas · Tarea 12")
                             ),
