@@ -4243,22 +4243,81 @@ function AdminDashboard(props) {
             h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),
         search: h("div", { className: "admin-main" }, [
-            selectedContent ? h("div", { className: "admin-selected" },
-                h("div", { className: "admin-selected-thumb" },
-                    selectedContent.poster
-                        ? h("img", { src: selectedContent.poster, alt: selectedContent.title })
-                        : h("div", { className: "admin-selected-noimg" }, "🎬")
-                ),
-                h("div", { className: "admin-selected-info" },
-                    h("span", { className: "chip chip--selected" }, "Contenido seleccionado"),
-                    h("h3", null, selectedContent.title + " (" + (selectedContent.year || "—") + ")"),
-                    h("p", { className: "muted", style: { margin: 0 } },
-                        "Guardado en el panel. Se usará para Reviews, Estadísticas y Sentimiento (próximas tareas)."
+            // Tarea 5 — Ficha del contenido seleccionado (o mensaje sin selección).
+            selectedContent
+                ? h("section", { className: "admin-section admin-content" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Información del contenido"),
+                        h("span", { className: "chip chip--selected" }, "Contenido seleccionado")
                     ),
-                    h("button", { className: "btn-ghost btn-small", onClick: () => setSelectedContent(null) },
-                        "Quitar selección")
+                    h("div", { className: "admin-content-ficha" },
+                        h("div", { className: "admin-content-poster" },
+                            h("img", {
+                                src: selectedContent.poster || PLACEHOLDER_POSTER,
+                                alt: selectedContent.title || "Póster",
+                                loading: "lazy",
+                                onError: (e) => { e.target.onerror = null; if (e.target.src !== PLACEHOLDER_POSTER) e.target.src = PLACEHOLDER_POSTER; }
+                            })
+                        ),
+                        h("div", { className: "admin-content-info" },
+                            h("h3", { className: "admin-content-title" }, selectedContent.title || "Sin título"),
+                            h("div", { className: "admin-content-tags" },
+                                h("span", { className: "chip chip--type" },
+                                    selectedContent.mediaType === "series" ? "Serie" : "Película"),
+                                selectedContent.year
+                                    ? h("span", { className: "chip" }, "Año: " + selectedContent.year)
+                                    : null,
+                                selectedContent.rating
+                                    ? h("span", { className: "chip" }, "★ " + selectedContent.rating)
+                                    : null,
+                                selectedContent.runtime
+                                    ? h("span", { className: "chip" }, selectedContent.runtime)
+                                    : null,
+                                selectedContent.totalSeasons
+                                    ? h("span", { className: "chip" },
+                                        selectedContent.totalSeasons + (Number(selectedContent.totalSeasons) === 1 ? " temporada" : " temporadas"))
+                                    : null
+                            ),
+                            selectedContent.genre
+                                ? h("p", { className: "admin-content-genre" }, selectedContent.genre)
+                                : null,
+                            selectedContent.plot && selectedContent.plot !== "Sin sinopsis disponible."
+                                ? h("p", { className: "admin-content-plot" }, selectedContent.plot)
+                                : null,
+                            h("dl", { className: "admin-content-meta" },
+                                selectedContent.director && selectedContent.director !== "Desconocido"
+                                    ? h("div", { className: "admin-content-meta-row" },
+                                        h("dt", null, "Director"),
+                                        h("dd", null, selectedContent.director))
+                                    : null,
+                                selectedContent.actors && selectedContent.actors !== "N/A"
+                                    ? h("div", { className: "admin-content-meta-row" },
+                                        h("dt", null, "Reparto"),
+                                        h("dd", null, selectedContent.actors))
+                                    : null,
+                                selectedContent.imdbID
+                                    ? h("div", { className: "admin-content-meta-row" },
+                                        h("dt", null, "IMDb"),
+                                        h("dd", null, selectedContent.imdbID))
+                                    : null
+                            ),
+                            // Zona reservada: las Tareas 6/8/9/12 insertarán aquí sus widgets.
+                            h("div", { className: "admin-content-tools" },
+                                h("span", { className: "chip chip--soon" }, "Reviews · Tarea 6"),
+                                h("span", { className: "chip chip--soon" }, "Estadísticas · Tarea 8"),
+                                h("span", { className: "chip chip--soon" }, "Sentimiento · Tarea 9"),
+                                h("span", { className: "chip chip--soon" }, "Gráficas · Tarea 12")
+                            ),
+                            h("button", { className: "btn-ghost btn-small", onClick: () => setSelectedContent(null) },
+                                "Quitar selección")
+                        )
+                    )
                 )
-            ) : null,
+                : h("div", { className: "admin-content-empty" },
+                    h("span", { className: "chip chip--selected" }, "Sin selección"),
+                    h("p", { className: "muted", style: { margin: 0 } },
+                        "Selecciona una serie o película para visualizar su información.")
+                ),
             h("section", { className: "admin-section" },
                 h("div", { className: "admin-section-head" },
                     h("h2", null, "Buscar Serie o Película"),

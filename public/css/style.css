@@ -1951,3 +1951,64 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
 @media (max-width: 480px) {
     .admin-selected { flex-direction: column; align-items: flex-start; }
 }
+
+/* ============================================================
+   Tarea 5 — Ficha de contenido seleccionado (Admin)
+   ============================================================ */
+.admin-content-ficha {
+    display: flex; gap: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--bronze);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+.admin-content-poster {
+    width: 220px; flex-shrink: 0;
+    border-radius: 10px; overflow: hidden;
+    background: #000; border: 1px solid var(--line);
+    align-self: flex-start;
+}
+.admin-content-poster img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; display: block; }
+.admin-content-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+.admin-content-title { margin: 0; font-size: 1.4rem; color: var(--text); line-height: 1.25; }
+.admin-content-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip--type {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.12);
+    font-weight: 700;
+}
+.admin-content-genre { margin: 0; color: var(--sky); font-size: 0.9rem; }
+.admin-content-plot { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.6; }
+
+.admin-content-meta {
+    display: flex; flex-direction: column; gap: 0.35rem;
+    margin: 0.25rem 0 0; width: 100%;
+}
+.admin-content-meta-row { display: flex; gap: 0.6rem; font-size: 0.9rem; }
+.admin-content-meta-row dt { color: var(--muted); min-width: 90px; }
+.admin-content-meta-row dd { margin: 0; color: var(--text); }
+
+/* Zona reservada para las Tareas 6/8/9/12 */
+.admin-content-tools {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    border-top: 1px dashed var(--line);
+    padding-top: 0.75rem; margin-top: 0.5rem; width: 100%;
+}
+
+/* Estado sin selección */
+.admin-content-empty {
+    display: flex; align-items: center; gap: 0.75rem;
+    border: 1px dashed var(--line);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+}
+.admin-content-empty .chip--selected { flex-shrink: 0; }
+
+@media (max-width: 640px) {
+    .admin-content-ficha { flex-direction: column; }
+    .admin-content-poster { width: 100%; max-width: 260px; }
+}
