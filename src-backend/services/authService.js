@@ -135,6 +135,19 @@ async function findUserByNickname(nickname) {
     return Object.assign({ id: doc.id }, doc.data());
 }
 
+// Devuelve un usuario por su id (el doc id de la colección users, normalmente su email).
+async function getUserById(userId) {
+    if (!db) {
+        for (const u of localUsers.values()) {
+            if (String(u.id) === String(userId)) return u;
+        }
+        return null;
+    }
+    const doc = await db.collection("users").doc(String(userId)).get();
+    if (!doc.exists) return null;
+    return Object.assign({ id: doc.id }, doc.data());
+}
+
 async function setUserNickname(userId, nickname) {
     const cleanNickname = nickname.trim().toLowerCase();
     if (cleanNickname.length < 3) {
