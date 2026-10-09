@@ -4009,10 +4009,30 @@ function AdminDashboard(props) {
     const errorState = React.useState(null);
     const error = errorState[0];
     const setError = errorState[1];
-    // Sección activa del dashboard: main | stats | users | reviews | sentiment
+    // Sección activa del dashboard: main | search | stats | users | reviews | sentiment
     const sectionState = React.useState("main");
     const section = sectionState[0];
     const setSection = sectionState[1];
+    // Tarea 4 — Buscador de contenido (catálogo Firestore, sin API nueva).
+    const searchQueryState = React.useState("");
+    const searchQuery = searchQueryState[0];
+    const setSearchQuery = searchQueryState[1];
+    const searchingState = React.useState(false);
+    const searching = searchingState[0];
+    const setSearching = searchingState[1];
+    const searchResultsState = React.useState([]);
+    const searchResults = searchResultsState[0];
+    const setSearchResults = searchResultsState[1];
+    const searchErrorState = React.useState(null);
+    const searchError = searchErrorState[0];
+    const setSearchError = searchErrorState[1];
+    const searchDoneState = React.useState(false);
+    const searchDone = searchDoneState[0];
+    const setSearchDone = searchDoneState[1];
+    // Contenido seleccionado: base para Tareas 5, 6, 8 y 9.
+    const selectedContentState = React.useState(null);
+    const selectedContent = selectedContentState[0];
+    const setSelectedContent = selectedContentState[1];
 
     const loadStats = async () => {
         try {
@@ -4065,6 +4085,50 @@ function AdminDashboard(props) {
 
     const backToMain = () => setSection("main");
 
+    // Búsqueda combinada de películas y series reutilizando el catálogo existente.
+    const runSearch = async (e) => {
+        e.preventDefault();
+        const q = searchQuery.trim();
+        if (q.length < 2) {
+            setSearchError("Escribe al menos 2 caracteres para buscar.");
+            return;
+        }
+        setSearching(true);
+        setSearchError(null);
+        setSearchDone(false);
+        try {
+            const [mData, sData] = await Promise.all([
+                fetch("/api/movies/search-list?s=" + encodeURIComponent(q)).then((r) => r.json().catch(() => ({}))),
+                fetch("/api/series/search-list?s=" + encodeURIComponent(q)).then((r) => r.json().catch(() => ({})))
+            ]);
+            const mItems = Array.isArray(mData.results) ? mData.results : (Array.isArray(mData) ? mData : []);
+            const sItems = Array.isArray(sData.results) ? sData.results : (Array.isArray(sData) ? sData : []);
+            const withType = [
+                ...mItems.map((m) => Object.assign({}, m, { mediaType: "movie" })),
+                ...sItems.map((s) => Object.assign({}, s, { mediaType: "series" }))
+            ];
+            const seen = new Set();
+            const merged = [];
+            for (const it of withType) {
+                const key = it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year));
+                if (seen.has(key)) continue;
+                seen.add(key);
+                merged.push(it);
+            }
+            setSearchResults(merged);
+        } catch (err) {
+            setSearchError("No se pudo buscar en el catálogo. Inténtalo de nuevo.");
+        } finally {
+            setSearching(false);
+            setSearchDone(true);
+        }
+    };
+
+    // Guarda el contenido elegido en el estado del dashboard (T5+ lo consumirá).
+    const selectContent = (item) => {
+        setSelectedContent(item);
+    };
+
     const views = {
         main: h("div", { className: "admin-main" }, [
             error ? h("p", { className: "error" }, error) : null,
@@ -4099,6 +4163,10 @@ function AdminDashboard(props) {
             h("section", { className: "admin-section" },
                 h("div", { className: "admin-section-head" }, h("h2", null, "Menú de administración")),
                 h("div", { className: "admin-menu" },
+                    h("button", { key: "search", className: "admin-menu-card", onClick: () => setSection("search") },
+                        h("span", { className: "admin-menu-title" }, "Buscador de Contenido"),
+                        h("span", { className: "admin-menu-desc" }, "Busca películas y series del catálogo")
+                    ),
                     h("button", { key: "stats", className: "admin-menu-card", onClick: () => setSection("stats") },
                         h("span", { className: "admin-menu-title" }, "Estadísticas"),
                         h("span", { className: "admin-menu-desc" }, "Usuarios, películas y series del sistema")
@@ -4171,6 +4239,72 @@ function AdminDashboard(props) {
                     )
                 ),
                 users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
+            ),
+            h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+        ]),
+        search: h("div", { className: "admin-main" }, [
+            selectedContent ? h("div", { className: "admin-selected" },
+                h("div", { className: "admin-selected-thumb" },
+                    selectedContent.poster
+                        ? h("img", { src: selectedContent.poster, alt: selectedContent.title })
+                        : h("div", { className: "admin-selected-noimg" }, "🎬")
+                ),
+                h("div", { className: "admin-selected-info" },
+                    h("span", { className: "chip chip--selected" }, "Contenido seleccionado"),
+                    h("h3", null, selectedContent.title + " (" + (selectedContent.year || "—") + ")"),
+                    h("p", { className: "muted", style: { margin: 0 } },
+                        "Guardado en el panel. Se usará para Reviews, Estadísticas y Sentimiento (próximas tareas)."
+                    ),
+                    h("button", { className: "btn-ghost btn-small", onClick: () => setSelectedContent(null) },
+                        "Quitar selección")
+                )
+            ) : null,
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" },
+                    h("h2", null, "Buscar Serie o Película"),
+                    searchDone && searchResults.length > 0
+                        ? h("span", { className: "chip" },
+                            searchResults.length + (searchResults.length === 1 ? " resultado" : " resultados"))
+                        : h("span", { className: "chip" }, "Catálogo del sistema")
+                ),
+                h("form", { className: "search-form", onSubmit: runSearch },
+                    h("input", {
+                        type: "search",
+                        value: searchQuery,
+                        onChange: (e) => setSearchQuery(e.target.value),
+                        placeholder: "Buscar películas o series… (ej. Dune, Breaking Bad)",
+                        "aria-label": "Buscar contenido en el catálogo"
+                    }),
+                    h("button", { type: "submit", disabled: searching || searchQuery.trim().length === 0 },
+                        searching ? "Buscando…" : "Buscar")
+                ),
+                searchError ? h("p", { className: "error" }, searchError) : null,
+                searching ? h("div", { className: "admin-loader" },
+                    h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                    h("span", null, "Buscando en el catálogo…")
+                ) : null,
+                !searching && !searchDone
+                    ? h("p", { className: "muted admin-empty" },
+                        "Escribe al menos 2 caracteres para buscar en el catálogo y selecciona un resultado para empezar a gestionarlo.")
+                    : null,
+                !searching && searchDone && searchResults.length === 0 && !searchError
+                    ? h("p", { className: "muted admin-empty" },
+                        "Sin resultados para «" + searchQuery.trim() + "». Prueba con otro título.")
+                    : null,
+                searchResults.length > 0
+                    ? h("div", { className: "movies-grid admin-search-results" },
+                        searchResults.map((item) => {
+                            const sameRef = (a, b) => a && b && (a.imdbID || a.id) === (b.imdbID || b.id);
+                            const isSelected = selectedContent && sameRef(selectedContent, item) && selectedContent.mediaType === item.mediaType;
+                            return h("div", {
+                                key: (item.mediaType || "movie") + "|" + (item.imdbID || item.id || (item.title + "|" + item.year)),
+                                className: "admin-search-item" + (isSelected ? " is-selected" : "")
+                            },
+                                h(MovieCard, { movie: item, onDetail: selectContent, showDelete: false })
+                            );
+                        })
+                    )
+                    : null
             ),
             h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),

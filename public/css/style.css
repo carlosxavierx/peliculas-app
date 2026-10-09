@@ -1893,3 +1893,61 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     .admin-activity-item { grid-template-columns: 1fr; gap: 0.25rem; }
     .admin-activity-date { text-align: left; }
 }
+
+/* ============================================================
+   Tarea 4 — Buscador de Contenido (Admin)
+   ============================================================ */
+/* Contenido seleccionado */
+.admin-selected {
+    display: flex; gap: 1rem; align-items: center;
+    background: var(--surface);
+    border: 1px solid rgba(201, 162, 39, 0.45);
+    border-left: 4px solid var(--bronze);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+}
+.admin-selected-thumb {
+    width: 64px; height: 96px; border-radius: 8px; overflow: hidden;
+    background: #000; border: 1px solid var(--line); flex-shrink: 0;
+}
+.admin-selected-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.admin-selected-noimg {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 1.8rem;
+}
+.admin-selected-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+.admin-selected-info h3 { margin: 0; font-size: 1.05rem; color: var(--text); }
+.chip--selected {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.12);
+}
+.admin-selected-info .btn-small { align-self: flex-start; }
+
+/* Loader de búsqueda */
+.admin-loader {
+    display: flex; align-items: center; gap: 0.6rem;
+    color: var(--muted); padding: 0.75rem 0; font-size: 0.92rem;
+}
+.admin-spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--line);
+    border-top-color: var(--bronze);
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+.admin-empty { padding: 0.75rem 0; }
+
+/* Resultados (reutiliza MovieCard) */
+.admin-search-results { padding-top: 0; }
+.admin-search-item .movie-card { height: 100%; }
+.admin-search-item.is-selected .movie-card {
+    outline: 2px solid var(--bronze);
+    outline-offset: 2px;
+    border-color: var(--bronze);
+}
+
+@media (max-width: 480px) {
+    .admin-selected { flex-direction: column; align-items: flex-start; }
+}
