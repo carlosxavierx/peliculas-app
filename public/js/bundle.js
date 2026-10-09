@@ -4033,6 +4033,25 @@ function AdminDashboard(props) {
     const selectedContentState = React.useState(null);
     const selectedContent = selectedContentState[0];
     const setSelectedContent = selectedContentState[1];
+    // Tarea 6 — Reviews del contenido seleccionado (backend existente /api/reviews).
+    const reviewsState = React.useState([]);
+    const reviews = reviewsState[0];
+    const setReviews = reviewsState[1];
+    const reviewsLoadingState = React.useState(true);
+    const reviewsLoading = reviewsLoadingState[0];
+    const setReviewsLoading = reviewsLoadingState[1];
+    const reviewsErrorState = React.useState(null);
+    const reviewsError = reviewsErrorState[0];
+    const setReviewsError = reviewsErrorState[1];
+    const reviewsTotalState = React.useState(0);
+    const reviewsTotal = reviewsTotalState[0];
+    const setReviewsTotal = reviewsTotalState[1];
+    const reviewToDeleteState = React.useState(null);
+    const reviewToDelete = reviewToDeleteState[0];
+    const setReviewToDelete = reviewToDeleteState[1];
+    const reviewNoticeState = React.useState(null);
+    const reviewNotice = reviewNoticeState[0];
+    const setReviewNotice = reviewNoticeState[1];
 
     const loadStats = async () => {
         try {
@@ -4063,6 +4082,40 @@ function AdminDashboard(props) {
         loadStats();
         loadUsers();
     }, []);
+
+    // Tarea 6 — Carga las reviews del contenido seleccionado cada vez que cambia.
+    React.useEffect(() => {
+        if (!selectedContent) {
+            setReviews([]);
+            setReviewsTotal(0);
+            setReviewsLoading(false);
+            setReviewsError(null);
+            setReviewNotice(null);
+            return;
+        }
+        let alive = true;
+        setReviewsLoading(true);
+        setReviewsError(null);
+        setReviewNotice(null);
+        const mediaType = reviewMediaTypeOf(selectedContent, selectedContent.mediaType);
+        (async () => {
+            try {
+                const q = reviewQueryOf(mediaType, selectedContent);
+                const res = await fetch("/api/reviews?" + q + "&sort=relevance&limit=100", { headers: authHeaders() });
+                const data = await res.json().catch(() => ({}));
+                if (!alive) return;
+                if (!res.ok) throw new Error(data.error || "No se pudieron cargar las reviews");
+                const list = Array.isArray(data.results) ? data.results.map(toFrontReview) : [];
+                setReviews(list);
+                setReviewsTotal(typeof data.total === "number" ? data.total : list.length);
+            } catch (e) {
+                if (alive) setReviewsError(e.message || "Error recuperando reviews");
+            } finally {
+                if (alive) setReviewsLoading(false);
+            }
+        })();
+        return () => { alive = false; };
+    }, [selectedContent]);
 
     const changeUserRole = async (userId, newRole) => {
         try {
@@ -4129,6 +4182,53 @@ function AdminDashboard(props) {
         setSelectedContent(item);
     };
 
+    // Tarea 6 — Confirmación visual de borrado (sin eliminar todavía: T6 es frontend).
+    const askDeleteReview = (review) => setReviewToDelete(review);
+    const closeDeleteReview = () => setReviewToDelete(null);
+    const confirmDeleteReview = () => {
+        setReviewToDelete(null);
+        setReviewNotice("Confirmado. La moderación de reviews se conectará al backend en una próxima tarea.");
+    };
+
+    // Card de una review del panel (reutiliza las clases .review-* de la app).
+    const reviewCard = (r) =>
+        h("article", { key: r.id, className: "review-item admin-review" },
+            h("div", { className: "review-header" },
+                h("strong", null, r.user || "Usuario"),
+                h("time", { className: "review-date" },
+                    new Date(r.createdAt || Date.now()).toLocaleDateString("es-ES"))
+            ),
+            h("p", { className: "review-text" }, r.text),
+            h("div", { className: "review-actions" },
+                r.rating ? h("span", { className: "chip chip--rating" }, "★ " + r.rating + "/10") : null,
+                typeof r.score === "number" && r.score !== 0
+                    ? h("span", { className: "chip" }, (r.score > 0 ? "+" : "") + r.score + " puntos")
+                    : null,
+                h("button", { className: "btn-danger btn-small", onClick: () => askDeleteReview(r) }, "Eliminar")
+            )
+        );
+
+    // Diálogo de confirmación (reutiliza el modal existente de la app).
+    const confirmDialog = reviewToDelete
+        ? h("div", { className: "modal-backdrop", onClick: closeDeleteReview },
+            h("div", { className: "modal admin-confirm-modal", onClick: (e) => e.stopPropagation() },
+                h("button", { className: "modal-close", onClick: closeDeleteReview }, "✕"),
+                h("div", { className: "admin-confirm-content" },
+                    h("h2", null, "Eliminar review"),
+                    h("p", { className: "muted" }, "¿Estás seguro de que deseas eliminar esta review?"),
+                    h("p", { className: "admin-confirm-preview" },
+                        h("strong", null, (reviewToDelete.user || "Usuario") + " — "),
+                        String(reviewToDelete.text || "").slice(0, 160)
+                    ),
+                    h("div", { className: "admin-confirm-actions" },
+                        h("button", { className: "btn-ghost btn-small", onClick: closeDeleteReview }, "Cancelar"),
+                        h("button", { className: "btn-danger btn-small", onClick: confirmDeleteReview }, "Confirmar")
+                    )
+                )
+            )
+        )
+        : null;
+
     const views = {
         main: h("div", { className: "admin-main" }, [
             error ? h("p", { className: "error" }, error) : null,
@@ -4178,7 +4278,7 @@ function AdminDashboard(props) {
                     h("button", { key: "reviews", className: "admin-menu-card", onClick: () => setSection("reviews") },
                         h("span", { className: "admin-menu-title" }, "Gestión de Reviews"),
                         h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo"),
-                        h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 6")
+                        h("span", { className: "chip chip--done" }, "Tarea 6 · Lista")
                     ),
                     h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
                         h("span", { className: "admin-menu-title" }, "Análisis de Sentimiento"),
@@ -4301,9 +4401,10 @@ function AdminDashboard(props) {
                                         h("dd", null, selectedContent.imdbID))
                                     : null
                             ),
-                            // Zona reservada: las Tareas 6/8/9/12 insertarán aquí sus widgets.
+                            // Zona reservada: la Tarea 6 ya ocupa su sitio; 8/9/12 llegarán en próximas tareas.
                             h("div", { className: "admin-content-tools" },
-                                h("span", { className: "chip chip--soon" }, "Reviews · Tarea 6"),
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("reviews") },
+                                    "Gestionar Reviews"),
                                 h("span", { className: "chip chip--soon" }, "Estadísticas · Tarea 8"),
                                 h("span", { className: "chip chip--soon" }, "Sentimiento · Tarea 9"),
                                 h("span", { className: "chip chip--soon" }, "Gráficas · Tarea 12")
@@ -4367,12 +4468,64 @@ function AdminDashboard(props) {
             ),
             h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),
-        reviews: h("div", { className: "admin-placeholder" },
-            h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 6"),
-            h("h2", null, "Gestión de Reviews"),
-            h("p", { className: "muted" }, "Aquí podrás moderar y administrar las reseñas de películas y series."),
-            h("button", { className: "btn-primary admin-back", onClick: backToMain }, "← Volver al resumen")
-        ),
+        reviews: selectedContent
+            ? h("div", { className: "admin-main" }, [
+                h("div", { className: "admin-reviews-media" },
+                    h("div", { className: "admin-reviews-thumb" },
+                        h("img", {
+                            src: selectedContent.poster || PLACEHOLDER_POSTER,
+                            alt: selectedContent.title || "Póster",
+                            loading: "lazy",
+                            onError: (e) => { e.target.onerror = null; if (e.target.src !== PLACEHOLDER_POSTER) e.target.src = PLACEHOLDER_POSTER; }
+                        })
+                    ),
+                    h("div", { className: "admin-reviews-media-info" },
+                        h("span", { className: "chip chip--selected" }, "Contenido seleccionado"),
+                        h("h3", null, selectedContent.title || "Sin título"),
+                        h("p", { className: "muted", style: { margin: 0 } },
+                            (selectedContent.mediaType === "series" ? "Serie" : "Película") +
+                            (selectedContent.year ? " · " + selectedContent.year : ""))
+                    ),
+                    h("button", { className: "btn-ghost btn-small admin-change", onClick: () => setSection("search") }, "Cambiar contenido")
+                ),
+                h("section", { className: "admin-section" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Gestión de Reviews"),
+                        !reviewsLoading && reviewsTotal > 0
+                            ? h("span", { className: "chip" }, reviewsTotal + (reviewsTotal === 1 ? " review" : " reviews"))
+                            : null
+                    ),
+                    reviewNotice ? h("p", { className: "admin-notice" }, reviewNotice) : null,
+                    reviewsError ? h("p", { className: "error" }, reviewsError) : null,
+                    reviewsLoading
+                        ? h("div", { className: "admin-loader" },
+                            h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                            h("span", null, "Cargando reviews…")
+                        )
+                        : null,
+                    !reviewsLoading && !reviewsError && reviews.length === 0
+                        ? h("div", { className: "admin-content-empty" },
+                            h("span", { className: "chip chip--selected" }, "Sin reviews"),
+                            h("p", { className: "muted", style: { margin: 0 } },
+                                "Aún no hay reviews para «" + (selectedContent.title || "este contenido") + "».")
+                        )
+                        : null,
+                    !reviewsLoading && reviews.length > 0
+                        ? h("div", { className: "admin-reviews-list" }, reviews.map(reviewCard))
+                        : null
+                ),
+                confirmDialog,
+                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+            ])
+            : h("div", { className: "admin-main" }, [
+                h("div", { className: "admin-placeholder" },
+                    h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
+                    h("h2", null, "Gestión de Reviews"),
+                    h("p", { className: "muted" }, "Selecciona una serie o película para visualizar sus reviews."),
+                    h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
+                ),
+                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+            ]),
         sentiment: h("div", { className: "admin-placeholder" },
             h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 9"),
             h("h2", null, "Análisis de Sentimiento"),

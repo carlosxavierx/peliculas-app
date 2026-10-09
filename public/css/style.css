@@ -2012,3 +2012,78 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     .admin-content-ficha { flex-direction: column; }
     .admin-content-poster { width: 100%; max-width: 260px; }
 }
+
+/* ============================================================
+   Tarea 6 — Gestión de Reviews (Admin)
+   ============================================================ */
+.chip--done {
+    color: #7bd88f;
+    border-color: rgba(93, 216, 138, 0.4);
+    background: rgba(93, 216, 138, 0.1);
+}
+.btn-danger {
+    background: transparent;
+    border: 1px solid #e0334f;
+    color: #ff7a8f;
+}
+.btn-danger:hover { background: #e0334f; color: #fff; }
+
+/* Cabecera del contenido en la vista de reviews */
+.admin-reviews-media {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--bronze);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+}
+.admin-reviews-thumb {
+    width: 56px; height: 84px; flex-shrink: 0;
+    border-radius: 8px; overflow: hidden;
+    background: #000; border: 1px solid var(--line);
+}
+.admin-reviews-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.admin-reviews-media-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+.admin-reviews-media-info h3 { margin: 0; font-size: 1.1rem; color: var(--text); }
+.admin-change { flex-shrink: 0; }
+
+/* Lista de reviews del panel */
+.admin-reviews-list { display: flex; flex-direction: column; gap: 1rem; }
+.admin-review {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1rem 1.2rem; margin: 0;
+}
+.admin-review .review-header { align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.admin-review .review-actions { flex-wrap: wrap; }
+.chip--rating {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.1);
+    font-weight: 600;
+}
+.admin-notice {
+    background: rgba(93, 216, 138, 0.08);
+    border: 1px solid rgba(93, 216, 138, 0.35);
+    color: #7bd88f;
+    border-radius: var(--radius);
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+    margin: 0 0 1rem;
+}
+
+/* Confirmación de borrado (visual, sin eliminar todavía) */
+.admin-confirm-modal { max-width: 460px; }
+.admin-confirm-content { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+.admin-confirm-content h2 { margin: 0; color: #fff; font-size: 1.3rem; }
+.admin-confirm-preview {
+    margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+.admin-confirm-actions { display: flex; gap: 0.6rem; margin-top: 0.35rem; }
+
+@media (max-width: 480px) {
+    .admin-reviews-media { flex-wrap: wrap; }
+    .admin-change { width: 100%; }
+}
