@@ -87,7 +87,7 @@ function applyColorTheme(themeKey) {
     root.setAttribute("data-theme", themeKey);
 }
 
-// "Popular ahora" se carga desde Firebase a través de /api/movies/popular.
+// "Popular Ahora" se carga desde Firebase a través de /api/movies/popular.
 
 // Roles de usuario
 const USER_ROLES = {
@@ -493,7 +493,7 @@ function ReviewsModal(props) {
                 error ? h("p", { className: "error" }, error) : null,
                 writing ? h("div", { className: "review-form" },
                     user ? h("div", null,
-                        h("h3", null, "Escribe tu reseña"),
+                        h("h3", null, "Escribe tu Reseña"),
                         h("textarea", {
                             value: text,
                             onChange: (e) => setText(e.target.value),
@@ -642,7 +642,7 @@ function SiteHeader(props) {
                         userMenuOpen && h("div", { className: "user-dropdown" },
                             h("button", { className: "dropdown-item", onClick: () => go("cuenta") }, "Mi cuenta"),
                             h("button", { className: "dropdown-item", onClick: () => go("perfil") }, "Mi perfil público"),
-                            h("button", { className: "dropdown-item", onClick: () => go("buscar-usuarios") }, "Buscar usuarios"),
+                            h("button", { className: "dropdown-item", onClick: () => go("buscar-usuarios") }, "Buscar Usuarios"),
                             h("button", { className: "dropdown-item", onClick: () => go("amigos") }, "Amigos"),
                             h("button", { className: "dropdown-item", onClick: () => go("configuracion") }, "Configuración"),
                             isAdmin(user) && h("hr", { className: "dropdown-divider" }),
@@ -686,7 +686,7 @@ function SiteFooter(props) {
                 h("button", { className: "footer-link", onClick: () => onNavigate("peliculas") }, "Películas"),
             ),
             h("div", { className: "footer-col" },
-                h("p", { className: "footer-title" }, "Empieza ahora"),
+                h("p", { className: "footer-title" }, "Empieza Ahora"),
                 h("p", { className: "muted" }, "Busca tu primera historia y pulsa Guardar"),
                 h("button", { className: "footer-link", onClick: () => onNavigate("peliculas") }, "Continuar ahora →")
             )
@@ -811,7 +811,7 @@ function LandingPage(props) {
         h("section", { className: "hero" },
             h("div", { className: "hero-text" },
                 h("p", { className: "hero-kicker" }, BRAND),
-                h("h1", null, "Descubre, explora", h("br", null), "y guarda tus favoritas"),
+                h("h1", null, "Descubre, Explora", h("br", null), "y Guarda tus Favoritas"),
                 h("p", { className: "hero-sub" }, SLOGAN),
                 h("div", { className: "hero-actions" },
                     h("button", { className: "btn-primary btn-big", onClick: onExplore }, "Continuar ahora →")
@@ -839,17 +839,17 @@ function LandingPage(props) {
         h("section", { className: "features" },
             h("div", { className: "feature" },
                 h("span", { className: "feature-icon" }, "01"),
-                h("h3", null, "Encuentra tu próxima favorita"),
+                h("h3", null, "Encuentra tu Próxima Favorita"),
                 h("p", null, "Busca entre miles de películas por su título")
             ),
             h("div", { className: "feature" },
                 h("span", { className: "feature-icon" }, "02"),
-                h("h3", null, "Desliza y descubre"),
-                h("p", null, "Explora las cards cómodamente")
+                h("h3", null, "Desliza y Descubre"),
+                h("p", null, "Explora las tarjetas cómodamente")
             ),
             h("div", { className: "feature" },
                 h("span", { className: "feature-icon" }, "03"),
-                h("h3", null, "Guarda tu colección"),
+                h("h3", null, "Guarda tu Colección"),
                 h("p", null, "Guarda las que te gusten y tenlas siempre a mano")
             )
         ),
@@ -872,7 +872,7 @@ function AuthChoice(props) {
             h("p", { className: "muted" }, "Elige cómo quieres continuar:"),
             h("div", { className: "choice-buttons" },
                 h("button", { className: "btn-primary btn-big", onClick: onLogin }, "Iniciar sesión"),
-                h("button", { className: "btn-ghost btn-big", onClick: onRegister }, "Crear cuenta")
+                h("button", { className: "btn-ghost btn-big", onClick: onRegister }, "Crear Cuenta")
             )
         )
     );
@@ -914,7 +914,7 @@ function ForgotPasswordPage(props) {
 
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
-            h("h1", null, "Recuperar contraseña"),
+            h("h1", null, "Recuperar Contraseña"),
             h("p", { className: "muted" }, "Te enviaremos un enlace a tu correo para crear una nueva contraseña."),
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, success) : null,
@@ -968,7 +968,7 @@ function EmailVerificationPage(props) {
 
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
-            h("h1", null, "Verificación de correo"),
+            h("h1", null, "Verificación de Correo"),
             loading ? h("p", { className: "muted" }, "Comprobando el enlace...") : null,
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, "Correo verificado correctamente. Ya puedes iniciar sesión.") : null,
@@ -1043,14 +1043,14 @@ function PasswordResetPage(props) {
 
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
-            h("h1", null, "Nueva contraseña"),
+            h("h1", null, "Nueva Contraseña"),
             email ? h("p", { className: "muted" }, email) : null,
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, success) : null,
             !success && !error && !loading
                 ? h("form", { onSubmit: submit },
                     h("div", { className: "auth-field" },
-                        h("label", null, "Nueva contraseña"),
+                        h("label", null, "Nueva Contraseña"),
                         h("input", {
                             type: "password", value: password,
                             onChange: (e) => setPassword(e.target.value),
@@ -1191,7 +1191,7 @@ function LoginPage(props) {
                 h("button", { type: "button", onClick: onSwitch }, "Regístrate")
             ),
             h("p", { className: "auth-switch" }, "¿Has olvidado la contraseña? ",
-                h("button", { type: "button", onClick: onForgot }, "Recuperar contraseña")
+                h("button", { type: "button", onClick: onForgot }, "Recuperar Contraseña")
             )
         )
     );
@@ -1657,7 +1657,7 @@ function RegisterPage(props) {
             ),
             step === 1 ? (
                 React.createElement(React.Fragment, null,
-                    h("h1", null, "Crear cuenta"),
+                    h("h1", null, "Crear Cuenta"),
                     h("p", { className: "muted" }, "Paso 1 de 2: tus datos básicos"),
                     error ? h("p", { className: "error" }, error) : null,
                     renderStep1(),
@@ -1667,7 +1667,7 @@ function RegisterPage(props) {
                 )
             ) : (
                 React.createElement(React.Fragment, null,
-                    h("h1", null, "Cuéntanos tus gustos"),
+                    h("h1", null, "Cuéntanos tus Gustos"),
                     h("p", { className: "muted" }, "Paso 2 de 2: preferencias"),
                     error ? h("p", { className: "error" }, error) : null,
                     renderStep2()
@@ -1888,7 +1888,7 @@ function MediaPage(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el contenido");
             setExplore(Array.isArray(data.results) ? data.results : []);
-            setExploreTitle("Popular ahora");
+            setExploreTitle("Popular Ahora");
         } catch (e) {
             setExplore([]);
             setError(e.message || "No se pudo cargar Popular ahora desde Firebase.");
@@ -1986,7 +1986,7 @@ function MediaPage(props) {
                     }
                 }
                 setExplore(applySort(applyClientFilters(items, year, min, genre, omdbType), sortBy));
-                setExploreTitle("Resultados de tu búsqueda");
+                setExploreTitle("Resultados de tu Búsqueda");
             }
             if (!exactRes.ok && !listRes.ok) {
                 throw new Error(exactRes.data.error || listRes.data.error || "Sin resultados");
@@ -2009,7 +2009,7 @@ function MediaPage(props) {
         setResultWarning(null);
         setError(null);
         setSuccess(null);
-        setExploreTitle("Popular ahora");
+        setExploreTitle("Popular Ahora");
         loadDefaults();
     };
 
@@ -2403,7 +2403,7 @@ function SeriesPage(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el contenido");
             setExplore(Array.isArray(data.results) ? data.results : []);
-            setExploreTitle("Popular ahora");
+            setExploreTitle("Popular Ahora");
         } catch (e) {
             setExplore([]);
             setError(e.message || "No se pudo cargar Popular ahora desde Firebase.");
@@ -2497,7 +2497,7 @@ function SeriesPage(props) {
                     }
                 }
                 setExplore(applySort(applyClientFilters(items, year, min, genre, omdbType), sortBy));
-                setExploreTitle("Resultados de tu búsqueda");
+                setExploreTitle("Resultados de tu Búsqueda");
             }
             if (!exactRes.ok && !listRes.ok) {
                 throw new Error(exactRes.data.error || listRes.data.error || "Sin resultados");
@@ -2520,7 +2520,7 @@ function SeriesPage(props) {
         setResultWarning(null);
         setError(null);
         setSuccess(null);
-        setExploreTitle("Popular ahora");
+        setExploreTitle("Popular Ahora");
         loadDefaults();
     };
 
@@ -3087,7 +3087,7 @@ function MiCuenta(props) {
         /* ----- 5 favoritas combinadas (Películas + Series) ----- */
         h("section", { id: "top5", className: "top5-section", style: { marginBottom: "2rem" } },
             h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" } },
-                h("h2", null, "⭐ Mis 5 favoritas (Películas + Series)"),
+                h("h2", null, "⭐ Mis 5 Favoritas (Películas + Series)"),
                 !editingTop5 && top5.length < 5 && allItems.length > 0
                     ? h("button", { className: "btn-primary btn-small", onClick: () => setEditingTop5(true) }, "Crear 5 favoritas")
                     : editingTop5
@@ -3199,10 +3199,10 @@ function MiCuenta(props) {
 
         /* ----- Películas ----- */
         h("section", { id: "peliculas-recientes", className: "account-section" },
-            h("h2", null, "🎬 Películas guardadas recientemente"),
+            h("h2", null, "🎬 Películas Guardadas Recientemente"),
             detailLoading && detailType === "movie" ? h("p", { className: "muted" }, "Cargando detalle...") : null,
             h(MovieCarousel, {
-                title: "Guardadas recientemente",
+                title: "Guardadas Recientemente",
                 subtitle: "Tus últimas películas",
                 movies: recentMovies,
                 onDelete: onDelete,
@@ -3212,7 +3212,7 @@ function MiCuenta(props) {
             })
         ),
         h("section", { id: "todas-peliculas", className: "account-section" },
-            h("h2", null, "📁 Todas tus películas (" + shownMovies.length + ")"),
+            h("h2", null, "📁 Todas tus Películas (" + shownMovies.length + ")"),
             loadingList ? h("p", { className: "muted" }, "Cargando lista...") : null,
             (!loadingList && shownMovies.length === 0)
                 ? h("p", { className: "muted" }, "Vacío por ahora. Guarda alguna película para verla aquí.")
@@ -3226,10 +3226,10 @@ function MiCuenta(props) {
 
         /* ----- Series ----- */
         h("section", { id: "series-recientes", className: "account-section" },
-            h("h2", null, "📺 Series guardadas recientemente"),
+            h("h2", null, "📺 Series Guardadas Recientemente"),
             detailLoading && detailType === "series" ? h("p", { className: "muted" }, "Cargando detalle...") : null,
             h(MovieCarousel, {
-                title: "Últimas series",
+                title: "Últimas Series",
                 subtitle: "Tus últimas adiciones",
                 movies: recentSeries.map(s => Object.assign({}, s, { mediaType: "series" })),
                 onDelete: onDeleteSeries,
@@ -3239,7 +3239,7 @@ function MiCuenta(props) {
             })
         ),
         h("section", { id: "todas-series", className: "account-section" },
-            h("h2", null, "📁 Todas tus series (" + shownSeries.length + ")"),
+            h("h2", null, "📁 Todas tus Series (" + shownSeries.length + ")"),
             loadingSeries ? h("p", { className: "muted" }, "Cargando lista...") : null,
             (!loadingSeries && shownSeries.length === 0)
                 ? h("p", { className: "muted" }, "Vacío por ahora. Guarda alguna serie para verla aquí.")
@@ -3421,7 +3421,7 @@ function UserProfile(props) {
         ),
         detailLoading ? h("p", { className: "muted" }, "Cargando detalle...") : null,
         h(MovieCarousel, {
-            title: "Guardadas recientemente",
+            title: "Guardadas Recientemente",
             subtitle: "Películas de " + (profile.nickname || profile.name),
             movies: recent,
             onDelete: null,
@@ -3429,7 +3429,7 @@ function UserProfile(props) {
             showDelete: false,
             emptyText: "Aún no ha guardado películas"
         }),
-        h("h2", null, "Todas las películas"),
+        h("h2", null, "Todas las Películas"),
         h("div", { className: "movies-grid" },
             shown.map((movie) =>
                 h(MovieCard, { key: movie.id, movie: movie, onDelete: null, onDetail: openDetail, showDelete: false })
@@ -3532,7 +3532,7 @@ function UserSearch(props) {
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
-            h("h1", null, "Buscar usuarios"),
+            h("h1", null, "Buscar Usuarios"),
             h("p", { className: "muted" }, "Encuentra amigos y descubre sus colecciones")
         ),
         h("div", { className: "search-bar" },
@@ -3648,7 +3648,7 @@ function FriendsPage(props) {
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
-            h("h1", null, "Mis amigos"),
+            h("h1", null, "Mis Amigos"),
             h("p", { className: "muted" }, "Gestiona a quién sigues y quién te sigue")
         ),
         h("div", { className: "tabs" },
@@ -3743,14 +3743,14 @@ function ProfileSettings(props) {
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
-            h("h1", null, "Configuración de perfil"),
+            h("h1", null, "Configuración de Perfil"),
             h("p", { className: "muted" }, "Personaliza tu apodo visible y el tema de color")
         ),
         error ? h("div", { className: "error-toast" }, error) : null,
         success ? h("div", { className: "success-toast" }, success) : null,
         h("form", { className: "settings-form", onSubmit: handleSave },
             h("div", { className: "settings-section" },
-                h("h2", null, "Apodo visible"),
+                h("h2", null, "Apodo Visible"),
                 h("div", { className: "auth-field" },
                     h("label", null, "Apodo (nombre público)"),
                     h("input", {
@@ -3765,7 +3765,7 @@ function ProfileSettings(props) {
                 )
             ),
             h("div", { className: "settings-section" },
-                h("h2", null, "Tema de color"),
+                h("h2", null, "Tema de Color"),
                 h("p", { className: "muted" }, "Elige una paleta de colores para la interfaz (botones, enlaces, acentos)"),
                 h("div", { className: "theme-options" },
                     Object.entries(COLOR_THEMES).map(([key, t]) =>
@@ -3803,7 +3803,7 @@ function ChatAgent() {
     const setIsOpen = isOpenState[1];
 
     const messagesState = React.useState([
-        { role: "assistant", content: "¡Hola! Soy CineBot 🎬, tu asistente en CineAIros. ¿En qué te ayudo hoy? Puedes preguntarme por películas, series, cómo usar la página web, recomendaciones…", time: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) }
+        { role: "assistant", content: "¡Hola! Soy CineBot 🎬, tu asistente en CineAIros. ¿En qué te ayudo hoy? Puedes preguntarme por películas, series, cómo usar la aplicación, recomendaciones…", time: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) }
     ]);
     const messages = messagesState[0];
     const setMessages = messagesState[1];
@@ -3855,7 +3855,7 @@ function ChatAgent() {
                 body: JSON.stringify({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error en el chat");
+            if (!res.ok) throw new Error(data.error || "Error en la conversación");
 
             const assistantMsg = { role: "assistant", content: data.reply || "No he podido generar respuesta.", time: formatTime(new Date()) };
             setMessages((prev) => [...prev, assistantMsg]);
@@ -3873,7 +3873,7 @@ function ChatAgent() {
             h("button", {
                 className: "chat-agent-toggle",
                 onClick: toggleChat,
-                "aria-label": "Abrir chat con CineBot",
+                "aria-label": "Abrir conversación con CineBot",
                 "aria-expanded": "false"
             },
                 h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
@@ -3892,7 +3892,7 @@ function ChatAgent() {
         h("button", {
             className: "chat-agent-toggle open",
             onClick: toggleChat,
-            "aria-label": "Cerrar chat",
+            "aria-label": "Cerrar conversación",
             "aria-expanded": "true"
         },
             h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
@@ -3904,7 +3904,7 @@ function ChatAgent() {
                 h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
             )
         ),
-        h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Chat con CineBot" },
+        h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Conversación con CineBot" },
             h("header", { className: "chat-agent-header" },
                 h("div", { className: "chat-agent-title" },
                     h("div", { className: "chat-agent-avatar" },
@@ -3918,7 +3918,7 @@ function ChatAgent() {
                         h("span", null, "Asistente CineAIros")
                     )
                 ),
-                h("button", { className: "chat-agent-close", onClick: closeChat, "aria-label": "Cerrar chat" },
+                h("button", { className: "chat-agent-close", onClick: closeChat, "aria-label": "Cerrar conversación" },
                     h("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" },
                         h("path", { d: "M18 6L6 18M6 6l12 12" })
                     )
@@ -3989,7 +3989,7 @@ function AdminRoute(props) {
     if (!user) {
         return h("div", { className: "movies-page" },
             h("div", { className: "auth-card", style: { textAlign: "center", padding: "3rem" } },
-                h("h2", null, "Acceso restringido"),
+                h("h2", null, "Acceso Restringido"),
                 h("p", { className: "muted" }, "Debes iniciar sesión para acceder a esta página."),
                 h("button", { className: "btn-primary", onClick: () => onNavigate("login") }, "Iniciar sesión")
             )
@@ -3999,7 +3999,7 @@ function AdminRoute(props) {
     if (!isAdmin(user)) {
         return h("div", { className: "movies-page" },
             h("div", { className: "auth-card", style: { textAlign: "center", padding: "3rem" } },
-                h("h2", null, "Acceso denegado"),
+                h("h2", null, "Acceso Denegado"),
                 h("p", { className: "muted" }, "Esta página es solo para administradores."),
                 h("button", { className: "btn-primary", onClick: () => onNavigate("home") }, "Ir al inicio")
             )
@@ -4128,7 +4128,7 @@ function AdminDashboard(props) {
     React.useEffect(() => {
         loadStats();
         loadUsers();
-        // Refresco periódico: así las cards del resumen y la actividad reciente
+        // Refresco periódico: así las tarjetas del resumen y la actividad reciente
         // reflejan en tiempo real nuevas reseñas y cambios de rol.
         const timer = setInterval(loadStats, 15000);
         return () => clearInterval(timer);
@@ -4240,6 +4240,10 @@ function AdminDashboard(props) {
     }
 
     const backToMain = () => setSection("main");
+
+    // Botón para volver al resumen: se coloca ARRIBA en cada sección para no
+    // tener que bajar hasta el final a buscarlo.
+    const backButton = h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver");
 
     // Búsqueda combinada de películas y series reutilizando el catálogo existente
     // (el backend pagina a 10 resultados por tipo: guardamos el total real para paginar).
@@ -4358,7 +4362,7 @@ function AdminDashboard(props) {
             h("div", { className: "modal admin-confirm-modal", onClick: (e) => e.stopPropagation() },
                 h("button", { className: "modal-close", onClick: closeDeleteReview }, "✕"),
                 h("div", { className: "admin-confirm-content" },
-                    h("h2", null, "Eliminar reseña"),
+                    h("h2", null, "Eliminar Reseña"),
                     h("p", { className: "muted" }, "¿Estás seguro de que deseas eliminar esta reseña?"),
                     h("p", { className: "admin-confirm-preview" },
                         h("strong", null, (reviewToDelete.user || "Usuario") + " — "),
@@ -4517,7 +4521,7 @@ function AdminDashboard(props) {
                 )
             ),
             h("section", { className: "admin-section" },
-                h("div", { className: "admin-section-head" }, h("h2", null, "Menú de administración")),
+                h("div", { className: "admin-section-head" }, h("h2", null, "Menú de Administración")),
                 h("div", { className: "admin-menu" },
                     h("button", { key: "search", className: "admin-menu-card", onClick: () => setSection("search") },
                         h("span", { className: "admin-menu-title" }, "Buscador de Contenido"),
@@ -4532,7 +4536,7 @@ function AdminDashboard(props) {
                         h("span", { className: "admin-menu-desc" }, "Cuentas y roles")
                     ),
                     h("button", { key: "reviews", className: "admin-menu-card", onClick: () => setSection("reviews") },
-                        h("span", { className: "admin-menu-title" }, "Gestión de reseñas"),
+                        h("span", { className: "admin-menu-title" }, "Gestión de Reseñas"),
                         h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo")
                     ),
                     h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
@@ -4559,11 +4563,12 @@ function AdminDashboard(props) {
             )
         ]),
         stats: h("div", { className: "admin-main" }, [
+            backButton,
             // Estadísticas del contenido seleccionado (datos reales de reseñas).
             selectedContent
                 ? h("section", { className: "admin-section" },
                     h("div", { className: "admin-section-head" },
-                        h("h2", null, "Estadísticas del contenido"),
+                        h("h2", null, "Estadísticas del Contenido"),
                         h("span", { className: "chip chip--selected" }, selectedContent.title || "Contenido seleccionado")
                     ),
                     reviewsSummaryError ? h("p", { className: "error" }, reviewsSummaryError) : null,
@@ -4591,7 +4596,7 @@ function AdminDashboard(props) {
                     h("div", { className: "admin-stats-charts" },
                         h("div", { className: "admin-chart-block" },
                             h("div", { className: "admin-chart-head" },
-                                h("h3", { className: "admin-chart-title" }, "Gráfico de sentimiento")
+                                h("h3", { className: "admin-chart-title" }, "Gráfico de Sentimiento")
                             ),
                             reviewsSummaryLoading
                                 ? h("div", { className: "admin-loader" },
@@ -4609,7 +4614,7 @@ function AdminDashboard(props) {
                         ),
                         h("div", { className: "admin-chart-block" },
                             h("div", { className: "admin-chart-head" },
-                                h("h3", { className: "admin-chart-title" }, "Reseñas por género")
+                                h("h3", { className: "admin-chart-title" }, "Reseñas por Género")
                             ),
                             genreChart(stats.reviewsByGenre)
                         )
@@ -4629,9 +4634,9 @@ function AdminDashboard(props) {
                 ),
                 h("p", { className: "muted", style: { marginTop: "1rem" } }, "Bienvenido, " + user.name + " (Administrador)")
             ),
-            h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),
         users: h("div", { className: "admin-main" }, [
+            backButton,
             h("div", { className: "admin-users" },
                 h("div", { className: "movies-grid" },
                     users.map((u) =>
@@ -4657,14 +4662,14 @@ function AdminDashboard(props) {
                 ),
                 users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
             ),
-            h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),
         search: h("div", { className: "admin-main" }, [
+            backButton,
             // Ficha del contenido seleccionado (o mensaje sin selección).
             selectedContent
                 ? h("section", { className: "admin-section admin-content" },
                     h("div", { className: "admin-section-head" },
-                        h("h2", null, "Información del contenido"),
+                        h("h2", null, "Información del Contenido"),
                         h("span", { className: "chip chip--selected" }, "Contenido seleccionado")
                     ),
                     h("div", { className: "admin-content-ficha" },
@@ -4799,10 +4804,10 @@ function AdminDashboard(props) {
                                 : "Cargar más resultados (" + (searchTotal - searchResults.length) + " restantes)"))
                     : null
             ),
-            h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),
         reviews: selectedContent
             ? h("div", { className: "admin-main" }, [
+                backButton,
                 h("div", { className: "admin-reviews-media" },
                     h("div", { className: "admin-reviews-thumb" },
                         h("img", {
@@ -4823,7 +4828,7 @@ function AdminDashboard(props) {
                 ),
                 h("section", { className: "admin-section" },
                     h("div", { className: "admin-section-head" },
-                        h("h2", null, "Gestión de reseñas"),
+                        h("h2", null, "Gestión de Reseñas"),
                         !reviewsLoading && reviewsTotal > 0
                             ? h("span", { className: "chip" }, reviewsTotal + (reviewsTotal === 1 ? " reseña" : " reseñas"))
                             : null
@@ -4860,19 +4865,19 @@ function AdminDashboard(props) {
                         : null
                 ),
                 confirmDialog,
-                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
             ])
             : h("div", { className: "admin-main" }, [
+                backButton,
                 h("div", { className: "admin-placeholder" },
                     h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
-                    h("h2", null, "Gestión de reseñas"),
+                    h("h2", null, "Gestión de Reseñas"),
                     h("p", { className: "muted" }, "Selecciona una serie o película para visualizar sus reseñas."),
                     h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
                 ),
-                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
             ]),
         sentiment: selectedContent
             ? h("div", { className: "admin-main" }, [
+                backButton,
                 h("div", { className: "admin-reviews-media" },
                     h("div", { className: "admin-reviews-thumb" },
                         h("img", {
@@ -4909,16 +4914,15 @@ function AdminDashboard(props) {
                             sentimentSourceText(reviewsSummary) + " Cálculo sobre el TOTAL de reseñas de la obra (resumen del backend): positivas, neutras y negativas." )
                         : null
                 ),
-                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
             ])
             : h("div", { className: "admin-main" }, [
+                backButton,
                 h("div", { className: "admin-placeholder" },
                     h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
                     h("h2", null, "Análisis de Sentimiento"),
                     h("p", { className: "muted" }, "Selecciona una serie o película para analizar el tono de sus reseñas."),
                     h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
                 ),
-                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
             ])
     };
 
@@ -4946,7 +4950,7 @@ function CookieConsentBanner() {
     return h("div", { className: "cookie-banner" },
         h("div", { className: "cookie-content" },
             h("p", { className: "cookie-text" },
-                "Utilizamos cookies propias y de terceros para asegurar el funcionamiento de la web, analizar el tráfico y personalizar la experiencia. Puedes aceptar todas o elegir solo las esenciales."
+                "Utilizamos galletas propias y de terceros para asegurar el funcionamiento del sitio, analizar el tráfico y personalizar la experiencia. Puedes aceptar todas o elegir solo las esenciales."
             ),
             h("div", { className: "cookie-actions" },
                 h("button", {
