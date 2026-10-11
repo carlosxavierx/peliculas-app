@@ -217,13 +217,13 @@ router.post("/auth/nickname", async (req, res) => {
         if (!session) return res.status(401).json({ error: "Sesión no válida" });
         const body = req.body || {};
         const nickname = (body.nickname || "").trim();
-        if (!nickname) return res.status(400).json({ error: "Nickname requerido" });
+        if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const saved = await setUserNickname(session.userId, nickname);
         res.json({ ok: true, nickname: saved });
     } catch (error) {
         if (error.code === "NICKNAME_TAKEN") return res.status(409).json({ error: error.message });
         if (error.code === "INVALID_NICKNAME") return res.status(400).json({ error: error.message });
-        res.status(400).json({ error: error.message || "No se pudo establecer el nickname" });
+        res.status(400).json({ error: error.message || "No se pudo establecer el apodo" });
     }
 });
 
@@ -231,7 +231,7 @@ router.post("/auth/nickname", async (req, res) => {
 router.get("/auth/nickname/check/:nickname", async (req, res) => {
     try {
         const nickname = (req.params.nickname || "").trim().toLowerCase();
-        if (!nickname) return res.status(400).json({ error: "Nickname requerido" });
+        if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const existing = await findUserByNickname(nickname);
         res.json({ available: !existing });
     } catch (error) {
@@ -314,7 +314,7 @@ router.post("/auth/friends/request", async (req, res) => {
         if (!session) return res.status(401).json({ error: "Sesión no válida" });
         const body = req.body || {};
         const toNickname = (body.toNickname || "").trim().toLowerCase();
-        if (!toNickname) return res.status(400).json({ error: "Nickname del destino requerido" });
+        if (!toNickname) return res.status(400).json({ error: "Apodo del destino requerido" });
         if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
         const target = await findUserByNickname(toNickname);
         if (!target) return res.status(404).json({ error: "Usuario no encontrado" });
@@ -421,7 +421,7 @@ router.delete("/auth/friends/:friendId", async (req, res) => {
 router.get("/auth/user/:nickname", async (req, res) => {
     try {
         const nickname = (req.params.nickname || "").trim().toLowerCase();
-        if (!nickname) return res.status(400).json({ error: "Nickname requerido" });
+        if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const user = await findUserByNickname(nickname);
         if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
         res.json({ user: { id: user.id, name: user.name, nickname: user.nickname, photoURL: user.photoURL } });
@@ -464,7 +464,7 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
             db.collection("reviews").limit(20000).get()
         ]);
 
-        // ---- Tarea 12: reviews por género (TODAS las reviews, sin límite de página) ----
+        // ---- Reseñas por género (TODAS las reseñas, sin límite de página) ----
         // Índice imdbID -> géneros a partir del catálogo (las obras guardan su genre
         // como lista separada por comas, p. ej. "Comedy, Drama, War").
         const genreByContentKey = new Map();
@@ -564,7 +564,7 @@ router.put("/admin/users/:id/role", requireAdmin, async (req, res) => {
     try {
         const { role } = req.body || {};
         if (!role || !["user", "admin"].includes(role)) {
-            return res.status(400).json({ error: "Rol inválido. Use 'user' o 'admin'" });
+            return res.status(400).json({ error: "Rol inválido. Usa 'user' o 'admin'" });
         }
         if (!db) {
             return res.status(503).json({ error: "No disponible en modo local" });

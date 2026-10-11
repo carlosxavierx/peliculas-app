@@ -1,7 +1,7 @@
 /**
  * Crea N reseñas para obras del catálogo directamente en Firestore.
- * Pensado para incrementar los datos con los que se prueban las tareas
- * de administración (reviews, estadísticas, sentimiento, géneros).
+ * Pensado para incrementar los datos de prueba del panel de administración
+ * (reseñas, estadísticas, sentimiento, géneros).
  *
  * Uso:
  *   node scripts/seedReviews.js                 # 100 reseñas por obra

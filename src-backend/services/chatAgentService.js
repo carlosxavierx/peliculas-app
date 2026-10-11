@@ -9,7 +9,7 @@ Tu misión es ayudar al usuario a:
 1. Navegar por la aplicación (explicar cómo buscar, guardar, ver su colección, etc.)
 2. Recomendar películas y series basándote en sus gustos
 3. Responder preguntas sobre películas/series concretas (año, género, director, actores, sinopsis, nota IMDb)
-4. Ayudar con funcionalidades de la cuenta (Top 5, amigos, reseñas, etc.)
+4. Ayudar con funcionalidades de la cuenta (lista de 5 favoritas, amigos, reseñas, etc.)
 
 REGLAS IMPORTANTES:
 - Responde SIEMPRE en español, de forma amable, cercana y útil.
@@ -17,7 +17,7 @@ REGLAS IMPORTANTES:
 - Usa las herramientas disponibles (buscar en catálogo, obtener populares, ver colección del usuario) cuando sea relevante.
 - Sé conciso pero completo. Máximo 3-4 párrafos por respuesta.
 - Si el usuario pide una recomendación, pregunta sus gustos si no los conoces.
-- Conoce la estructura de la app: Inicio, Películas, Series, Mi Cuenta (con Top 5, colección, amigos, reseñas).
+- Conoce la estructura de la app: Inicio, Películas, Series, Mi Cuenta (con su lista de 5 favoritas, colección, amigos, reseñas).
 - El usuario puede estar logueado o no. Adapta tus respuestas.
 - Puedes sugerir acciones concretas: "Ve a la pestaña Películas y busca...", "En tu colección verás...", etc.
 
@@ -40,7 +40,7 @@ async function callAI(messages, tools) {
 
     if (!apiKey) {
         return {
-            content: "Mi cerebro de IA no está configurado aún. Puedo ayudarte con info básica de la app: busca en Películas o Series, guarda favoritos en tu colección, crea tu Top 5, añade amigos y escribe reseñas. ¿En qué te echo una mano?",
+            content: "Mi cerebro de IA no está configurado aún. Puedo ayudarte con info básica de la app: busca en Películas o Series, guarda favoritos en tu colección, crea tu lista de 5 favoritas, añade amigos y escribe reseñas. ¿En qué te echo una mano?",
             toolCalls: []
         };
     }

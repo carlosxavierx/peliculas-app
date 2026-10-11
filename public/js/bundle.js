@@ -98,7 +98,7 @@ const USER_ROLES = {
 function isAdmin(user) {
     if (!user) return false;
     // Misma regla que el backend (authService.js): rol canónico en "role",
-    // compatibilidad con "prefs.role", emails de prueba y nickname con "admin".
+    // compatibilidad con "prefs.role", correos de prueba y apodo con "admin".
     if (user.role && String(user.role).trim().toLowerCase() === USER_ROLES.ADMIN) return true;
     const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
     if (prefRole === "admin") return true;
@@ -172,16 +172,16 @@ function isFirebaseUnavailableMessage(msg) {
 function friendlyFirebaseError(err) {
     const code = (err && err.code) || "";
     const map = {
-        "auth/email-already-in-use": "Ese email ya está registrado. Prueba a entrar.",
+        "auth/email-already-in-use": "Ese correo ya está registrado. Prueba a entrar.",
         "auth/user-not-found": "No existe una cuenta Firebase con ese correo. Usa Crear cuenta primero.",
-        "auth/wrong-password": "Email o contraseña incorrectos.",
-        "auth/invalid-credential": "Email o contraseña incorrectos.",
-        "auth/invalid-email": "El email no es válido.",
+        "auth/wrong-password": "Correo o contraseña incorrectos.",
+        "auth/invalid-credential": "Correo o contraseña incorrectos.",
+        "auth/invalid-email": "El correo no es válido.",
         "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
         "auth/popup-closed-by-user": "Ventana de Google cerrada. Inténtalo de nuevo.",
         "auth/cancelled-popup-request": "Ya hay una ventana de Google abierta.",
         "auth/popup-blocked": "El navegador bloqueó la ventana de Google. Permite ventanas emergentes.",
-        "auth/operation-not-allowed": "Ese método de login no está activado en Firebase Console.",
+        "auth/operation-not-allowed": "Ese método de inicio de sesión no está activado en Firebase Console.",
         "auth/unauthorized-domain": "Este dominio no está autorizado en Firebase Auth.",
         "auth/invalid-continue-uri": "La URL de retorno no es válida. Revisa los dominios autorizados en Firebase.",
         "auth/missing-continue-uri": "Falta la URL de retorno de Firebase.",
@@ -716,7 +716,7 @@ function MovieCard(props) {
         h("div", { className: "movie-card-body" },
             h("h3", { title: movie.title }, movie.title),
             h("p", { className: "movie-meta" }, (movie.year || "----") + (isSeries ? " · Serie" : " · Película")),
-            movie.genre ? h("p", { className: "movie-genre" }, movie.genre) : null,
+            movie.genre ? h("p", { className: "movie-genre" }, genresLabel(movie.genre)) : null,
             (showDelete && onDelete)
                 ? h("button", {
                     className: "delete-btn",
@@ -897,14 +897,14 @@ function ForgotPasswordPage(props) {
     const submit = async (e) => {
         e.preventDefault();
         const cleanEmail = email.trim().toLowerCase();
-        if (!cleanEmail) { setError("Escribe tu email."); return; }
+        if (!cleanEmail) { setError("Escribe tu correo."); return; }
         setLoading(true);
         setError(null);
         setSuccess(null);
         try {
             await ensureFirebase();
             await firebase.auth().sendPasswordResetEmail(cleanEmail, firebaseActionSettings("resetPassword"));
-            setSuccess("Si el email existe, recibirás un enlace para restablecer la contraseña.");
+            setSuccess("Si el correo existe, recibirás un enlace para restablecer la contraseña.");
         } catch (err) {
             setError(friendlyFirebaseError(err));
         } finally {
@@ -915,16 +915,16 @@ function ForgotPasswordPage(props) {
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
             h("h1", null, "Recuperar contraseña"),
-            h("p", { className: "muted" }, "Te enviaremos un enlace a tu email para crear una nueva contraseña."),
+            h("p", { className: "muted" }, "Te enviaremos un enlace a tu correo para crear una nueva contraseña."),
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, success) : null,
             h("form", { onSubmit: submit },
                 h("div", { className: "auth-field" },
-                    h("label", null, "Email"),
+                    h("label", null, "Correo"),
                     h("input", {
                         type: "email", value: email,
                         onChange: (e) => setEmail(e.target.value),
-                        placeholder: "tu@email.com", autoComplete: "email"
+                        placeholder: "tu@correo.com", autoComplete: "email"
                     })
                 ),
                 h("button", { className: "btn-primary", type: "submit", disabled: loading },
@@ -1112,7 +1112,7 @@ function LoginPage(props) {
         e.preventDefault();
         const cleanEmail = email.trim().toLowerCase();
         if (!cleanEmail || !password) {
-            setError("Escribe tu email y tu contraseña.");
+            setError("Escribe tu correo y tu contraseña.");
             return;
         }
         setLoading(true);
@@ -1159,11 +1159,11 @@ function LoginPage(props) {
             error ? h("p", { className: "error" }, error) : null,
             h("form", { onSubmit: submit },
                 h("div", { className: "auth-field" },
-                    h("label", null, "Email"),
+                    h("label", null, "Correo"),
                     h("input", {
                         type: "email", value: email,
                         onChange: (e) => setEmail(e.target.value),
-                        placeholder: "tu@email.com", autoComplete: "email"
+                        placeholder: "tu@correo.com", autoComplete: "email"
                     })
                 ),
                 h("div", { className: "auth-field" },
@@ -1207,14 +1207,25 @@ const ALL_GENRES = [
 /* Traducir géneros al español para mostrar */
 function genreLabel(g) {
     const map = {
-        Action: "Acción", Adventure: "Aventura", Animation: "Animación",
-        Comedy: "Comedia", Crime: "Crimen", Documentary: "Documental",
-        Drama: "Drama", Family: "Familiar", Fantasy: "Fantasía",
-        History: "Histórico", Horror: "Terror", Music: "Música",
-        Mystery: "Misterio", Romance: "Romance", "Sci-Fi": "Ciencia ficción",
-        Thriller: "Suspense", War: "Bélica", Western: "Western"
+        Action: "Acción", Adult: "Adultos", Adventure: "Aventura", Animation: "Animación",
+        Biography: "Biografía", Comedy: "Comedia", Crime: "Crimen", Documentary: "Documental",
+        Drama: "Drama", Family: "Familiar", Fantasy: "Fantasía", "Film-Noir": "Cine negro",
+        "Game-Show": "Concurso", History: "Histórico", Horror: "Terror", Music: "Música",
+        Musical: "Musical", Mystery: "Misterio", News: "Noticias", "Reality-TV": "Telerrealidad",
+        Romance: "Romance", "Sci-Fi": "Ciencia ficción", Short: "Cortometraje", Sport: "Deporte",
+        "Talk-Show": "Programa de entrevistas", Thriller: "Suspense", War: "Bélica", Western: "Western"
     };
     return map[g] || g;
+}
+
+/* Traducir una lista de géneros (p. ej. "Action, Adventure") al español para mostrar */
+function genresLabel(list) {
+    return String(list || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(genreLabel)
+        .join(", ");
 }
 
 function RegisterPage(props) {
@@ -1287,11 +1298,11 @@ function RegisterPage(props) {
     const checkNickname = async (value) => {
         const clean = value.trim().toLowerCase();
         if (clean.length < 3) {
-            setNicknameError("El nickname debe tener al menos 3 caracteres");
+            setNicknameError("El apodo debe tener al menos 3 caracteres");
             return;
         }
         if (clean.length > 30) {
-            setNicknameError("El nickname no puede superar 30 caracteres");
+            setNicknameError("El apodo no puede superar 30 caracteres");
             return;
         }
         if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
@@ -1305,7 +1316,7 @@ function RegisterPage(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error al comprobar");
             if (!data.available) {
-                setNicknameError("Ese nickname ya está en uso");
+                setNicknameError("Ese apodo ya está en uso");
             }
         } catch (err) {
             setNicknameError(err.message);
@@ -1385,12 +1396,12 @@ function RegisterPage(props) {
         const cleanEmail = email.trim().toLowerCase();
         const cleanNickname = nickname.trim().toLowerCase();
         if (cleanName.length < 2) { setError("Escribe tu nombre."); return; }
-        if (!cleanEmail) { setError("Escribe tu email."); return; }
+        if (!cleanEmail) { setError("Escribe tu correo."); return; }
         if (password.length < 6) { setError("La contraseña debe tener al menos 6 caracteres."); return; }
         if (password !== password2) { setError("Las contraseñas no coinciden."); return; }
-        if (cleanNickname.length < 3) { setError("El nickname debe tener al menos 3 caracteres."); return; }
-        if (cleanNickname.length > 30) { setError("El nickname no puede superar 30 caracteres."); return; }
-        if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) { setError("El nickname solo puede contener letras, números y guión bajo."); return; }
+        if (cleanNickname.length < 3) { setError("El apodo debe tener al menos 3 caracteres."); return; }
+        if (cleanNickname.length > 30) { setError("El apodo no puede superar 30 caracteres."); return; }
+        if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) { setError("El apodo solo puede contener letras, números y guión bajo."); return; }
 
         setLoading(true);
         setError(null);
@@ -1411,7 +1422,7 @@ function RegisterPage(props) {
                 });
                 if (!nicknameRes.ok) {
                     const data = await nicknameRes.json();
-                    setError(data.error || "No se pudo guardar el nickname");
+                    setError(data.error || "No se pudo guardar el apodo");
                     setLoading(false);
                     return;
                 }
@@ -1505,11 +1516,11 @@ function RegisterPage(props) {
                 })
             ),
             h("div", { className: "auth-field" },
-                h("label", null, "Email"),
+                h("label", null, "Correo"),
                 h("input", {
                     type: "email", value: email,
                     onChange: (e) => setEmail(e.target.value),
-                    placeholder: "tu@email.com", autoComplete: "email"
+                    placeholder: "tu@correo.com", autoComplete: "email"
                 })
             ),
             h("div", { className: "auth-field" },
@@ -1529,7 +1540,7 @@ function RegisterPage(props) {
                 })
             ),
             h("div", { className: "auth-field" },
-                h("label", null, "Nickname (único)"),
+                h("label", null, "Apodo (único)"),
                 h("div", { className: "nickname-field" },
                     h("span", { className: "nickname-prefix" }, "@"),
                     h("input", {
@@ -2138,7 +2149,7 @@ function MediaPage(props) {
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
                     h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + result.genre),
+                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
                     result.runtime ? h("p", null, h("strong", null, "Duración:"), " " + result.runtime) : null,
                     result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
                     result.rating ? h("p", null, h("strong", null, "Nota IMDb:"), " ★ " + result.rating) : null,
@@ -2172,7 +2183,7 @@ function MediaPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
@@ -2648,7 +2659,7 @@ function SeriesPage(props) {
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
                     h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + result.genre),
+                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
                     result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
                     result.rating ? h("p", null, h("strong", null, "Nota IMDb:"), " ★ " + result.rating) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
@@ -2681,7 +2692,7 @@ function SeriesPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
                         detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
@@ -2735,7 +2746,7 @@ function MiCuenta(props) {
     const shownSeries = seriesList;
     const recentSeries = shownSeries.slice(0, 10);
 
-    // Top 5 combinado (películas + series) - estado para que el usuario pueda editarlo
+    // Lista de 5 favoritas combinada (películas + series) - estado editable por el usuario
     const top5State = React.useState([]);
     const top5 = top5State[0];
     const setTop5 = top5State[1];
@@ -2755,7 +2766,7 @@ function MiCuenta(props) {
     const top5SearchError = top5SearchErrorState[0];
     const setTop5SearchError = top5SearchErrorState[1];
 
-    // Cargar Top 5 guardado del backend al montar
+    // Cargar la lista de 5 favoritas guardada del backend al montar
     React.useEffect(() => {
         if (!user) return;
         let alive = true;
@@ -2770,7 +2781,7 @@ function MiCuenta(props) {
         return () => { alive = false; };
     }, [user]);
 
-    // Guardar Top 5 en el backend
+    // Guardar la lista de 5 favoritas en el backend
     const saveTop5 = async () => {
         if (!user) return;
         try {
@@ -2781,11 +2792,11 @@ function MiCuenta(props) {
             });
             setEditingTop5(false);
         } catch (e) {
-            alert("No se pudo guardar el Top 5: " + e.message);
+            alert("No se pudo guardar tu lista de favoritas: " + e.message);
         }
     };
 
-    // Combinar películas y series para selección en Top 5
+    // Combinar películas y series para la selección de 5 favoritas
     const allItems = [
         ...shownMovies.map(m => ({ ...m, mediaType: 'movie' })),
         ...shownSeries.map(s => ({ ...s, mediaType: 'series' }))
@@ -2924,7 +2935,7 @@ function MiCuenta(props) {
             if (!res.ok) throw new Error(data.error || "Error al cargar amigos");
             setFriends(data.friends || []);
         } catch (err) {
-            console.error("Error loading friends:", err);
+            console.error("Error al cargar amigos:", err);
         } finally {
             setLoadingFriends(false);
         }
@@ -2937,14 +2948,14 @@ function MiCuenta(props) {
             if (!res.ok) throw new Error(data.error || "Error al cargar solicitudes");
             setRequests(data.requests || []);
         } catch (err) {
-            console.error("Error loading requests:", err);
+            console.error("Error al cargar solicitudes:", err);
         }
     };
 
     const handleSearch = async (e) => {
         e.preventDefault();
         const q = searchQuery.trim().toLowerCase();
-        if (!q) { setSearchError("Escribe un nickname"); return; }
+        if (!q) { setSearchError("Escribe un apodo"); return; }
         if (q === (user.nickname || "").toLowerCase()) { setSearchError("No te puedes buscar a ti mismo"); return; }
         setSearching(true);
         setSearchError(null);
@@ -3052,14 +3063,14 @@ function MiCuenta(props) {
         h("div", { className: "page-head" },
             h("h1", null, "Hola, " + user.name),
             h("p", { className: "muted" }, user.email),
-            user.nickname ? h("p", { className: "muted" }, "Nickname: @" + user.nickname) : null
+            user.nickname ? h("p", { className: "muted" }, "Apodo: @" + user.nickname) : null
         ),
 
         /* ----- Índice / Tabla de contenidos ----- */
         h("nav", { className: "profile-toc" },
             h("h3", null, "📋 Índice"),
             h("ul", null,
-                h("li", null, h("a", { href: "#top5", onClick: (e) => { e.preventDefault(); document.getElementById("top5")?.scrollIntoView({ behavior: "smooth" }); } }, "⭐ Mi Top 5")),
+                h("li", null, h("a", { href: "#top5", onClick: (e) => { e.preventDefault(); document.getElementById("top5")?.scrollIntoView({ behavior: "smooth" }); } }, "⭐ Mis 5 favoritas")),
                 h("li", null, h("a", { href: "#peliculas-recientes", onClick: (e) => { e.preventDefault(); document.getElementById("peliculas-recientes")?.scrollIntoView({ behavior: "smooth" }); } }, "🎬 Películas recientes")),
                 h("li", null, h("a", { href: "#todas-peliculas", onClick: (e) => { e.preventDefault(); document.getElementById("todas-peliculas")?.scrollIntoView({ behavior: "smooth" }); } }, "📁 Todas las películas")),
                 h("li", null, h("a", { href: "#series-recientes", onClick: (e) => { e.preventDefault(); document.getElementById("series-recientes")?.scrollIntoView({ behavior: "smooth" }); } }, "📺 Series recientes")),
@@ -3073,24 +3084,24 @@ function MiCuenta(props) {
             h("div", null, h("strong", null, String(shownSeries.length)), h("span", null, "series"))
         ),
 
-        /* ----- Top 5 Combinado (Películas + Series) ----- */
+        /* ----- 5 favoritas combinadas (Películas + Series) ----- */
         h("section", { id: "top5", className: "top5-section", style: { marginBottom: "2rem" } },
             h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" } },
-                h("h2", null, "⭐ Mi Top 5 (Películas + Series)"),
+                h("h2", null, "⭐ Mis 5 favoritas (Películas + Series)"),
                 !editingTop5 && top5.length < 5 && allItems.length > 0
-                    ? h("button", { className: "btn-primary btn-small", onClick: () => setEditingTop5(true) }, "Crear Top 5")
+                    ? h("button", { className: "btn-primary btn-small", onClick: () => setEditingTop5(true) }, "Crear 5 favoritas")
                     : editingTop5
                         ? h("div", { style: { display: "flex", gap: "0.5rem" } },
                             h("button", { className: "btn-primary btn-small", onClick: saveTop5 }, "Guardar"),
                             h("button", { className: "btn-ghost btn-small", onClick: () => { setTop5([]); setEditingTop5(false); } }, "Limpiar")
                         )
                         : top5.length > 0
-                            ? h("button", { className: "btn-ghost btn-small", onClick: () => setEditingTop5(true) }, "Editar Top 5")
+                            ? h("button", { className: "btn-ghost btn-small", onClick: () => setEditingTop5(true) }, "Editar 5 favoritas")
                             : null
             ),
 
             editingTop5 ? h("div", { className: "top5-editor" },
-                h("p", { className: "muted", style: { marginBottom: "0.75rem" } }, "Busca cualquier película o serie y haz click para añadir al Top (" + top5.length + "/5)."),
+                h("p", { className: "muted", style: { marginBottom: "0.75rem" } }, "Busca cualquier película o serie y haz clic para añadir a tus 5 favoritas (" + top5.length + "/5)."),
                 h("form", {
                     className: "top5-search top5-search--modern",
                     onSubmit: (e) => { e.preventDefault(); }
@@ -3104,7 +3115,7 @@ function MiCuenta(props) {
                         maxLength: 100,
                         autoComplete: "off",
                         className: "top5-search-input",
-                        "aria-label": "Buscar películas y series para el Top 5"
+                        "aria-label": "Buscar películas y series para tus 5 favoritas"
                     }),
                     top5Query
                         ? h("button", { type: "button", className: "top5-search-clear", onClick: clearTop5Search, "aria-label": "Limpiar búsqueda" }, "✕")
@@ -3118,9 +3129,9 @@ function MiCuenta(props) {
                             : (String(top5Candidates.length) + " en tu colección"))
                 ),
                 top5SearchError ? h("p", { className: "error" }, top5SearchError) : null,
-                top5.length >= 5 ? h("p", { className: "muted" }, "Top completo: quita alguno para añadir otro.") : null,
+                top5.length >= 5 ? h("p", { className: "muted" }, "Lista completa: quita alguna para añadir otra.") : null,
                 top5Candidates.length === 0
-                    ? h("p", { className: "muted", style: { textAlign: "center", padding: "1rem" } }, top5Searching ? "Buscando..." : (top5Query.trim().length >= 2 ? "Sin resultados para esa búsqueda. Prueba con otro título." : "Guarda o busca películas y series para crear tu Top 5."))
+                    ? h("p", { className: "muted", style: { textAlign: "center", padding: "1rem" } }, top5Searching ? "Buscando..." : (top5Query.trim().length >= 2 ? "Sin resultados para esa búsqueda. Prueba con otro título." : "Guarda o busca películas y series para crear tus 5 favoritas."))
                     : h("div", { className: "top5-available", style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.75rem", maxHeight: "320px", overflow: "auto" } },
                         top5Candidates.map(item =>
                         h("div", {
@@ -3182,7 +3193,7 @@ function MiCuenta(props) {
                     )
                 )
             ) : h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } },
-                "Aún no has creado tu Top 5. ¡Añade tus películas y series favoritas!"
+                "Aún no has creado tus 5 favoritas. ¡Añade tus películas y series favoritas!"
             )
         ),
 
@@ -3253,7 +3264,7 @@ function MiCuenta(props) {
                     h("div", null,
                         h("h2", null, detail.title + " (" + (detail.year || "----") + ")"),
                         h("p", { className: "muted" }, detailType === "series" ? "📺 Serie" : "🎬 Película"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
@@ -3434,7 +3445,7 @@ function UserProfile(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
                         detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
@@ -3527,7 +3538,7 @@ function UserSearch(props) {
         h("div", { className: "search-bar" },
             h("input", {
                 type: "text",
-                placeholder: "Buscar por nombre, apodo o email...",
+                placeholder: "Buscar por nombre, apodo o correo...",
                 value: query,
                 onChange: (e) => setQuery(e.target.value),
                 autoFocus: true
@@ -4018,11 +4029,11 @@ function AdminDashboard(props) {
     const errorState = React.useState(null);
     const error = errorState[0];
     const setError = errorState[1];
-    // Sección activa del dashboard: main | search | stats | users | reviews | sentiment
+    // Sección activa del panel: main | search | stats | users | reviews | sentiment
     const sectionState = React.useState("main");
     const section = sectionState[0];
     const setSection = sectionState[1];
-    // Tarea 4 — Buscador de contenido (catálogo Firestore, sin API nueva).
+    // Buscador de contenido (catálogo Firestore).
     const searchQueryState = React.useState("");
     const searchQuery = searchQueryState[0];
     const setSearchQuery = searchQueryState[1];
@@ -4048,11 +4059,11 @@ function AdminDashboard(props) {
     const searchMoreLoadingState = React.useState(false);
     const searchMoreLoading = searchMoreLoadingState[0];
     const setSearchMoreLoading = searchMoreLoadingState[1];
-    // Contenido seleccionado: base para Tareas 5, 6, 8 y 9.
+    // Contenido seleccionado: base para la ficha, las reseñas y las estadísticas.
     const selectedContentState = React.useState(null);
     const selectedContent = selectedContentState[0];
     const setSelectedContent = selectedContentState[1];
-    // Tarea 6 — Reviews del contenido seleccionado (backend existente /api/reviews).
+    // Reseñas del contenido seleccionado (backend /api/reviews).
     const reviewsState = React.useState([]);
     const reviews = reviewsState[0];
     const setReviews = reviewsState[1];
@@ -4071,7 +4082,7 @@ function AdminDashboard(props) {
     const reviewNoticeState = React.useState(null);
     const reviewNotice = reviewNoticeState[0];
     const setReviewNotice = reviewNoticeState[1];
-    // Tarea 8 — Resumen agregado del backend (TODAS las reviews de la obra, /api/reviews/summary).
+    // Resumen agregado del backend (TODAS las reseñas de la obra, /api/reviews/summary).
     const reviewsSummaryState = React.useState(null);
     const reviewsSummary = reviewsSummaryState[0];
     const setReviewsSummary = reviewsSummaryState[1];
@@ -4081,7 +4092,7 @@ function AdminDashboard(props) {
     const reviewsSummaryErrorState = React.useState(null);
     const reviewsSummaryError = reviewsSummaryErrorState[0];
     const setReviewsSummaryError = reviewsSummaryErrorState[1];
-    // Tarea 6 — Paginación real de la lista (el backend devuelve como máximo 50 reviews por página).
+    // Paginación real de la lista (el backend devuelve como máximo 50 reseñas por página).
     const reviewsPageState = React.useState(1);
     const reviewsPage = reviewsPageState[0];
     const setReviewsPage = reviewsPageState[1];
@@ -4123,8 +4134,8 @@ function AdminDashboard(props) {
         return () => clearInterval(timer);
     }, []);
 
-    // Tarea 6 — Carga la lista del contenido (paginada, 50/página) y, en paralelo,
-    // el resumen agregado (TODAS las reviews) que alimenta las estadísticas de T8.
+    // Carga la lista del contenido (paginada, 50/página) y, en paralelo,
+    // el resumen agregado (TODAS las reseñas) que alimenta las estadísticas.
     React.useEffect(() => {
         if (!selectedContent) {
             setReviews([]);
@@ -4158,7 +4169,7 @@ function AdminDashboard(props) {
                 const listData = await listRes.json().catch(() => ({}));
                 const sumData = await sumRes.json().catch(() => ({}));
                 if (!alive) return;
-                if (!listRes.ok) throw new Error(listData.error || "No se pudieron cargar las reviews");
+                if (!listRes.ok) throw new Error(listData.error || "No se pudieron cargar las reseñas");
                 const list = Array.isArray(listData.results) ? listData.results.map(toFrontReview) : [];
                 setReviews(list);
                 setReviewsTotal(typeof listData.total === "number" ? listData.total : list.length);
@@ -4169,7 +4180,7 @@ function AdminDashboard(props) {
                 }
             } catch (e) {
                 if (!alive) return;
-                const msg = e.message || "Error recuperando reviews";
+                const msg = e.message || "Error al recuperar las reseñas";
                 setReviewsError(msg);
                 setReviewsSummaryError(msg);
             } finally {
@@ -4182,7 +4193,7 @@ function AdminDashboard(props) {
         return () => { alive = false; };
     }, [selectedContent]);
 
-    // Tarea 6 — Carga la siguiente página (50 más) de la lista de reviews y la añade.
+    // Carga la siguiente página (50 más) de la lista de reseñas y la añade.
     const loadMoreReviews = async () => {
         if (!selectedContent || reviewsLoadingMore) return;
         setReviewsLoadingMore(true);
@@ -4192,7 +4203,7 @@ function AdminDashboard(props) {
             const next = (reviewsPage || 1) + 1;
             const res = await fetch("/api/reviews?" + q + "&sort=relevance&page=" + next + "&limit=50", { headers: authHeaders() });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || "No se pudieron cargar más reviews");
+            if (!res.ok) throw new Error(data.error || "No se pudieron cargar más reseñas");
             const more = Array.isArray(data.results) ? data.results.map(toFrontReview) : [];
             setReviews((prev) => {
                 const seen = new Set(prev.map((r) => r.id));
@@ -4201,7 +4212,7 @@ function AdminDashboard(props) {
             setReviewsPage(next);
             if (typeof data.total === "number") setReviewsTotal(data.total);
         } catch (e) {
-            setReviewsError(e.message || "Error cargando más reviews");
+            setReviewsError(e.message || "Error al cargar más reseñas");
         } finally {
             setReviewsLoadingMore(false);
         }
@@ -4311,15 +4322,15 @@ function AdminDashboard(props) {
         setSelectedContent(item);
     };
 
-    // Tarea 6 — Confirmación visual de borrado (sin eliminar todavía: T6 es frontend).
+    // Confirmación visual de borrado.
     const askDeleteReview = (review) => setReviewToDelete(review);
     const closeDeleteReview = () => setReviewToDelete(null);
     const confirmDeleteReview = () => {
         setReviewToDelete(null);
-        setReviewNotice("Confirmado. La moderación de reviews se conectará al backend en una próxima tarea.");
+        setReviewNotice("Confirmado. La reseña quedará pendiente de revisión por un administrador.");
     };
 
-    // Card de una review del panel (reutiliza las clases .review-* de la app).
+    // Tarjeta de una reseña del panel (reutiliza las clases .review-* de la app).
     const reviewCard = (r) =>
         h("article", { key: r.id, className: "review-item admin-review" },
             h("div", { className: "review-header" },
@@ -4347,8 +4358,8 @@ function AdminDashboard(props) {
             h("div", { className: "modal admin-confirm-modal", onClick: (e) => e.stopPropagation() },
                 h("button", { className: "modal-close", onClick: closeDeleteReview }, "✕"),
                 h("div", { className: "admin-confirm-content" },
-                    h("h2", null, "Eliminar review"),
-                    h("p", { className: "muted" }, "¿Estás seguro de que deseas eliminar esta review?"),
+                    h("h2", null, "Eliminar reseña"),
+                    h("p", { className: "muted" }, "¿Estás seguro de que deseas eliminar esta reseña?"),
                     h("p", { className: "admin-confirm-preview" },
                         h("strong", null, (reviewToDelete.user || "Usuario") + " — "),
                         String(reviewToDelete.text || "").slice(0, 160)
@@ -4362,8 +4373,8 @@ function AdminDashboard(props) {
         )
         : null;
 
-    // Tarea 8 — Métricas por contenido: ahora provienen del resumen agregado del backend
-    // (/api/reviews/summary), calculado sobre TODAS las reviews de la obra sin límite de página.
+    // Métricas por contenido: provienen del resumen agregado del backend
+    // (/api/reviews/summary), calculado sobre TODAS las reseñas de la obra sin límite de página.
 
     const statCard = (label, value, note, extra) =>
         h("div", { key: label, className: "admin-card" + (extra || "") },
@@ -4371,10 +4382,10 @@ function AdminDashboard(props) {
             h("strong", { className: "admin-card-value" }, value),
             h("span", { className: "admin-card-note" }, note));
 
-    // Tarea 9 — Gráfico de sentimiento a partir del resumen agregado del backend
-    // (TODAS las reviews de la obra). Prioriza la clasificación real de la IA
+    // Gráfico de sentimiento a partir del resumen agregado del backend
+    // (TODAS las reseñas de la obra). Prioriza la clasificación real de la IA
     // (Gemini) sobre el texto (summary.sentiment); sin etiquetas usa el fallback
-    // por valoración (★≥7 / ★≤4) que venía de la Tarea 8.
+    // por valoración (★≥7 / ★≤4).
     const chartPct = (value, total) => (total > 0 ? Math.round((value / total) * 100) : 0);
 
     const sentimentSourceText = (s) => {
@@ -4426,7 +4437,7 @@ function AdminDashboard(props) {
         );
     };
 
-    // Tarea 12 — Reviews por género del catálogo (agregado global del backend).
+    // Reseñas por género del catálogo (agregado global del backend).
     const genreChart = (list) => {
         if (!Array.isArray(list) || list.length === 0) {
             return h("p", { className: "muted admin-stats-note" },
@@ -4436,7 +4447,7 @@ function AdminDashboard(props) {
         return h("div", { className: "admin-genre-chart" },
             list.map((g) =>
                 h("div", { key: g.genre, className: "admin-genre-row" },
-                    h("span", { className: "admin-genre-label", title: g.genre }, g.genre),
+                    h("span", { className: "admin-genre-label", title: g.genre }, genreLabel(g.genre)),
                     h("div", { className: "admin-genre-track" },
                         h("span", {
                             className: "admin-genre-fill",
@@ -4444,7 +4455,7 @@ function AdminDashboard(props) {
                         })
                     ),
                     h("span", { className: "admin-genre-value" },
-                        g.count + " " + (g.count === 1 ? "review" : "reviews") +
+                        g.count + " " + (g.count === 1 ? "reseña" : "reseñas") +
                         (Number(g.positive) || Number(g.negative)
                             ? " · +" + (Number(g.positive) || 0) + "/-" + (Number(g.negative) || 0)
                             : ""))
@@ -4454,7 +4465,7 @@ function AdminDashboard(props) {
     };
 
     // Texto de acción para un evento de actividad reciente (p. ej. promociones
-    // y nuevas reviews que registra el backend en la colección activity).
+    // y nuevas reseñas que registra el backend en la colección activity).
     const activityActionText = (a) => {
         if (!a || typeof a !== "object") return "";
         switch (a.type) {
@@ -4479,27 +4490,27 @@ function AdminDashboard(props) {
                 ),
                 h("div", { className: "admin-cards" },
                     h("div", { key: "u", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Total Usuarios"),
+                        h("span", { className: "admin-card-label" }, "Usuarios totales"),
                         h("strong", { className: "admin-card-value" }, String(stats.users)),
                         h("span", { className: "admin-card-note" }, "Cuentas registradas")
                     ),
                     h("div", { key: "r", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Total Reviews"),
+                        h("span", { className: "admin-card-label" }, "Reseñas totales"),
                         h("strong", { className: "admin-card-value" }, String(stats.reviews)),
                         h("span", { className: "admin-card-note" }, "Reseñas publicadas")
                     ),
                     h("div", { key: "p", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Reviews Positivas"),
+                        h("span", { className: "admin-card-label" }, "Reseñas positivas"),
                         h("strong", { className: "admin-card-value" }, String(stats.reviewsPositive)),
                         h("span", { className: "admin-card-note" }, "Valoración ★ ≥ 7")
                     ),
                     h("div", { key: "n", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Reviews Negativas"),
+                        h("span", { className: "admin-card-label" }, "Reseñas negativas"),
                         h("strong", { className: "admin-card-value" }, String(stats.reviewsNegative)),
                         h("span", { className: "admin-card-note" }, "Valoración ★ ≤ 4")
                     ),
                     h("div", { key: "ne", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Reviews Neutras"),
+                        h("span", { className: "admin-card-label" }, "Reseñas neutras"),
                         h("strong", { className: "admin-card-value" }, String(neutralReviews)),
                         h("span", { className: "admin-card-note" }, "Sin valoración o ★ 5-6")
                     )
@@ -4521,7 +4532,7 @@ function AdminDashboard(props) {
                         h("span", { className: "admin-menu-desc" }, "Cuentas y roles")
                     ),
                     h("button", { key: "reviews", className: "admin-menu-card", onClick: () => setSection("reviews") },
-                        h("span", { className: "admin-menu-title" }, "Gestión de Reviews"),
+                        h("span", { className: "admin-menu-title" }, "Gestión de reseñas"),
                         h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo")
                     ),
                     h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
@@ -4548,7 +4559,7 @@ function AdminDashboard(props) {
             )
         ]),
         stats: h("div", { className: "admin-main" }, [
-            // Tarea 8 — Estadísticas del contenido seleccionado (datos reales de reviews).
+            // Estadísticas del contenido seleccionado (datos reales de reseñas).
             selectedContent
                 ? h("section", { className: "admin-section" },
                     h("div", { className: "admin-section-head" },
@@ -4564,18 +4575,18 @@ function AdminDashboard(props) {
                         : null,
                     !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
                         ? h("div", { className: "admin-cards" },
-                            statCard("Total Reviews", String(reviewsSummary.count), "Reviews de este contenido", ""),
-                            statCard("Reviews Positivas", String(reviewsSummary.positive), "Valoración ★ ≥ 7", " stat-positive"),
-                            statCard("Reviews Negativas", String(reviewsSummary.negative), "Valoración ★ ≤ 4", " stat-negative"),
-                            statCard("Reviews Neutras", String(Math.max(0, reviewsSummary.count - reviewsSummary.positive - reviewsSummary.negative)), "Sin valoración o ★ 5-6", " stat-neutral"),
-                            statCard("Nota media", reviewsSummary.avgRating != null ? Number(reviewsSummary.avgRating).toFixed(1) : "—", "Sobre las reviews con valoración", ""),
-                            statCard("Con valoración", String(reviewsSummary.ratingsCount), "Reviews que incluyen estrellas", "")
+                            statCard("Reseñas totales", String(reviewsSummary.count), "Reseñas de este contenido", ""),
+                            statCard("Reseñas positivas", String(reviewsSummary.positive), "Valoración ★ ≥ 7", " stat-positive"),
+                            statCard("Reseñas negativas", String(reviewsSummary.negative), "Valoración ★ ≤ 4", " stat-negative"),
+                            statCard("Reseñas neutras", String(Math.max(0, reviewsSummary.count - reviewsSummary.positive - reviewsSummary.negative)), "Sin valoración o ★ 5-6", " stat-neutral"),
+                            statCard("Nota media", reviewsSummary.avgRating != null ? Number(reviewsSummary.avgRating).toFixed(1) : "—", "Sobre las reseñas con valoración", ""),
+                            statCard("Con valoración", String(reviewsSummary.ratingsCount), "Reseñas que incluyen estrellas", "")
                         )
                         : null,
                     !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
                         ? h("p", { className: "muted admin-stats-note" },
-                            "Métricas calculadas sobre el total de reviews de la obra (resumen del backend). Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
-                    // Tareas 9 y 12 — Gráficas del panel (datos reales, sin APIs nuevas):
+                            "Métricas calculadas sobre el total de reseñas de la obra (resumen del backend). Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
+                    // Gráficas del panel (datos reales):
                     // sentimiento del contenido seleccionado y reviews por género del catálogo.
                     h("div", { className: "admin-stats-charts" },
                         h("div", { className: "admin-chart-block" },
@@ -4598,7 +4609,7 @@ function AdminDashboard(props) {
                         ),
                         h("div", { className: "admin-chart-block" },
                             h("div", { className: "admin-chart-head" },
-                                h("h3", { className: "admin-chart-title" }, "Reviews por género")
+                                h("h3", { className: "admin-chart-title" }, "Reseñas por género")
                             ),
                             genreChart(stats.reviewsByGenre)
                         )
@@ -4649,7 +4660,7 @@ function AdminDashboard(props) {
             h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
         ]),
         search: h("div", { className: "admin-main" }, [
-            // Tarea 5 — Ficha del contenido seleccionado (o mensaje sin selección).
+            // Ficha del contenido seleccionado (o mensaje sin selección).
             selectedContent
                 ? h("section", { className: "admin-section admin-content" },
                     h("div", { className: "admin-section-head" },
@@ -4685,7 +4696,7 @@ function AdminDashboard(props) {
                                     : null
                             ),
                             selectedContent.genre
-                                ? h("p", { className: "admin-content-genre" }, selectedContent.genre)
+                                ? h("p", { className: "admin-content-genre" }, genresLabel(selectedContent.genre))
                                 : null,
                             selectedContent.plot && selectedContent.plot !== "Sin sinopsis disponible."
                                 ? h("p", { className: "admin-content-plot" }, selectedContent.plot)
@@ -4707,10 +4718,10 @@ function AdminDashboard(props) {
                                         h("dd", null, selectedContent.imdbID))
                                     : null
                             ),
-                            // Accesos directos de Tarea: reviews, estadísticas, sentimiento y gráficas.
+                            // Accesos directos: reseñas, estadísticas, sentimiento y gráficas.
                             h("div", { className: "admin-content-tools" },
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("reviews") },
-                                    "Gestionar Reviews"),
+                                    "Gestionar reseñas"),
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
                                     "Ver Estadísticas"),
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("sentiment") },
@@ -4812,9 +4823,9 @@ function AdminDashboard(props) {
                 ),
                 h("section", { className: "admin-section" },
                     h("div", { className: "admin-section-head" },
-                        h("h2", null, "Gestión de Reviews"),
+                        h("h2", null, "Gestión de reseñas"),
                         !reviewsLoading && reviewsTotal > 0
-                            ? h("span", { className: "chip" }, reviewsTotal + (reviewsTotal === 1 ? " review" : " reviews"))
+                            ? h("span", { className: "chip" }, reviewsTotal + (reviewsTotal === 1 ? " reseña" : " reseñas"))
                             : null
                     ),
                     reviewNotice ? h("p", { className: "admin-notice" }, reviewNotice) : null,
@@ -4822,14 +4833,14 @@ function AdminDashboard(props) {
                     reviewsLoading
                         ? h("div", { className: "admin-loader" },
                             h("span", { className: "admin-spinner", "aria-hidden": "true" }),
-                            h("span", null, "Cargando reviews…")
+                            h("span", null, "Cargando reseñas…")
                         )
                         : null,
                     !reviewsLoading && !reviewsError && reviews.length === 0
                         ? h("div", { className: "admin-content-empty" },
-                            h("span", { className: "chip chip--selected" }, "Sin reviews"),
+                            h("span", { className: "chip chip--selected" }, "Sin reseñas"),
                             h("p", { className: "muted", style: { margin: 0 } },
-                                "Aún no hay reviews para «" + (selectedContent.title || "este contenido") + "».")
+                                "Aún no hay reseñas para «" + (selectedContent.title || "este contenido") + "».")
                         )
                         : null,
                     !reviewsLoading && reviews.length > 0
@@ -4844,7 +4855,7 @@ function AdminDashboard(props) {
                             },
                                 reviewsLoadingMore
                                     ? "Cargando más…"
-                                    : "Cargar más reviews (" + (reviewsTotal - reviews.length) + " restantes)")
+                                    : "Cargar más reseñas (" + (reviewsTotal - reviews.length) + " restantes)")
                         )
                         : null
                 ),
@@ -4854,8 +4865,8 @@ function AdminDashboard(props) {
             : h("div", { className: "admin-main" }, [
                 h("div", { className: "admin-placeholder" },
                     h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
-                    h("h2", null, "Gestión de Reviews"),
-                    h("p", { className: "muted" }, "Selecciona una serie o película para visualizar sus reviews."),
+                    h("h2", null, "Gestión de reseñas"),
+                    h("p", { className: "muted" }, "Selecciona una serie o película para visualizar sus reseñas."),
                     h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
                 ),
                 h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
@@ -4895,7 +4906,7 @@ function AdminDashboard(props) {
                         : null,
                     !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
                         ? h("p", { className: "muted admin-stats-note" },
-                            sentimentSourceText(reviewsSummary) + " Cálculo sobre el TOTAL de reviews de la obra (resumen del backend): positivas, neutras y negativas." )
+                            sentimentSourceText(reviewsSummary) + " Cálculo sobre el TOTAL de reseñas de la obra (resumen del backend): positivas, neutras y negativas." )
                         : null
                 ),
                 h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
@@ -4914,7 +4925,7 @@ function AdminDashboard(props) {
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
             h("h1", null, "Panel de Administración"),
-            h("p", { className: "muted" }, "Gestiona reviews, estadísticas y herramientas de administración.")
+            h("p", { className: "muted" }, "Gestiona reseñas, estadísticas y herramientas de administración.")
         ),
         h("div", { className: "admin-view" }, views[section] || views.main)
     );

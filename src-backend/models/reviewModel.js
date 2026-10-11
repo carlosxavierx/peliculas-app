@@ -119,7 +119,7 @@ function sortReviews(list, sort) {
     return arr;
 }
 
-// ---------- Sentimiento (Tarea 9) ----------
+// ---------- Sentimiento ----------
 // La IA (Gemini) etiqueta el tono de cada reseña sobre su texto y lo guarda en
 // el campo `sentiment` ("positive" | "neutral" | "negative"). Las reseñas aún
 // sin etiqueta usan la valoración como fallback: ★>=7 positiva, ★<=4 negativa
@@ -277,11 +277,11 @@ const ReviewModel = {
             docs = snap.docs.map((d) => d.data());
         }
         const ratings = docs.map((d) => d.rating).filter((n) => Number.isInteger(n));
-        // Tarea 8 — clasificación por valoración del usuario.
+        // Clasificación por valoración del usuario.
         const positive = ratings.filter((n) => n >= 7).length;
         const negative = ratings.filter((n) => n <= 4).length;
 
-        // Tarea 9 — sentimiento del texto: prioriza la etiqueta de la IA (Gemini)
+        // Sentimiento del texto: prioriza la etiqueta de la IA (Gemini)
         // guardada en `sentiment`; sin etiqueta, usa la valoración como fallback.
         let sPositive = 0, sNegative = 0, sNeutral = 0, classified = 0;
         docs.forEach((d) => {

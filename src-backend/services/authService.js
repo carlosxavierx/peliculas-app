@@ -75,13 +75,13 @@ function cardUser(user) {
 }
 
 function cleanTop5Item(item) {
-    if (!item || typeof item !== "object") throw new Error("Cada favorita del Top 5 debe ser un objeto");
+    if (!item || typeof item !== "object") throw new Error("Cada favorita de la lista debe ser un objeto");
     const title = String(item.title || "").trim().slice(0, 200);
     const imdbID = String(item.imdbID || "").trim();
     if (!title && !imdbID) throw new Error("Cada favorita necesita 'title' o 'imdbID'");
-    if (imdbID && !/^tt\d+$/i.test(imdbID)) throw new Error("IMDb ID inválido en el Top 5");
+    if (imdbID && !/^tt\d+$/i.test(imdbID)) throw new Error("IMDb ID inválido en la lista de favoritas");
     const type = String(item.type || "movie").toLowerCase().trim();
-    if (type !== "movie" && type !== "series") throw new Error("Tipo inválido en el Top 5");
+    if (type !== "movie" && type !== "series") throw new Error("Tipo inválido en la lista de favoritas");
     return {
         movieId: String(item.movieId || "").trim().slice(0, 300) || null,
         imdbID: imdbID || null,
@@ -103,7 +103,7 @@ function isAdmin(user) {
     // 3. Revisar email dominios comunes de pruebas (ej. admin@dominio.com)
     const adminEmails = ["admin@test.com", "admin@example.com"];
     if (adminEmails.includes(user.email)) return true;
-    // 4. Fallback: si el nickname contiene "admin"
+    // 4. Fallback: si el apodo contiene "admin"
     if (user.nickname && user.nickname.toString().toLowerCase().includes("admin")) return true;
     return false;
 }
@@ -151,23 +151,23 @@ async function getUserById(userId) {
 async function setUserNickname(userId, nickname) {
     const cleanNickname = nickname.trim().toLowerCase();
     if (cleanNickname.length < 3) {
-        const err = new Error("El nickname debe tener al menos 3 caracteres");
+        const err = new Error("El apodo debe tener al menos 3 caracteres");
         err.code = "INVALID_NICKNAME";
         throw err;
     }
     if (cleanNickname.length > 30) {
-        const err = new Error("El nickname no puede superar 30 caracteres");
+        const err = new Error("El apodo no puede superar 30 caracteres");
         err.code = "INVALID_NICKNAME";
         throw err;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) {
-        const err = new Error("El nickname solo puede contener letras, números y guión bajo");
+        const err = new Error("El apodo solo puede contener letras, números y guión bajo");
         err.code = "INVALID_NICKNAME";
         throw err;
     }
     const existing = await findUserByNickname(cleanNickname);
     if (existing && existing.id !== userId) {
-        const err = new Error("Ese nickname ya está en uso");
+        const err = new Error("Ese apodo ya está en uso");
         err.code = "NICKNAME_TAKEN";
         throw err;
     }
@@ -263,7 +263,7 @@ const authService = {
         }
         const email = String(decoded.email || "").trim().toLowerCase();
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-            const err = new Error("La cuenta de Firebase no tiene un email válido");
+            const err = new Error("La cuenta de Firebase no tiene un correo válido");
             err.code = "INVALID_FIREBASE_TOKEN";
             throw err;
         }
@@ -356,7 +356,7 @@ const authService = {
     },
 
     setTop5: async (userId, items) => {
-        if (!userId || !Array.isArray(items)) throw new Error("Top 5 inválido");
+        if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
         const top5 = items.slice(0, 5).map(cleanTop5Item);
         if (!db) {
             const user = localUsers.get(userId);
