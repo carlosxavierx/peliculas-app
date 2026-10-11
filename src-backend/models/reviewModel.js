@@ -119,6 +119,27 @@ function sortReviews(list, sort) {
     return arr;
 }
 
+// ---------- Sentimiento (Tarea 9) ----------
+// La IA (Gemini) etiqueta el tono de cada reseña sobre su texto y lo guarda en
+// el campo `sentiment` ("positive" | "neutral" | "negative"). Las reseñas aún
+// sin etiqueta usan la valoración como fallback: ★>=7 positiva, ★<=4 negativa
+// y el resto (incluidas las sin valoración) neutra.
+function sentimentOf(doc) {
+    const stored = String((doc && doc.sentiment) || "").toLowerCase();
+    if (stored === "positive" || stored === "negative" || stored === "neutral") return stored;
+    const rating = Number(doc && doc.rating);
+    if (Number.isInteger(rating)) {
+        if (rating >= 7) return "positive";
+        if (rating <= 4) return "negative";
+    }
+    return "neutral";
+}
+
+function hasAiSentiment(doc) {
+    const stored = String((doc && doc.sentiment) || "").toLowerCase();
+    return stored === "positive" || stored === "negative" || stored === "neutral";
+}
+
 function publicReview(doc, userVote) {
     return {
         id: doc.id,
@@ -131,6 +152,7 @@ function publicReview(doc, userVote) {
         userName: doc.userName,
         text: doc.text,
         rating: doc.rating != null ? doc.rating : null,
+        sentiment: hasAiSentiment(doc) ? doc.sentiment : null,
         upvotes: Number(doc.upvotes) || 0,
         downvotes: Number(doc.downvotes) || 0,
         score: Number(doc.score) || 0,
@@ -255,8 +277,22 @@ const ReviewModel = {
             docs = snap.docs.map((d) => d.data());
         }
         const ratings = docs.map((d) => d.rating).filter((n) => Number.isInteger(n));
+        // Tarea 8 — clasificación por valoración del usuario.
         const positive = ratings.filter((n) => n >= 7).length;
         const negative = ratings.filter((n) => n <= 4).length;
+
+        // Tarea 9 — sentimiento del texto: prioriza la etiqueta de la IA (Gemini)
+        // guardada en `sentiment`; sin etiqueta, usa la valoración como fallback.
+        let sPositive = 0, sNegative = 0, sNeutral = 0, classified = 0;
+        docs.forEach((d) => {
+            if (hasAiSentiment(d)) classified += 1;
+            const label = sentimentOf(d);
+            if (label === "positive") sPositive += 1;
+            else if (label === "negative") sNegative += 1;
+            else sNeutral += 1;
+        });
+        const sentimentSource = classified === 0 ? "rating" : classified === docs.length ? "ai" : "mixed";
+
         return {
             mediaKey: key,
             count: docs.length,
@@ -264,7 +300,15 @@ const ReviewModel = {
             ratingsCount: ratings.length,
             positive,
             negative,
-            score: docs.reduce((a, d) => a + (Number(d.score) || 0), 0)
+            score: docs.reduce((a, d) => a + (Number(d.score) || 0), 0),
+            sentiment: {
+                source: sentimentSource,
+                count: docs.length,
+                classified,
+                positive: sPositive,
+                negative: sNegative,
+                neutral: sNeutral
+            }
         };
     },
 
@@ -373,6 +417,24 @@ const ReviewModel = {
         if (rating !== undefined) patch.rating = rating;
         await ref.set(patch, { merge: true });
         return publicReview({ id: ref.id, ...data, ...patch }, 0);
+    },
+
+    // Guarda la etiqueta de sentimiento puesta por la IA (Gemini) sobre el texto.
+    updateSentiment: async (id, sentiment) => {
+        const label = String(sentiment || "").toLowerCase();
+        if (label !== "positive" && label !== "negative" && label !== "neutral") return null;
+        if (!db) {
+            const doc = localReviews.find((r) => r.id === id);
+            if (!doc) return null;
+            doc.sentiment = label;
+            doc.sentimentAt = new Date().toISOString();
+            return label;
+        }
+        await db.collection("reviews").doc(id).set(
+            { sentiment: label, sentimentAt: new Date().toISOString() },
+            { merge: true }
+        );
+        return label;
     },
 
     remove: async (id, userId) => {

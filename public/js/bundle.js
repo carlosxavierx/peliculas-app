@@ -4315,6 +4315,10 @@ function AdminDashboard(props) {
             h("p", { className: "review-text" }, r.text),
             h("div", { className: "review-actions" },
                 r.rating ? h("span", { className: "chip chip--rating" }, "★ " + r.rating + "/10") : null,
+                r.sentiment === "positive" || r.sentiment === "negative" || r.sentiment === "neutral"
+                    ? h("span", { className: "chip admin-review-sent admin-review-sent-" + r.sentiment },
+                        "IA: " + (r.sentiment === "positive" ? "positiva" : r.sentiment === "negative" ? "negativa" : "neutra"))
+                    : null,
                 typeof r.score === "number" && r.score !== 0
                     ? h("span", { className: "chip" }, (r.score > 0 ? "+" : "") + r.score + " puntos")
                     : null,
@@ -4353,15 +4357,27 @@ function AdminDashboard(props) {
             h("span", { className: "admin-card-note" }, note));
 
     // Tarea 9 — Gráfico de sentimiento a partir del resumen agregado del backend
-    // (TODAS las reviews de la obra: positivas, negativas y neutras).
+    // (TODAS las reviews de la obra). Prioriza la clasificación real de la IA
+    // (Gemini) sobre el texto (summary.sentiment); sin etiquetas usa el fallback
+    // por valoración (★≥7 / ★≤4) que venía de la Tarea 8.
     const chartPct = (value, total) => (total > 0 ? Math.round((value / total) * 100) : 0);
+
+    const sentimentSourceText = (s) => {
+        const sm = s && s.sentiment;
+        if (!sm || typeof sm.count !== "number") return "";
+        if (sm.source === "ai") return "Todas las reseñas clasificadas por la IA (Gemini) a partir de su texto.";
+        if (sm.source === "mixed") return sm.classified + " de " + sm.count + " reseñas clasificadas por la IA (Gemini); el resto usa la valoración como respaldo.";
+        if (sm.source === "rating") return "Sin clave de IA configurada: clasificación por valoración (★≥7 positiva, ★≤4 negativa).";
+        return "";
+    };
 
     const sentimentChart = (s) => {
         if (!s || typeof s.count !== "number" || s.count <= 0) return null;
-        const total = s.count;
-        const pos = Number(s.positive) || 0;
-        const neg = Number(s.negative) || 0;
-        const neu = Math.max(0, total - pos - neg);
+        const ai = s.sentiment && typeof s.sentiment.count === "number" && s.sentiment.count > 0 ? s.sentiment : null;
+        const total = ai ? ai.count : s.count;
+        const pos = ai ? (Number(ai.positive) || 0) : (Number(s.positive) || 0);
+        const neg = ai ? (Number(ai.negative) || 0) : (Number(s.negative) || 0);
+        const neu = ai ? (Number(ai.neutral) || 0) : Math.max(0, total - pos - neg);
         const segs = [
             { key: "pos", label: "Positivas", cls: "sent-positive", value: pos },
             { key: "neu", label: "Neutras", cls: "sent-neutral", value: neu },
@@ -4542,7 +4558,10 @@ function AdminDashboard(props) {
                                     : reviewsSummary
                                         ? sentimentChart(reviewsSummary)
                                         : h("p", { className: "muted admin-stats-note" },
-                                            "No hay datos de sentimiento para este contenido.")
+                                            "No hay datos de sentimiento para este contenido."),
+                            !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary && reviewsSummary.sentiment
+                                ? h("p", { className: "muted admin-chart-note" }, sentimentSourceText(reviewsSummary))
+                                : null
                         ),
                         h("div", { className: "admin-chart-block" },
                             h("div", { className: "admin-chart-head" },
@@ -4845,7 +4864,7 @@ function AdminDashboard(props) {
                         : null,
                     !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
                         ? h("p", { className: "muted admin-stats-note" },
-                            "Clasificación automática del tono de las reseñas según la valoración del usuario, calculada sobre el TOTAL de reviews de la obra (resumen del backend): ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.")
+                            sentimentSourceText(reviewsSummary) + " Cálculo sobre el TOTAL de reviews de la obra (resumen del backend): positivas, neutras y negativas." )
                         : null
                 ),
                 h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")

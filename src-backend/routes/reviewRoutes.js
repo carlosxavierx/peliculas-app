@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { ReviewModel } = require("../models/reviewModel");
 const { authService } = require("../services/authService");
+const geminiService = require("../services/geminiService");
 
 // Sesión obligatoria (401) u opcional (null) según la ruta.
 // Las lecturas son públicas pero si viene Bearer se añade `userVote`.
@@ -40,6 +41,24 @@ function httpStatusFor(error) {
     if (/requiere iniciar sesión/i.test(msg)) return 401;
     if (/inválido|falta|demasiado|superar|entre 50|al menos 50|vacía|formato|rango|usa 1/i.test(msg)) return 400;
     return 500;
+}
+
+// Clasifica el sentimiento del texto de la reseña con la IA (Gemini) y lo guarda
+// en la reseña. Se ejecuta en segundo plano (best effort) para no bloquear la
+// respuesta al usuario; si no hay clave o falla, simplemente se queda sin etiqueta
+// y la clasificación usa el fallback por valoración.
+function scheduleSentimentClassification(id, text) {
+    const clean = String(text || "").trim();
+    if (!id || clean.length < 5) return;
+    if (!geminiService.isConfigured()) return;
+    (async () => {
+        try {
+            const labels = await geminiService.classifyTexts([clean]);
+            if (labels && labels[0]) await ReviewModel.updateSentiment(id, labels[0]);
+        } catch (error) {
+            console.error("[reviewRoutes] No se pudo clasificar el sentimiento:", error.message);
+        }
+    })();
 }
 
 // ---------- Lecturas públicas ----------
@@ -124,6 +143,7 @@ router.post("/reviews", async (req, res) => {
             { userId: user.id, userName: user.name || user.nickname || user.email },
             req.body
         );
+        scheduleSentimentClassification(review.id, review.text);
         res.status(201).json(review);
     } catch (error) {
         res.status(httpStatusFor(error)).json({ error: error.message });
@@ -143,6 +163,9 @@ router.put("/reviews/:id", async (req, res) => {
             rating: req.body.rating
         });
         if (!review) return res.status(404).json({ error: "Reseña no encontrada" });
+        if (req.body && req.body.text !== undefined) {
+            scheduleSentimentClassification(review.id, review.text);
+        }
         res.json(review);
     } catch (error) {
         res.status(httpStatusFor(error)).json({ error: error.message });

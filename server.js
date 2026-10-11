@@ -201,6 +201,11 @@ if (!process.env.OMDB_API_KEY) {
 if (!process.env.AI_API_KEY) {
     console.warn("AVISO: AI_API_KEY no definida. Define AI_API_KEY en tu .env para habilitar el agente de IA.");
 }
+if (!process.env.GEMINI_API_KEY) {
+    console.warn("AVISO: GEMINI_API_KEY no definida. El sentimiento de las reseñas usará la valoración (★) como fallback.");
+} else {
+    console.log("Gemini IA configurado: las reseñas se clasifican por sentimiento de su texto.");
+}
 
 app.listen(PORT, () => {
     console.log(`Servidor arrancado en http://localhost:${PORT}`);

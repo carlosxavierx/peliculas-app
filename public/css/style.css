@@ -2166,3 +2166,10 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     .admin-genre-label { text-align: left; }
     .admin-genre-value { text-align: left; }
 }
+
+/* Tarea 9 — sentimiento por reseña (etiqueta de la IA) y nota de origen */
+.admin-chart-note { font-size: 0.82rem; margin-top: 0.65rem; }
+.admin-review-sent { font-size: 0.72rem; padding: 0.22rem 0.6rem; }
+.admin-review-sent-positive { color: #7bd88f; border-color: rgba(123, 216, 143, 0.45); }
+.admin-review-sent-negative { color: #ff7a8f; border-color: rgba(255, 122, 143, 0.45); }
+.admin-review-sent-neutral { color: var(--bronze-bright); border-color: rgba(230, 194, 92, 0.45); }
