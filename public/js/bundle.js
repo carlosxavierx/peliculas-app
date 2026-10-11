@@ -4352,6 +4352,76 @@ function AdminDashboard(props) {
             h("strong", { className: "admin-card-value" }, value),
             h("span", { className: "admin-card-note" }, note));
 
+    // Tarea 9 — Gráfico de sentimiento a partir del resumen agregado del backend
+    // (TODAS las reviews de la obra: positivas, negativas y neutras).
+    const chartPct = (value, total) => (total > 0 ? Math.round((value / total) * 100) : 0);
+
+    const sentimentChart = (s) => {
+        if (!s || typeof s.count !== "number" || s.count <= 0) return null;
+        const total = s.count;
+        const pos = Number(s.positive) || 0;
+        const neg = Number(s.negative) || 0;
+        const neu = Math.max(0, total - pos - neg);
+        const segs = [
+            { key: "pos", label: "Positivas", cls: "sent-positive", value: pos },
+            { key: "neu", label: "Neutras", cls: "sent-neutral", value: neu },
+            { key: "neg", label: "Negativas", cls: "sent-negative", value: neg }
+        ].filter((seg) => seg.value > 0);
+        if (segs.length === 0) return null;
+        return h("div", { className: "admin-chart" },
+            h("div", {
+                className: "admin-chart-bar", role: "img",
+                "aria-label": "Distribución del tono de las reseñas"
+            },
+                segs.map((seg) =>
+                    h("span", {
+                        key: seg.key,
+                        className: "admin-chart-seg " + seg.cls,
+                        style: { width: (seg.value / total) * 100 + "%" },
+                        title: seg.label + ": " + seg.value + " (" + chartPct(seg.value, total) + "%)"
+                    })
+                )
+            ),
+            h("div", { className: "admin-chart-legend" },
+                segs.map((seg) =>
+                    h("span", { key: seg.key, className: "admin-chart-legend-item" },
+                        h("span", { className: "admin-chart-dot " + seg.cls }),
+                        h("span", null, seg.label),
+                        h("strong", null, String(seg.value)),
+                        h("span", { className: "muted" }, "(" + chartPct(seg.value, total) + "%)")
+                    )
+                )
+            )
+        );
+    };
+
+    // Tarea 12 — Reviews por género del catálogo (agregado global del backend).
+    const genreChart = (list) => {
+        if (!Array.isArray(list) || list.length === 0) {
+            return h("p", { className: "muted admin-stats-note" },
+                "Aún no hay reseñas asociadas a géneros del catálogo.");
+        }
+        const max = Math.max.apply(null, list.map((g) => Number(g.count) || 0)) || 1;
+        return h("div", { className: "admin-genre-chart" },
+            list.map((g) =>
+                h("div", { key: g.genre, className: "admin-genre-row" },
+                    h("span", { className: "admin-genre-label", title: g.genre }, g.genre),
+                    h("div", { className: "admin-genre-track" },
+                        h("span", {
+                            className: "admin-genre-fill",
+                            style: { width: ((Number(g.count) || 0) / max) * 100 + "%" }
+                        })
+                    ),
+                    h("span", { className: "admin-genre-value" },
+                        g.count + " " + (g.count === 1 ? "review" : "reviews") +
+                        (Number(g.positive) || Number(g.negative)
+                            ? " · +" + (Number(g.positive) || 0) + "/-" + (Number(g.negative) || 0)
+                            : ""))
+                )
+            )
+        );
+    };
+
     const views = {
         main: h("div", { className: "admin-main" }, [
             error ? h("p", { className: "error" }, error) : null,
@@ -4407,7 +4477,7 @@ function AdminDashboard(props) {
                     h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
                         h("span", { className: "admin-menu-title" }, "Análisis de Sentimiento"),
                         h("span", { className: "admin-menu-desc" }, "Valoración automática de reseñas"),
-                        h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 9")
+                        h("span", { className: "chip chip--done" }, "Tarea 9 · Lista")
                     )
                 )
             ),
@@ -4455,10 +4525,32 @@ function AdminDashboard(props) {
                     !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
                         ? h("p", { className: "muted admin-stats-note" },
                             "Métricas calculadas sobre el total de reviews de la obra (resumen del backend). Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
-                    // Zona reservada: Tarea 9 y Tarea 12 insertarán aquí sus gráficas.
-                    h("div", { className: "admin-content-tools" },
-                        h("span", { className: "chip chip--soon" }, "Gráfico de sentimiento · Tarea 9"),
-                        h("span", { className: "chip chip--soon" }, "Gráfico por género · Tarea 12")
+                    // Tareas 9 y 12 — Gráficas del panel (datos reales, sin APIs nuevas):
+                    // sentimiento del contenido seleccionado y reviews por género del catálogo.
+                    h("div", { className: "admin-stats-charts" },
+                        h("div", { className: "admin-chart-block" },
+                            h("div", { className: "admin-chart-head" },
+                                h("h3", { className: "admin-chart-title" }, "Gráfico de sentimiento"),
+                                h("span", { className: "chip chip--done" }, "Tarea 9 · Lista")
+                            ),
+                            reviewsSummaryLoading
+                                ? h("div", { className: "admin-loader" },
+                                    h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                                    h("span", null, "Analizando sentimiento…"))
+                                : reviewsSummaryError
+                                    ? h("p", { className: "error" }, reviewsSummaryError)
+                                    : reviewsSummary
+                                        ? sentimentChart(reviewsSummary)
+                                        : h("p", { className: "muted admin-stats-note" },
+                                            "No hay datos de sentimiento para este contenido.")
+                        ),
+                        h("div", { className: "admin-chart-block" },
+                            h("div", { className: "admin-chart-head" },
+                                h("h3", { className: "admin-chart-title" }, "Reviews por género"),
+                                h("span", { className: "chip chip--done" }, "Tarea 12 · Lista")
+                            ),
+                            genreChart(stats.reviewsByGenre)
+                        )
                     )
                 )
                 : h("div", { className: "admin-content-empty" },
@@ -4564,14 +4656,16 @@ function AdminDashboard(props) {
                                         h("dd", null, selectedContent.imdbID))
                                     : null
                             ),
-                            // Zona reservada: las Tareas 6 y 8 ya ocupan su sitio; 9/12 llegarán próximamente.
+                            // Accesos directos de Tarea: reviews, estadísticas, sentimiento y gráficas.
                             h("div", { className: "admin-content-tools" },
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("reviews") },
                                     "Gestionar Reviews"),
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
                                     "Ver Estadísticas"),
-                                h("span", { className: "chip chip--soon" }, "Sentimiento · Tarea 9"),
-                                h("span", { className: "chip chip--soon" }, "Gráficas · Tarea 12")
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("sentiment") },
+                                    "Sentimiento · Tarea 9"),
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
+                                    "Gráficas · Tarea 12")
                             ),
                             h("button", { className: "btn-ghost btn-small", onClick: () => setSelectedContent(null) },
                                 "Quitar selección")
@@ -4715,12 +4809,56 @@ function AdminDashboard(props) {
                 ),
                 h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
             ]),
-        sentiment: h("div", { className: "admin-placeholder" },
-            h("span", { className: "chip chip--soon" }, "Próximamente · Tarea 9"),
-            h("h2", null, "Análisis de Sentimiento"),
-            h("p", { className: "muted" }, "Aquí podrás ver la valoración automática del tono de las reseñas."),
-            h("button", { className: "btn-primary admin-back", onClick: backToMain }, "← Volver al resumen")
-        )
+        sentiment: selectedContent
+            ? h("div", { className: "admin-main" }, [
+                h("div", { className: "admin-reviews-media" },
+                    h("div", { className: "admin-reviews-thumb" },
+                        h("img", {
+                            src: selectedContent.poster || PLACEHOLDER_POSTER,
+                            alt: selectedContent.title || "Póster",
+                            loading: "lazy",
+                            onError: (e) => { e.target.onerror = null; if (e.target.src !== PLACEHOLDER_POSTER) e.target.src = PLACEHOLDER_POSTER; }
+                        })
+                    ),
+                    h("div", { className: "admin-reviews-media-info" },
+                        h("span", { className: "chip chip--selected" }, "Contenido seleccionado"),
+                        h("h3", null, selectedContent.title || "Sin título"),
+                        h("p", { className: "muted", style: { margin: 0 } },
+                            (selectedContent.mediaType === "series" ? "Serie" : "Película") +
+                            (selectedContent.year ? " · " + selectedContent.year : ""))
+                    ),
+                    h("button", { className: "btn-ghost btn-small admin-change", onClick: () => setSection("search") }, "Cambiar contenido")
+                ),
+                h("section", { className: "admin-section" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Análisis de Sentimiento"),
+                        h("span", { className: "chip chip--done" }, "Tarea 9 · Lista")
+                    ),
+                    reviewsSummaryError ? h("p", { className: "error" }, reviewsSummaryError) : null,
+                    reviewsSummaryLoading
+                        ? h("div", { className: "admin-loader" },
+                            h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                            h("span", null, "Analizando sentimiento…"))
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? sentimentChart(reviewsSummary)
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? h("p", { className: "muted admin-stats-note" },
+                            "Clasificación automática del tono de las reseñas según la valoración del usuario, calculada sobre el TOTAL de reviews de la obra (resumen del backend): ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.")
+                        : null
+                ),
+                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+            ])
+            : h("div", { className: "admin-main" }, [
+                h("div", { className: "admin-placeholder" },
+                    h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
+                    h("h2", null, "Análisis de Sentimiento"),
+                    h("p", { className: "muted" }, "Selecciona una serie o película para analizar el tono de sus reseñas."),
+                    h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
+                ),
+                h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver al resumen")
+            ])
     };
 
     return h("div", { className: "movies-page" },

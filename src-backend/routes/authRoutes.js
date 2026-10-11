@@ -454,17 +454,68 @@ async function requireAdmin(req, res, next) {
 router.get("/admin/stats", requireAdmin, async (req, res) => {
     try {
         if (!db) {
-            return res.json({ users: 0, movies: 0, series: 0 });
+            return res.json({ users: 0, movies: 0, series: 0, reviews: 0, reviewsByGenre: [] });
         }
-        const [usersSnap, moviesSnap, seriesSnap] = await Promise.all([
+        const [usersSnap, moviesSnap, seriesSnap, reviewsSnap] = await Promise.all([
             db.collection("users").get(),
             db.collection("movies").get(),
-            db.collection("series").get()
+            db.collection("series").get(),
+            db.collection("reviews").limit(20000).get()
         ]);
+
+        // ---- Tarea 12: reviews por género (TODAS las reviews, sin límite de página) ----
+        // Índice imdbID -> géneros a partir del catálogo (las obras guardan su genre
+        // como lista separada por comas, p. ej. "Comedy, Drama, War").
+        const genreByContentKey = new Map();
+        const addGenreIndex = (data, type) => {
+            const imdb = String((data && data.imdbID) || "").trim().toLowerCase();
+            const genre = String((data && data.genre) || "").trim();
+            if (imdb && genre && genre !== "Sin género" && genre !== "N/A") {
+                genreByContentKey.set(type + ":" + imdb, genre);
+            }
+        };
+        moviesSnap.forEach((d) => addGenreIndex(d.data(), "movie"));
+        seriesSnap.forEach((d) => addGenreIndex(d.data(), "series"));
+
+        // Reseñas agrupadas por obra (mediaKey: "movie:tt4758646" / "series:tt1520211").
+        const reviewsByContent = {};
+        reviewsSnap.forEach((d) => {
+            const data = d.data() || {};
+            const key = String(data.mediaKey || "").toLowerCase();
+            if (!key) return;
+            const entry = reviewsByContent[key] || (reviewsByContent[key] = { count: 0, positive: 0, negative: 0 });
+            entry.count += 1;
+            const rating = Number(data.rating);
+            if (Number.isInteger(rating)) {
+                if (rating >= 7) entry.positive += 1;
+                else if (rating <= 4) entry.negative += 1;
+            }
+        });
+
+        const byGenre = {};
+        for (const [key, info] of Object.entries(reviewsByContent)) {
+            const genreRaw = genreByContentKey.get(key);
+            if (!genreRaw) continue;
+            for (const part of String(genreRaw).split(",")) {
+                const name = part.trim();
+                if (!name) continue;
+                const gk = name.toLowerCase();
+                const entry = byGenre[gk] || (byGenre[gk] = { genre: name, count: 0, positive: 0, negative: 0 });
+                entry.count += info.count;
+                entry.positive += info.positive;
+                entry.negative += info.negative;
+            }
+        }
+        const reviewsByGenre = Object.values(byGenre)
+            .sort((a, b) => b.count - a.count || a.genre.localeCompare(b.genre))
+            .map((g) => ({ genre: g.genre, count: g.count, positive: g.positive, negative: g.negative }));
+
         res.json({
             users: usersSnap.size,
             movies: moviesSnap.size,
-            series: seriesSnap.size
+            series: seriesSnap.size,
+            reviews: reviewsSnap.size,
+            reviewsByGenre
         });
     } catch (error) {
         res.status(500).json({ error: error.message || "Error al obtener estadísticas" });
