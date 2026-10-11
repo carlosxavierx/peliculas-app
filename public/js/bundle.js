@@ -276,6 +276,20 @@ function reviewQueryOf(mediaType, detail) {
     return parts.join("&");
 }
 
+function timeAgoEs(iso) {
+    if (!iso) return "";
+    const ms = Date.now() - new Date(iso).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return "";
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1) return "hace un momento";
+    if (mins < 60) return "hace " + mins + (mins === 1 ? " minuto" : " minutos");
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return "hace " + hours + (hours === 1 ? " hora" : " horas");
+    const days = Math.floor(hours / 24);
+    if (days < 7) return "hace " + days + (days === 1 ? " día" : " días");
+    return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
+}
+
 function toFrontReview(raw) {
     const r = Object.assign({}, raw);
     r.user = raw.userName || raw.user || "Usuario";
@@ -3988,18 +4002,13 @@ function AdminRoute(props) {
 function AdminDashboard(props) {
     const user = props.user;
     const onNavigate = props.onNavigate;
-    // Datos simulados para las cards de resumen (Tarea 6 conectará las reviews).
-    const SAMPLE_REVIEWS = { total: 128, positive: 92, negative: 36 };
-    // Actividad reciente de ejemplo (aún sin backend).
-    const SAMPLE_ACTIVITY = [
-        { user: "pablo", action: "Promovió a Héctor a administrador", date: "Hace 2 h" },
-        { user: "Daniel", action: "Añadió una reseña a 'Dune: Parte Dos'", date: "Hace 5 h" },
-        { user: "Carlos Xavier", action: "Actualizó su colección de series", date: "Ayer" },
-        { user: "Héctor", action: "Reportó un contenido inapropiado", date: "Ayer" }
-    ];
-    const statsState = React.useState({ users: 0, movies: 0, series: 0 });
+    const statsState = React.useState({ users: 0, movies: 0, series: 0, reviews: 0, reviewsPositive: 0, reviewsNegative: 0, activity: [] });
     const stats = statsState[0];
     const setStats = statsState[1];
+    // Cards del resumen y actividad reciente: datos reales del backend
+    // (/api/admin/stats incluye reviews, reviewsPositive/Negative y activity).
+    const activityList = Array.isArray(stats.activity) ? stats.activity : [];
+    const neutralReviews = Math.max(0, Number(stats.reviews || 0) - (Number(stats.reviewsPositive) || 0) - (Number(stats.reviewsNegative) || 0));
     const usersState = React.useState([]);
     const users = usersState[0];
     const setUsers = usersState[1];
@@ -4108,6 +4117,10 @@ function AdminDashboard(props) {
     React.useEffect(() => {
         loadStats();
         loadUsers();
+        // Refresco periódico: así las cards del resumen y la actividad reciente
+        // reflejan en tiempo real nuevas reseñas y cambios de rol.
+        const timer = setInterval(loadStats, 15000);
+        return () => clearInterval(timer);
     }, []);
 
     // Tarea 6 — Carga la lista del contenido (paginada, 50/página) y, en paralelo,
@@ -4204,6 +4217,8 @@ function AdminDashboard(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error al cambiar rol");
             setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+            // Refresca la actividad reciente para que la promoción aparezca ya.
+            loadStats();
         } catch (e) {
             alert(e.message);
         }
@@ -4438,34 +4453,55 @@ function AdminDashboard(props) {
         );
     };
 
+    // Texto de acción para un evento de actividad reciente (p. ej. promociones
+    // y nuevas reviews que registra el backend en la colección activity).
+    const activityActionText = (a) => {
+        if (!a || typeof a !== "object") return "";
+        switch (a.type) {
+            case "promote":
+                return "promovió a " + (a.target || "un usuario") + " a administrador";
+            case "demote":
+                return "retiró el rol de administrador a " + (a.target || "un usuario");
+            case "review":
+                return "añadió una reseña a «" + (a.target || "una obra") + "»";
+            default:
+                return a.details || a.action || "";
+        }
+    };
+
     const views = {
         main: h("div", { className: "admin-main" }, [
             error ? h("p", { className: "error" }, error) : null,
             h("section", { className: "admin-section" },
                 h("div", { className: "admin-section-head" },
                     h("h2", null, "Resumen"),
-                    h("span", { className: "chip" }, "Reviews: datos de ejemplo")
+                    h("span", { className: "chip" }, "Datos en tiempo real")
                 ),
                 h("div", { className: "admin-cards" },
                     h("div", { key: "u", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Total Usuarios"),
                         h("strong", { className: "admin-card-value" }, String(stats.users)),
-                        h("span", { className: "admin-card-note" }, "Usuarios registrados")
+                        h("span", { className: "admin-card-note" }, "Cuentas registradas")
                     ),
                     h("div", { key: "r", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Total Reviews"),
-                        h("strong", { className: "admin-card-value" }, String(SAMPLE_REVIEWS.total)),
-                        h("span", { className: "admin-card-note" }, "Datos de ejemplo · Tarea 6")
+                        h("strong", { className: "admin-card-value" }, String(stats.reviews)),
+                        h("span", { className: "admin-card-note" }, "Reseñas publicadas")
                     ),
                     h("div", { key: "p", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Reviews Positivas"),
-                        h("strong", { className: "admin-card-value" }, String(SAMPLE_REVIEWS.positive)),
-                        h("span", { className: "admin-card-note" }, "Datos de ejemplo · Tarea 6")
+                        h("strong", { className: "admin-card-value" }, String(stats.reviewsPositive)),
+                        h("span", { className: "admin-card-note" }, "Valoración ★ ≥ 7")
                     ),
                     h("div", { key: "n", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Reviews Negativas"),
-                        h("strong", { className: "admin-card-value" }, String(SAMPLE_REVIEWS.negative)),
-                        h("span", { className: "admin-card-note" }, "Datos de ejemplo · Tarea 6")
+                        h("strong", { className: "admin-card-value" }, String(stats.reviewsNegative)),
+                        h("span", { className: "admin-card-note" }, "Valoración ★ ≤ 4")
+                    ),
+                    h("div", { key: "ne", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reviews Neutras"),
+                        h("strong", { className: "admin-card-value" }, String(neutralReviews)),
+                        h("span", { className: "admin-card-note" }, "Sin valoración o ★ 5-6")
                     )
                 )
             ),
@@ -4478,8 +4514,7 @@ function AdminDashboard(props) {
                     ),
                     h("button", { key: "stats", className: "admin-menu-card", onClick: () => setSection("stats") },
                         h("span", { className: "admin-menu-title" }, "Estadísticas"),
-                        h("span", { className: "admin-menu-desc" }, "Métricas del contenido seleccionado"),
-                        h("span", { className: "chip chip--done" }, "Tarea 8 · Lista")
+                        h("span", { className: "admin-menu-desc" }, "Métricas del contenido seleccionado")
                     ),
                     h("button", { key: "users", className: "admin-menu-card", onClick: () => setSection("users") },
                         h("span", { className: "admin-menu-title" }, "Gestión de Usuarios"),
@@ -4487,29 +4522,28 @@ function AdminDashboard(props) {
                     ),
                     h("button", { key: "reviews", className: "admin-menu-card", onClick: () => setSection("reviews") },
                         h("span", { className: "admin-menu-title" }, "Gestión de Reviews"),
-                        h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo"),
-                        h("span", { className: "chip chip--done" }, "Tarea 6 · Lista")
+                        h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo")
                     ),
                     h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
                         h("span", { className: "admin-menu-title" }, "Análisis de Sentimiento"),
-                        h("span", { className: "admin-menu-desc" }, "Valoración automática de reseñas"),
-                        h("span", { className: "chip chip--done" }, "Tarea 9 · Lista")
+                        h("span", { className: "admin-menu-desc" }, "Valoración automática de reseñas")
                     )
                 )
             ),
             h("section", { className: "admin-section" },
                 h("div", { className: "admin-section-head" },
-                    h("h2", null, "Actividad reciente"),
-                    h("span", { className: "chip" }, "Datos de ejemplo")
+                    h("h2", null, "Actividad Reciente")
                 ),
                 h("div", { className: "admin-activity" },
-                    SAMPLE_ACTIVITY.map((a, i) =>
-                        h("div", { key: i, className: "admin-activity-item" },
-                            h("strong", { className: "admin-activity-user" }, a.user),
-                            h("span", { className: "admin-activity-action" }, a.action),
-                            h("time", { className: "admin-activity-date" }, a.date)
+                    activityList.length > 0
+                        ? activityList.map((a, i) =>
+                            h("div", { key: a.id || i, className: "admin-activity-item" },
+                                h("strong", { className: "admin-activity-user" }, a.actor || "Usuario"),
+                                h("span", { className: "admin-activity-action" }, activityActionText(a)),
+                                h("time", { className: "admin-activity-date" }, a.at ? timeAgoEs(a.at) : "")
+                            )
                         )
-                    )
+                        : h("p", { className: "muted admin-stats-note" }, "Aún no hay actividad registrada.")
                 )
             )
         ]),
@@ -4546,8 +4580,7 @@ function AdminDashboard(props) {
                     h("div", { className: "admin-stats-charts" },
                         h("div", { className: "admin-chart-block" },
                             h("div", { className: "admin-chart-head" },
-                                h("h3", { className: "admin-chart-title" }, "Gráfico de sentimiento"),
-                                h("span", { className: "chip chip--done" }, "Tarea 9 · Lista")
+                                h("h3", { className: "admin-chart-title" }, "Gráfico de sentimiento")
                             ),
                             reviewsSummaryLoading
                                 ? h("div", { className: "admin-loader" },
@@ -4565,8 +4598,7 @@ function AdminDashboard(props) {
                         ),
                         h("div", { className: "admin-chart-block" },
                             h("div", { className: "admin-chart-head" },
-                                h("h3", { className: "admin-chart-title" }, "Reviews por género"),
-                                h("span", { className: "chip chip--done" }, "Tarea 12 · Lista")
+                                h("h3", { className: "admin-chart-title" }, "Reviews por género")
                             ),
                             genreChart(stats.reviewsByGenre)
                         )
@@ -4682,9 +4714,9 @@ function AdminDashboard(props) {
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
                                     "Ver Estadísticas"),
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("sentiment") },
-                                    "Sentimiento · Tarea 9"),
+                                    "Ver Sentimiento"),
                                 h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
-                                    "Gráficas · Tarea 12")
+                                    "Ver Gráficas")
                             ),
                             h("button", { className: "btn-ghost btn-small", onClick: () => setSelectedContent(null) },
                                 "Quitar selección")
@@ -4850,8 +4882,7 @@ function AdminDashboard(props) {
                 ),
                 h("section", { className: "admin-section" },
                     h("div", { className: "admin-section-head" },
-                        h("h2", null, "Análisis de Sentimiento"),
-                        h("span", { className: "chip chip--done" }, "Tarea 9 · Lista")
+                        h("h2", null, "Análisis de Sentimiento")
                     ),
                     reviewsSummaryError ? h("p", { className: "error" }, reviewsSummaryError) : null,
                     reviewsSummaryLoading

@@ -3,6 +3,7 @@ const router = express.Router();
 const { ReviewModel } = require("../models/reviewModel");
 const { authService } = require("../services/authService");
 const geminiService = require("../services/geminiService");
+const ActivityModel = require("../models/activityModel");
 
 // Sesión obligatoria (401) u opcional (null) según la ruta.
 // Las lecturas son públicas pero si viene Bearer se añade `userVote`.
@@ -144,6 +145,12 @@ router.post("/reviews", async (req, res) => {
             req.body
         );
         scheduleSentimentClassification(review.id, review.text);
+        // Registro de actividad (best-effort, no bloquea la respuesta).
+        ActivityModel.addEvent({
+            type: "review",
+            actor: review.userName,
+            target: review.mediaTitle
+        });
         res.status(201).json(review);
     } catch (error) {
         res.status(httpStatusFor(error)).json({ error: error.message });

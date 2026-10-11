@@ -115,6 +115,64 @@ function makeUsers(count) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// ---------- Nombres reales ----------
+// Generador determinista de nombres y apellidos en español para que las reseñas
+// del panel no parezcan de una base de pruebas (en lugar de "Cinefilo Seed NNNN").
+const FIRST_NAMES = [
+    "Lucía", "Martín", "Sofía", "Hugo", "Valeria", "Daniel", "Paula", "Alejandro",
+    "Claudia", "Diego", "Marta", "Iván", "Nerea", "Álvaro", "Carla", "Javier",
+    "Elena", "Pablo", "Rocío", "Sergio", "Laura", "Raúl", "Cristina", "Andrés",
+    "Nuria", "Miguel", "Sara", "Rubén", "Patricia", "Óscar", "Alba", "Fernando",
+    "Teresa", "Adrián", "Irene", "Jorge", "Silvia", "David", "Ana", "Carlos",
+    "María", "Jesús", "Celia", "Luis", "Inés", "Manuel", "Alicia", "Pedro",
+    "Carmen", "Antonio", "Beatriz", "Francisco", "Esther", "Juan", "Victoria",
+    "Ricardo", "Mónica", "Santiago", "Gloria", "Ramiro", "Verónica", "Salvador",
+    "Pilar", "Emilio", "Susana", "Félix", "Rosa", "Leandro", "Miriam", "Gonzalo",
+    "Tania", "Joaquín", "Olga", "Marcos", "Natalia", "Héctor", "Rebeca", "Iker",
+    "Lorena", "Aitor", "Ariadna", "Unai", "Noelia", "Iago", "Camila", "Bruno",
+    "Fátima", "Leo", "Jimena", "Marco", "Elsa", "Gael", "Renata", "Nicolás",
+    "Valentina", "Samuel", "Andrea", "Emiliano", "Bianca", "Matías", "Daniela"
+];
+const LAST_NAMES = [
+    "García", "Rodríguez", "González", "Fernández", "López", "Martínez", "Sánchez",
+    "Pérez", "Gómez", "Martín", "Ruiz", "Hernández", "Díaz", "Moreno", "Muñoz",
+    "Álvarez", "Romero", "Alonso", "Gutiérrez", "Navarro", "Torres", "Domínguez",
+    "Vázquez", "Ramos", "Gil", "Ramírez", "Serrano", "Blanco", "Molina", "Morales",
+    "Suárez", "Ortega", "Delgado", "Castro", "Ortiz", "Rubio", "Marín", "Sanz",
+    "Iglesias", "Medina", "Garrido", "Cortés", "Castillo", "Santos", "Lozano",
+    "Guerrero", "Cano", "Prieto", "Méndez", "Cruz", "Calvo", "Gallego", "Vidal",
+    "León", "Márquez", "Peña", "Durán", "Vega", "Fuentes", "Cabrera", "Carrasco",
+    "Soto", "Herrera", "Aguilar", "Flores", "Reyes", "Campos", "Sáez", "Arias",
+    "Vargas", "Mora", "Rojas", "Parra", "Bravo", "Jiménez", "Salas", "Ríos",
+    "Nieto", "Casado", "Rivas", "Guzmán", "Pereira", "Aparicio", "Cabello",
+    "Vicente", "Ibáñez", "Benítez", "Aguirre", "Toledo", "Pastor", "Montero",
+    "Santana", "Prado", "Escobar", "Maldonado", "Quintana", "Zapata", "Camacho", "Aranda"
+];
+
+// Devuelve un nombre completo (nombre + apellido) en función de un índice (1..N).
+// El apellido usa un multiplicador coprimo con el nº de apellidos para repartirlos
+// por todo el conjunto (evita que muchas reseñas seguidas compartan apellido).
+function realUserName(index) {
+    const idx = Math.max(0, Number(index) - 1) || 0;
+    const first = FIRST_NAMES[idx % FIRST_NAMES.length];
+    const last = LAST_NAMES[(idx * 13 + 5) % LAST_NAMES.length];
+    return `${first} ${last}`;
+}
+
+// Engendra el número exacto de usuarios ficticios para respetar la regla
+// "una reseña por usuario y obra" sin colisiones (RESEÑA duplicada).
+function makeUsers(count) {
+    const users = [];
+    for (let i = 0; i < count; i++) {
+        const n = String(i + 1).padStart(4, "0");
+        users.push({
+            userId: `seed_user_${n}`,
+            userName: realUserName(i + 1)
+        });
+    }
+    return users;
+}
+
 // Comprueba que la obra esté en el catálogo (colecciones movies/series),
 // así las reseñas se podrán ver en el panel de administración.
 async function checkInCatalog(media) {
@@ -197,7 +255,7 @@ async function main() {
     process.exit(0);
 }
 
-module.exports = { MEDIA, REVIEWS, getRandomRating, makeUsers };
+module.exports = { MEDIA, REVIEWS, getRandomRating, makeUsers, realUserName };
 
 if (require.main === module) {
     main().catch((error) => {

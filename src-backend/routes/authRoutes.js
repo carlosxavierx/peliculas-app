@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { authService, findUserByNickname, setUserNickname, isAdmin } = require("../services/authService");
 const firebaseConn = require("../models/firebase");
+const ActivityModel = require("../models/activityModel");
 const db = firebaseConn.getDb();
 
 function tokenFromHeader(req) {
@@ -454,7 +455,7 @@ async function requireAdmin(req, res, next) {
 router.get("/admin/stats", requireAdmin, async (req, res) => {
     try {
         if (!db) {
-            return res.json({ users: 0, movies: 0, series: 0, reviews: 0, reviewsByGenre: [] });
+            return res.json({ users: 0, movies: 0, series: 0, reviews: 0, reviewsPositive: 0, reviewsNegative: 0, reviewsByGenre: [], activity: [] });
         }
         const [usersSnap, moviesSnap, seriesSnap, reviewsSnap] = await Promise.all([
             db.collection("users").get(),
@@ -479,13 +480,19 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
 
         // Reseñas agrupadas por obra (mediaKey: "movie:tt4758646" / "series:tt1520211").
         const reviewsByContent = {};
+        let reviewsPositive = 0;
+        let reviewsNegative = 0;
         reviewsSnap.forEach((d) => {
             const data = d.data() || {};
             const key = String(data.mediaKey || "").toLowerCase();
+            const rating = Number(data.rating);
+            if (Number.isInteger(rating)) {
+                if (rating >= 7) reviewsPositive += 1;
+                else if (rating <= 4) reviewsNegative += 1;
+            }
             if (!key) return;
             const entry = reviewsByContent[key] || (reviewsByContent[key] = { count: 0, positive: 0, negative: 0 });
             entry.count += 1;
-            const rating = Number(data.rating);
             if (Number.isInteger(rating)) {
                 if (rating >= 7) entry.positive += 1;
                 else if (rating <= 4) entry.negative += 1;
@@ -510,12 +517,17 @@ router.get("/admin/stats", requireAdmin, async (req, res) => {
             .sort((a, b) => b.count - a.count || a.genre.localeCompare(b.genre))
             .map((g) => ({ genre: g.genre, count: g.count, positive: g.positive, negative: g.negative }));
 
+        const activity = await ActivityModel.listRecent(8);
+
         res.json({
             users: usersSnap.size,
             movies: moviesSnap.size,
             series: seriesSnap.size,
             reviews: reviewsSnap.size,
-            reviewsByGenre
+            reviewsPositive,
+            reviewsNegative,
+            reviewsByGenre,
+            activity
         });
     } catch (error) {
         res.status(500).json({ error: error.message || "Error al obtener estadísticas" });
@@ -563,6 +575,15 @@ router.put("/admin/users/:id/role", requireAdmin, async (req, res) => {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
         await userRef.update({ role });
+        // Registro de actividad: quién (el admin autenticado) cambió el rol a quién.
+        const targetDoc = userDoc.data() || {};
+        const actorName = (req.adminUser && (req.adminUser.name || req.adminUser.nickname)) || "Administrador";
+        const targetName = targetDoc.name || targetDoc.nickname || "un usuario";
+        await ActivityModel.addEvent({
+            type: role === "admin" ? "promote" : "demote",
+            actor: actorName,
+            target: targetName
+        });
         res.json({ ok: true, role });
     } catch (error) {
         res.status(500).json({ error: error.message || "Error al cambiar rol" });
