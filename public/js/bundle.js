@@ -618,7 +618,7 @@ function SiteHeader(props) {
         h("div", { className: "header-inner" },
             h("button", { className: "logo", onClick: () => go("home"), "aria-label": "Ir al inicio" },
                 h("img", {
-                    className: "logo-img", src: "/img/logo-icon.png", alt: "",
+                    className: "logo-img", src: "/img/logo-icon.png", alt: "", "data-img-fallback": "off",
                     onError: (e) => { e.target.style.display = "none"; }
                 }),
                 h("span", { className: "logo-text" }, BRAND)
@@ -698,7 +698,64 @@ function SiteFooter(props) {
 }
 
 /* ---------- MovieCard ---------- */
-const PLACEHOLDER_POSTER = "https://via.placeholder.com/300x450?text=Sin+imagen";
+// Último recurso: si el póster de un contenido no existe o su enlace ya está
+// borrado en el CDN, esta imagen genérica evita que la ficha quede sin nada.
+const POSTER_FALLBACK = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">' +
+    '<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#1a2230"/><stop offset="1" stop-color="#0f141c"/>' +
+    "</linearGradient></defs>" +
+    '<rect width="300" height="450" fill="url(#bg)"/>' +
+    '<rect x="22.5" y="22.5" width="255" height="405" rx="14" fill="none" stroke="#2a3444" stroke-width="2"/>' +
+    '<g transform="translate(150,200)">' +
+    '<rect x="-40" y="-40" width="80" height="80" rx="12" fill="none" stroke="#4a5568" stroke-width="4"/>' +
+    '<path d="M-14 -18 L26 0 L-14 18 Z" fill="#4a5568"/>' +
+    "</g>" +
+    '<text x="150" y="302" fill="#7b8698" font-family="Arial, Helvetica, sans-serif" font-size="24" text-anchor="middle">Sin imagen</text>' +
+    "</svg>"
+);
+
+// Avatar de sustitución para los perfiles sin foto.
+const AVATAR_FALLBACK = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">' +
+    '<rect width="120" height="120" fill="#1b2027"/>' +
+    '<circle cx="60" cy="46" r="22" fill="#4b5666"/>' +
+    '<path d="M20 108 a40 34 0 0 1 80 0 z" fill="#4b5666"/>' +
+    '</svg>'
+);
+
+// Se ejecuta cuando una imagen no ha podido cargar. Por imagen se puede
+// desactivar con data-img-fallback="off" o pedir el avatar con "avatar".
+function applyImageFallback(img) {
+    if (!img || img.dataset.imgFallbackDone === "1") return;
+    const mode = img.dataset.imgFallback || "poster";
+    if (mode === "off") return;
+    const original = img.getAttribute("src") || "";
+    // Primer intento: algunos CDN rechazan la imagen por el "referer"; se
+    // reintenta una vez sin enviarlo antes de darse por vencido.
+    if (img.dataset.imgFallbackRetried !== "1" && original && original.indexOf("data:") !== 0) {
+        img.dataset.imgFallbackRetried = "1";
+        img.referrerPolicy = "no-referrer";
+        img.src = original;
+        // Red de seguridad: si en 8 s sigue sin cargar, se usa la local.
+        setTimeout(function () {
+            if (!img.complete || !img.naturalWidth) applyImageFallback(img);
+        }, 8000);
+        return;
+    }
+    // Segundo intento fallido: imagen de sustitución local (nunca falla).
+    img.dataset.imgFallbackDone = "1";
+    img.removeAttribute("srcset");
+    const target = mode === "avatar" ? AVATAR_FALLBACK : POSTER_FALLBACK;
+    if (img.src !== target) img.src = target;
+}
+
+// El evento "error" de las imágenes no burbujea, pero sí se puede capturar en
+// el documento: así se arregla cualquier imagen rota sin tocar cada <img>.
+document.addEventListener("error", function (e) {
+    const t = e.target;
+    if (t && t.tagName === "IMG") applyImageFallback(t);
+}, true);
 
 function MovieCard(props) {
     const movie = props.movie;
@@ -710,7 +767,7 @@ function MovieCard(props) {
     return h("article",
         { className: "movie-card", onClick: () => { if (onDetail) onDetail(movie); } },
         h("div", { className: "movie-card-poster" },
-            h("img", { src: movie.poster || PLACEHOLDER_POSTER, alt: movie.title, loading: "lazy" }),
+            h("img", { src: movie.poster || POSTER_FALLBACK, alt: movie.title, loading: "lazy" }),
             movie.rating ? h("span", { className: "rating-badge" }, "★ " + movie.rating) : null
         ),
         h("div", { className: "movie-card-body" },
@@ -827,7 +884,7 @@ function LandingPage(props) {
                     heroPosters.map((m, i) =>
                         h("div", { className: "hero-poster-card tilt-" + i, key: m.id || (m.title + i) },
                             h("img", {
-                                src: m.poster || ("https://via.placeholder.com/300x450?text=" + encodeURIComponent(m.title)),
+                                src: m.poster || POSTER_FALLBACK,
                                 alt: "",
                                 loading: "lazy"
                             })
@@ -838,17 +895,17 @@ function LandingPage(props) {
         ),
         h("section", { className: "features" },
             h("div", { className: "feature" },
-                h("span", { className: "feature-icon" }, "01"),
+                h("span", { className: "feature-icon" }, "1"),
                 h("h3", null, "Encuentra tu Próxima Favorita"),
                 h("p", null, "Busca entre miles de películas por su título")
             ),
             h("div", { className: "feature" },
-                h("span", { className: "feature-icon" }, "02"),
+                h("span", { className: "feature-icon" }, "2"),
                 h("h3", null, "Desliza y Descubre"),
                 h("p", null, "Explora las tarjetas cómodamente")
             ),
             h("div", { className: "feature" },
-                h("span", { className: "feature-icon" }, "03"),
+                h("span", { className: "feature-icon" }, "3"),
                 h("h3", null, "Guarda tu Colección"),
                 h("p", null, "Guarda las que te gusten y tenlas siempre a mano")
             )
@@ -2141,7 +2198,7 @@ function MediaPage(props) {
         result ? h("div", { className: "result" },
             h("div", { className: "result-content" },
                 h("img", {
-                    src: result.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                    src: result.poster || POSTER_FALLBACK,
                     alt: result.title,
                     className: "poster",
                     loading: "lazy"
@@ -2152,7 +2209,7 @@ function MediaPage(props) {
                     h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
                     result.runtime ? h("p", null, h("strong", null, "Duración:"), " " + result.runtime) : null,
                     result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Nota IMDb:"), " ★ " + result.rating) : null,
+                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
@@ -2178,7 +2235,7 @@ function MediaPage(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
@@ -2187,7 +2244,7 @@ function MediaPage(props) {
                         detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2651,7 +2708,7 @@ function SeriesPage(props) {
         result ? h("div", { className: "result" },
             h("div", { className: "result-content" },
                 h("img", {
-                    src: result.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                    src: result.poster || POSTER_FALLBACK,
                     alt: result.title,
                     className: "poster",
                     loading: "lazy"
@@ -2661,7 +2718,7 @@ function SeriesPage(props) {
                     h("p", null, h("strong", null, "Director:"), " " + result.director),
                     h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
                     result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Nota IMDb:"), " ★ " + result.rating) : null,
+                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
@@ -2687,7 +2744,7 @@ function SeriesPage(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
@@ -2695,7 +2752,7 @@ function SeriesPage(props) {
                         detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -3145,7 +3202,7 @@ function MiCuenta(props) {
                             }
                         },
                             h("img", {
-                                src: item.poster || "https://via.placeholder.com/150x225?text=Sin+imagen",
+                                src: item.poster || POSTER_FALLBACK,
                                 alt: item.title,
                                 style: { width: "100%", aspectRatio: "2/3", objectFit: "cover", borderRadius: "4px", marginBottom: "0.5rem" }
                             }),
@@ -3175,7 +3232,7 @@ function MiCuenta(props) {
                                 }
                             }, idx + 1),
                             h("img", {
-                                src: item.poster || "https://via.placeholder.com/100x150?text=Sin+imagen",
+                                src: item.poster || POSTER_FALLBACK,
                                 alt: item.title,
                                 style: { width: "80px", aspectRatio: "2/3", objectFit: "cover", borderRadius: "6px", flexShrink: 0 }
                             }),
@@ -3258,7 +3315,7 @@ function MiCuenta(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
@@ -3268,7 +3325,7 @@ function MiCuenta(props) {
                         detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", { className: "btn-ghost", type: "button", onClick: () => openReviews(detail, detailType) }, "Reseñas"),
@@ -3402,7 +3459,7 @@ function UserProfile(props) {
     return h("div", { className: "movies-page" },
         h("div", { className: "profile-header" },
             h("div", { className: "profile-avatar" },
-                profile.photoURL ? h("img", { src: profile.photoURL, alt: profile.nickname || profile.name }) : h("span", null, (profile.nickname || profile.name || "U")[0].toUpperCase())
+                profile.photoURL ? h("img", { src: profile.photoURL, alt: profile.nickname || profile.name, "data-img-fallback": "avatar" }) : h("span", null, (profile.nickname || profile.name || "U")[0].toUpperCase())
             ),
             h("div", { className: "profile-info" },
                 h("h1", null, profile.nickname || profile.name),
@@ -3440,7 +3497,7 @@ function UserProfile(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
@@ -3448,7 +3505,7 @@ function UserProfile(props) {
                         detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null
                     )
                 )
@@ -3550,7 +3607,7 @@ function UserSearch(props) {
             results.map((u) =>
                 h("div", { key: u.id, className: "user-item" },
                     h("div", { className: "user-avatar" },
-                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
+                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name, "data-img-fallback": "avatar" }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
                     ),
                     h("div", { className: "user-info" },
                         h("strong", null, u.nickname || u.name),
@@ -3660,7 +3717,7 @@ function FriendsPage(props) {
             currentList.map((u) =>
                 h("div", { key: u.id, className: "user-item" },
                     h("div", { className: "user-avatar" },
-                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
+                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name, "data-img-fallback": "avatar" }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
                     ),
                     h("div", { className: "user-info" },
                         h("strong", null, u.nickname || u.name),
@@ -4675,10 +4732,9 @@ function AdminDashboard(props) {
                     h("div", { className: "admin-content-ficha" },
                         h("div", { className: "admin-content-poster" },
                             h("img", {
-                                src: selectedContent.poster || PLACEHOLDER_POSTER,
+                                src: selectedContent.poster || POSTER_FALLBACK,
                                 alt: selectedContent.title || "Póster",
-                                loading: "lazy",
-                                onError: (e) => { e.target.onerror = null; if (e.target.src !== PLACEHOLDER_POSTER) e.target.src = PLACEHOLDER_POSTER; }
+                                loading: "lazy"
                             })
                         ),
                         h("div", { className: "admin-content-info" },
@@ -4716,11 +4772,6 @@ function AdminDashboard(props) {
                                     ? h("div", { className: "admin-content-meta-row" },
                                         h("dt", null, "Reparto"),
                                         h("dd", null, selectedContent.actors))
-                                    : null,
-                                selectedContent.imdbID
-                                    ? h("div", { className: "admin-content-meta-row" },
-                                        h("dt", null, "IMDb"),
-                                        h("dd", null, selectedContent.imdbID))
                                     : null
                             ),
                             // Accesos directos: reseñas, estadísticas, sentimiento y gráficas.
@@ -4811,10 +4862,9 @@ function AdminDashboard(props) {
                 h("div", { className: "admin-reviews-media" },
                     h("div", { className: "admin-reviews-thumb" },
                         h("img", {
-                            src: selectedContent.poster || PLACEHOLDER_POSTER,
+                            src: selectedContent.poster || POSTER_FALLBACK,
                             alt: selectedContent.title || "Póster",
-                            loading: "lazy",
-                            onError: (e) => { e.target.onerror = null; if (e.target.src !== PLACEHOLDER_POSTER) e.target.src = PLACEHOLDER_POSTER; }
+                            loading: "lazy"
                         })
                     ),
                     h("div", { className: "admin-reviews-media-info" },
@@ -4881,10 +4931,9 @@ function AdminDashboard(props) {
                 h("div", { className: "admin-reviews-media" },
                     h("div", { className: "admin-reviews-thumb" },
                         h("img", {
-                            src: selectedContent.poster || PLACEHOLDER_POSTER,
+                            src: selectedContent.poster || POSTER_FALLBACK,
                             alt: selectedContent.title || "Póster",
-                            loading: "lazy",
-                            onError: (e) => { e.target.onerror = null; if (e.target.src !== PLACEHOLDER_POSTER) e.target.src = PLACEHOLDER_POSTER; }
+                            loading: "lazy"
                         })
                     ),
                     h("div", { className: "admin-reviews-media-info" },

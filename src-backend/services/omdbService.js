@@ -89,7 +89,7 @@ const omdbService = {
     getById: async (imdbID) => {
         const id = (imdbID || "").trim();
         if (!/^tt\d+$/i.test(id)) {
-            throw new Error("IMDb ID inválido");
+            throw new Error("Código del contenido inválido");
         }
         const url = `${omdbService.OMDB_BASE_URL}?i=${encodeURIComponent(id)}&apikey=${OMDB_API_KEY}`;
         const data = await fetchWithTimeout(url);
@@ -104,7 +104,7 @@ const omdbService = {
     getEpisodesBySeason: async (imdbID, season) => {
         const id = (imdbID || "").trim();
         if (!/^tt\d+$/i.test(id)) {
-            throw new Error("IMDb ID inválido");
+            throw new Error("Código del contenido inválido");
         }
         const seasonNum = Number.parseInt(season, 10);
         if (!Number.isInteger(seasonNum) || seasonNum < 1) {
@@ -150,7 +150,7 @@ const omdbService = {
     getSeason: async (imdbID, seasonNumber) => {
         const id = (imdbID || "").trim();
         if (!/^tt\d+$/i.test(id)) {
-            throw new Error("IMDb ID inválido");
+            throw new Error("Código del contenido inválido");
         }
         const season = Number.parseInt(seasonNumber, 10);
         if (!Number.isInteger(season) || season < 1) {

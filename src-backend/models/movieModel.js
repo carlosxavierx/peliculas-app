@@ -72,7 +72,9 @@ function toPopularItem(doc) {
         rating: doc.rating || null,
         genre: doc.genre || null,
         plot: doc.plot || null,
-        runtime: doc.runtime || null
+        runtime: doc.runtime || null,
+        director: doc.director && doc.director !== "Desconocido" && doc.director !== "N/A" ? doc.director : null,
+        actors: doc.actors && doc.actors !== "N/A" ? doc.actors : null
     };
 }
 

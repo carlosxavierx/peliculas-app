@@ -40,7 +40,7 @@ function normalizeMediaType(raw) {
 function normalizeImdbId(raw) {
     const v = String(raw || "").trim();
     if (!v) return null;
-    if (!/^tt\d{1,12}$/i.test(v)) throw new Error("imdbID inválido (formato tt1234567)");
+    if (!/^tt\d{1,12}$/i.test(v)) throw new Error("Identificador del contenido inválido (formato tt1234567)");
     return v.toLowerCase();
 }
 
@@ -78,7 +78,7 @@ function validateReviewInput(input) {
     const year = input.mediaYear != null || input.year != null
         ? normalizeYear(input.mediaYear != null ? input.mediaYear : input.year)
         : null;
-    if (!imdbID && !title) throw new Error("Falta identificar la obra (imdbID o mediaTitle)");
+    if (!imdbID && !title) throw new Error("Falta identificar la obra (identificador o título)");
     const text = sanitizeText(input.text);
     if (text.length < 50) {
         const err = new Error("La reseña debe tener al menos 50 caracteres");
@@ -192,7 +192,7 @@ const ReviewModel = {
         const cleanImdb = imdbID != null && String(imdbID).trim() !== "" ? normalizeImdbId(imdbID) : null;
         const cleanTitle = title != null ? sanitizeText(title) : "";
         const cleanYear = year != null && String(year).trim() !== "" ? normalizeYear(year) : null;
-        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (imdbID o title)");
+        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (identificador o título)");
         const key = buildMediaKey({ mediaType: type, imdbID: cleanImdb, title: cleanTitle || "untitled", year: cleanYear });
         const sortMode = sort === "votes" || sort === "recent" ? sort : "relevance";
         const pageNum = Math.min(Math.max(Number.parseInt(page, 10) || 1, 1), 1000);
@@ -267,7 +267,7 @@ const ReviewModel = {
         const cleanImdb = imdbID != null && String(imdbID).trim() !== "" ? normalizeImdbId(imdbID) : null;
         const cleanTitle = title != null ? sanitizeText(title) : "";
         const cleanYear = year != null && String(year).trim() !== "" ? normalizeYear(year) : null;
-        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (imdbID o title)");
+        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (identificador o título)");
         const key = buildMediaKey({ mediaType: type, imdbID: cleanImdb, title: cleanTitle || "untitled", year: cleanYear });
         let docs;
         if (!db) {

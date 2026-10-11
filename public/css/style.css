@@ -18,6 +18,7 @@
     --accent-soft: #ff7b93;       /* carmesí claro para texto sobre oscuro */
     --sky: #7fb0d8;               /* azul claro de la "AI" */
     --sky-bright: #a9cdf0;
+    --sky-dark: #3f7ba6;          /* azul más oscuro, para rellenos con texto blanco */
     --bronze: #c9a227;            /* dorado del tagline */
     --bronze-bright: #e6c25c;     /* dorado claro para estrellas */
     --bg: #0d1219;                /* azul noche del fondo del logo */
@@ -184,7 +185,7 @@ button { font-family: inherit; }
     padding: 0.7rem 1.4rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none;
     background: transparent; display: inline-block;
 }
-.btn-ghost:hover { border-color: var(--sky); color: #fff; }
+.btn-ghost:hover { background: var(--sky-dark); border-color: var(--sky-dark); color: #fff; }
 .hero-stats { display: flex; gap: 2rem; }
 .hero-stats div { display: flex; flex-direction: column; }
 .hero-stats strong { font-size: 1.25rem; color: #fff; }
@@ -307,7 +308,7 @@ button { font-family: inherit; }
     background: transparent; border: 1px solid rgba(127, 176, 216, 0.4);
     color: var(--sky-bright); font-weight: 600;
 }
-.result-actions .btn-ghost:hover { border-color: var(--sky); color: #fff; }
+.result-actions .btn-ghost:hover { background: var(--sky-dark); border-color: var(--sky-dark); color: #fff; }
 
 /* ---------- Carrusel (títulos con barra mezcla + ›) ---------- */
 .carousel-section { margin: 2rem 0; }
@@ -1020,31 +1021,13 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
 .btn-primary:hover {
     background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary)) !important;
 }
-.nav-link.active {
-    background: rgba(var(--color-primary), 0.2) !important;
-    color: var(--color-primary) !important;
-    box-shadow: inset 0 -2px 0 var(--color-primary) !important;
-}
-.user-chip {
-    background: rgba(var(--color-primary), 0.12) !important;
-    border-color: rgba(var(--color-primary), 0.3) !important;
-    color: var(--color-primary) !important;
-}
-.user-chip:hover {
-    border-color: var(--color-primary) !important;
-}
-.btn-ghost {
-    border-color: rgba(var(--color-primary), 0.4) !important;
-    color: var(--color-primary) !important;
-}
-.btn-ghost:hover {
-    border-color: var(--color-primary) !important;
-}
 .hero-kicker,
-.footer-title,
+.footer-title {
+    color: var(--color-accent) !important;
+}
 .feature-icon,
 .q-num {
-    color: var(--color-accent) !important;
+    color: #fff !important;
 }
 .carousel-section h2,
 .movies-page > h2,

@@ -78,8 +78,8 @@ function cleanTop5Item(item) {
     if (!item || typeof item !== "object") throw new Error("Cada favorita de la lista debe ser un objeto");
     const title = String(item.title || "").trim().slice(0, 200);
     const imdbID = String(item.imdbID || "").trim();
-    if (!title && !imdbID) throw new Error("Cada favorita necesita 'title' o 'imdbID'");
-    if (imdbID && !/^tt\d+$/i.test(imdbID)) throw new Error("IMDb ID inválido en la lista de favoritas");
+    if (!title && !imdbID) throw new Error("Cada favorita necesita un título o un código de contenido");
+    if (imdbID && !/^tt\d+$/i.test(imdbID)) throw new Error("Código del contenido inválido en la lista de favoritas");
     const type = String(item.type || "movie").toLowerCase().trim();
     if (type !== "movie" && type !== "series") throw new Error("Tipo inválido en la lista de favoritas");
     return {

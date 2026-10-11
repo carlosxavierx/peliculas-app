@@ -97,15 +97,15 @@ function parseRuntimeMinutes(runtimeStr) {
  * @returns {string} Texto formateado
  */
 function formatOmdbResponse(data) {
-    if (!data) return "No found.";
+    if (!data) return "No encontrado.";
     const lines = [
         `*${data.title}* (${data.year})`,
-        `Type: ${data.type}`,
-        `IMDb Rating: ${data.imdbRating || "N/A"} (${data.imdbVotes || "0"} votos)`,
-        `Duration: ${data.runtimeMinutes || "N/A"} min`,
-        `Genre: ${data.genre || "N/A"}`,
+        `Tipo: ${data.type === "series" ? "Serie" : "Película"}`,
+        `Puntuación: ${data.imdbRating || "N/A"} (${data.imdbVotes || "0"} votos)`,
+        `Duración: ${data.runtimeMinutes || "N/A"} min`,
+        `Género: ${data.genre || "N/A"}`,
         `Director: ${data.director || "N/A"}`,
-        "Plot: " + (data.plot || "Sin sinopsis disponible.")
+        "Sinopsis: " + (data.plot || "Sin sinopsis disponible.")
     ];
     return lines.join("\n");
 }
