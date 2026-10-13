@@ -50,10 +50,13 @@ function toGeminiTools(openAiTools) {
 // Llamada nativa a Gemini (:generateContent). Devuelve { text, functionCalls, rawError }.
 async function callGeminiNative(contents, apiKey, model) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    // Los modelos "lite" / "thinking" exigen thought_signature en function calls.
+    // Para que funcione YA, desactivamos tools en esos modelos.
+    const isThinkingModel = /lite|thinking|2\.5/i.test(model);
     const payload = {
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents,
-        tools: toGeminiTools(TOOLS),
+        ...(isThinkingModel ? {} : { tools: toGeminiTools(TOOLS) }),
         generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
     };
 
