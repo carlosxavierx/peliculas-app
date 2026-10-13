@@ -32,17 +32,123 @@ HERRAMIENTAS DISPONIBLES (las invoca el backend, tú solo pides que se usen):
 - getUserSeries(userId): series guardadas del usuario
 - getUserPrefs(userId): preferencias del usuario (géneros favoritos, etc.)`;
 
+const NO_KEY_MSG = "Mi cerebro de IA no está configurado aún. Puedo ayudarte con info básica de la app: busca en Películas o Series, guarda favoritos en tu colección, crea tu Top 5, añade amigos y escribe reseñas. ¿En qué te echo una mano?";
+const TEMP_ERROR_MSG = "Ups, mi cerebro ha fallado momentáneamente. Inténtalo de nuevo en unos segundos.";
+
+// Convierte las tools OpenAI del fichero a functionDeclarations nativas de Gemini.
+function toGeminiTools(openAiTools) {
+    const declarations = (openAiTools || [])
+        .filter((t) => t.type === "function" && t.function)
+        .map((t) => ({
+            name: t.function.name,
+            description: t.function.description || "",
+            parameters: t.function.parameters || { type: "object", properties: {} }
+        }));
+    return declarations.length > 0 ? [{ functionDeclarations: declarations }] : [];
+}
+
+// Llamada nativa a Gemini (:generateContent). Devuelve { text, functionCalls, rawError }.
+async function callGeminiNative(contents, apiKey, model) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const payload = {
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents,
+        tools: toGeminiTools(TOOLS),
+        generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
+    };
+
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("[ChatAgent] Gemini error:", res.status, JSON.stringify(err).slice(0, 500));
+        return { text: "", functionCalls: [], rawError: { status: res.status, body: err } };
+    }
+
+    const data = await res.json();
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    let text = "";
+    const functionCalls = [];
+    for (const p of parts) {
+        if (typeof p.text === "string") text += p.text;
+        if (p.functionCall) functionCalls.push(p.functionCall);
+    }
+    return { text, functionCalls };
+}
+
+// Bucle de chat con formato nativo Gemini (contents con roles user/model).
+async function processChatGemini(messages, userId, apiKey, model) {
+    const contents = (messages || [])
+        .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+        .map((m) => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }]
+        }));
+
+    if (contents.length === 0 || contents[contents.length - 1].role !== "user") {
+        return "Escríbeme tu pregunta y te ayudo.";
+    }
+
+    const maxIterations = 3;
+    for (let i = 0; i < maxIterations; i++) {
+        let result;
+        try {
+            result = await callGeminiNative(contents, apiKey, model);
+        } catch (e) {
+            console.error("[ChatAgent] Gemini network error:", e.message);
+            return "Problema de conexión con mi cerebro. Revisa tu internet e inténtalo de nuevo.";
+        }
+
+        if (result.rawError) {
+            if (result.rawError.status === 403) {
+                return "Mi clave de IA no tiene acceso (error de proyecto en Google AI Studio). Revisa la facturación o genera una clave nueva en https://aistudio.google.com/apikey y actualiza GEMINI_API_KEY en el .env";
+            }
+            if (result.rawError.status === 404) {
+                return "El modelo de IA configurado no está disponible. Cambia CHAT_MODEL en el .env (p. ej. gemini-flash-latest) y reinicia el servidor.";
+            }
+            return TEMP_ERROR_MSG;
+        }
+
+        if (!result.functionCalls || result.functionCalls.length === 0) {
+            return result.text?.trim() || "No he podido generar respuesta. Prueba de nuevo.";
+        }
+
+        // El modelo pide usar herramientas: añadimos su turno y ejecutamos cada llamada.
+        const modelParts = [];
+        if (result.text) modelParts.push({ text: result.text });
+        const toolResultParts = [];
+        for (const fc of result.functionCalls) {
+            modelParts.push({ functionCall: { name: fc.name, args: fc.args || {} } });
+            let toolResult;
+            try {
+                toolResult = await executeTool(fc.name, fc.args || {}, userId);
+            } catch (e) {
+                console.error(`[ChatAgent] Tool ${fc.name} error:`, e);
+                toolResult = { error: e.message || "Error ejecutando herramienta" };
+            }
+            toolResultParts.push({
+                functionResponse: { name: fc.name, response: { result: toolResult } }
+            });
+        }
+        contents.push({ role: "model", parts: modelParts });
+        contents.push({ role: "user", parts: toolResultParts });
+    }
+
+    return "He llegado al límite de herramientas. ¿Puedes reformular tu pregunta?";
+}
+
 async function callAI(messages, tools) {
-    const isGemini = !!process.env.GEMINI_API_KEY;
-    const apiKey = process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY;
-    const baseUrl = process.env.OPENAI_BASE_URL || (isGemini ? "https://generativelanguage.googleapis.com/v1beta/openai/" : "https://api.openai.com/v1");
-    const model = process.env.CHAT_MODEL || (isGemini ? "gemini-1.5-flash" : "gpt-4o-mini");
+    const apiKey = process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY;
+    const isGroq = !!process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY;
+    const baseUrl = process.env.OPENAI_BASE_URL || (isGroq ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1");
+    const model = process.env.CHAT_MODEL || (isGroq ? "llama-3.3-70b-versatile" : "gpt-4o-mini");
 
     if (!apiKey) {
-        return {
-            content: "Mi cerebro de IA no está configurado aún. Puedo ayudarte con info básica de la app: busca en Películas o Series, guarda favoritos en tu colección, crea tu Top 5, añade amigos y escribe reseñas. ¿En qué te echo una mano?",
-            toolCalls: []
-        };
+        return { content: NO_KEY_MSG, toolCalls: [] };
     }
 
     const payload = {
@@ -277,6 +383,20 @@ async function executeTool(name, args, userId) {
 }
 
 async function processChat(messages, userId) {
+    // Ruta nativa Gemini (endpoint :generateContent con function calling).
+    // Prioridad: OpenAI/Groq si están configurados; si no, Gemini.
+    if ((process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_BASE_URL)) {
+        return processChatOpenAI(messages, userId);
+    }
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+        const model = process.env.CHAT_MODEL || "gemini-flash-latest";
+        return processChatGemini(messages, userId, geminiKey, model);
+    }
+    return NO_KEY_MSG;
+}
+
+async function processChatOpenAI(messages, userId) {
     let currentMessages = [...messages];
     let iterations = 0;
     const maxIterations = 3;
