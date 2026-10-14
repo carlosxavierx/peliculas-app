@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { authService, findUserByNickname, setUserNickname, isAdmin } = require("../services/authService");
+const { authService, findUserByNickname, setUserNickname, isAdmin, cardUser } = require("../services/authService");
+const { FriendshipModel } = require("../models/friendshipModel");
 const firebaseConn = require("../models/firebase");
 const ActivityModel = require("../models/activityModel");
 const db = firebaseConn.getDb();
@@ -239,181 +240,136 @@ router.get("/auth/nickname/check/:nickname", async (req, res) => {
     }
 });
 
-// Amistades: se almacenan en una colección global para que cada relación
-// tenga un único documento con from, to y status.
-function friendshipsCollection() {
-    if (!db) return null;
-    return db.collection("friendships");
+// ===== AMISTADES (delegado a FriendshipModel — modo local + Firestore) =====
+
+async function authUserFromReq(req) {
+    const header = req.headers.authorization || "";
+    const match = header.match(/^Bearer\s+(.+)$/i);
+    if (!match) return null;
+    try {
+        return await authService.me(match[1].trim());
+    } catch (e) {
+        return null;
+    }
 }
 
-async function friendshipDocsForUser(userId, status) {
-    const [fromSnap, toSnap] = await Promise.all([
-        friendshipsCollection().where("from", "==", userId).get(),
-        friendshipsCollection().where("to", "==", userId).get()
-    ]);
-    const docs = new Map();
-    [...fromSnap.docs, ...toSnap.docs]
-        .filter((doc) => doc.data().status === status)
-        .forEach((doc) => docs.set(doc.id, doc));
-    return [...docs.values()];
+function statusFor(error) {
+    if (error && error.code === "BAD_REQUEST") return 400;
+    if (error && error.code === "FORBIDDEN") return 403;
+    if (error && error.code === "NOT_FOUND") return 404;
+    if (error && error.code === "CONFLICT") return 409;
+    const msg = (error && error.message) || "";
+    if (/ya sois amigos|ya has enviado|ya te ha enviado|ya estaba aceptada|duplicad/i.test(msg)) return 409;
+    if (/solo el|puede cancelarla|sin permiso|no autorizado/i.test(msg)) return 403;
+    if (/no encontrad|no existe|no sois amigos/i.test(msg)) return 404;
+    if (/inválido|falta|mismo|máximo|caracteres|demasiado largo|necesita/i.test(msg)) return 400;
+    return 500;
 }
 
-async function userSummary(userId) {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) return null;
-    const user = userDoc.data() || {};
-    return { id: user.id || userDoc.id, name: user.name, nickname: user.nickname, photoURL: user.photoURL };
+function sendError(res, error) {
+    res.status(statusFor(error)).json({ error: (error && error.message) || "Error interno del servidor" });
+}
+
+async function cardOrNull(userId) {
+    try {
+        const user = await authService.getById(userId);
+        return user ? cardUser(user) : null;
+    } catch (e) {
+        return null;
+    }
 }
 
 // GET /api/auth/friends — lista de amigos aceptados
 router.get("/auth/friends", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
-        if (!db) return res.json({ friends: [] });
-        const docs = await friendshipDocsForUser(session.userId, "accepted");
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const friendships = await FriendshipModel.getFriends(user.id);
         const friends = [];
-        for (const doc of docs) {
-            const data = doc.data();
-            const friendId = data.from === session.userId ? data.to : data.from;
-            const friend = await userSummary(friendId);
-            if (friend) friends.push(friend);
+        for (const f of friendships) {
+            const card = await cardOrNull(f.friendId);
+            if (card) friends.push({ ...card, since: f.since });
         }
         res.json({ friends });
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo obtener amigos" });
+        sendError(res, error);
     }
 });
 
 // GET /api/auth/friends/requests — solicitudes pendientes recibidas
 router.get("/auth/friends/requests", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
-        if (!db) return res.json({ requests: [] });
-        const snap = await friendshipsCollection().where("to", "==", session.userId).get();
-        const requests = [];
-        for (const doc of snap.docs.filter((item) => item.data().status === "pending")) {
-            const data = doc.data();
-            const from = await userSummary(data.from);
-            if (from) requests.push({ id: doc.id, fromId: from.id, name: from.name, nickname: from.nickname, photoURL: from.photoURL, createdAt: data.createdAt });
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const requests = await FriendshipModel.getReceivedRequests(user.id);
+        const enriched = [];
+        for (const r of requests) {
+            enriched.push({ request: r, fromUser: await cardOrNull(r.from) });
         }
-        res.json({ requests });
+        res.json({ requests: enriched });
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo obtener solicitudes" });
+        sendError(res, error);
     }
 });
 
 // POST /api/auth/friends/request { toNickname } — envía solicitud por nickname
 router.post("/auth/friends/request", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
         const body = req.body || {};
         const toNickname = (body.toNickname || "").trim().toLowerCase();
         if (!toNickname) return res.status(400).json({ error: "Apodo del destino requerido" });
         if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
         const target = await findUserByNickname(toNickname);
         if (!target) return res.status(404).json({ error: "Usuario no encontrado" });
-        if (target.id === session.userId) return res.status(400).json({ error: "No te puedes agregar a ti mismo" });
-        const [outgoing, incoming] = await Promise.all([
-            friendshipsCollection().where("from", "==", session.userId).get(),
-            friendshipsCollection().where("to", "==", session.userId).get()
-        ]);
-        const related = [...outgoing.docs, ...incoming.docs].map((doc) => doc.data());
-        const existingFriend = related.find((item) =>
-            ((item.from === session.userId && item.to === target.id) || (item.to === session.userId && item.from === target.id)) &&
-            item.status === "accepted"
-        );
-        if (existingFriend) {
-            return res.status(400).json({ error: "Ya sois amigos" });
-        }
-        const existingRequest = related.find((item) => item.from === session.userId && item.to === target.id && item.status === "pending");
-        if (existingRequest) return res.status(400).json({ error: "Ya enviaste una solicitud a este usuario" });
-        // Crear la solicitud en la colección global.
-        const reqRef = friendshipsCollection().doc(encodeURIComponent(`${session.userId}__${target.id}`));
-        await reqRef.set({
-            from: session.userId,
-            to: target.id,
-            status: "pending",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        });
-        res.json({ ok: true, requestId: reqRef.id });
+        if (target.id === user.id) return res.status(400).json({ error: "No te puedes agregar a ti mismo" });
+        const request = await FriendshipModel.sendRequest({ from: user.id, to: target.id });
+        res.status(201).json({ ok: true, request });
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo enviar la solicitud" });
+        sendError(res, error);
     }
 });
 
 // POST /api/auth/friends/request/accept { requestId } — acepta solicitud
 router.post("/auth/friends/request/accept", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
         const body = req.body || {};
         const requestId = body.requestId;
         if (!requestId) return res.status(400).json({ error: "ID de solicitud requerido" });
-        if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
-        const reqDoc = await friendshipsCollection().doc(requestId).get();
-        if (!reqDoc.exists) return res.status(404).json({ error: "Solicitud no encontrada" });
-        const reqData = reqDoc.data();
-        if (reqData.status !== "pending" || reqData.to !== session.userId) return res.status(400).json({ error: "La solicitud ya fue procesada" });
-        await reqDoc.ref.update({ status: "accepted", updatedAt: new Date().toISOString() });
-        res.json({ ok: true });
+        const request = await FriendshipModel.acceptRequest(requestId, user.id);
+        res.json({ ok: true, request });
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo aceptar la solicitud" });
+        sendError(res, error);
     }
 });
 
 // POST /api/auth/friends/request/decline { requestId } — rechaza solicitud
 router.post("/auth/friends/request/decline", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
         const body = req.body || {};
         const requestId = body.requestId;
         if (!requestId) return res.status(400).json({ error: "ID de solicitud requerido" });
-        if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
-        const reqDoc = await friendshipsCollection().doc(requestId).get();
-        if (!reqDoc.exists) return res.status(404).json({ error: "Solicitud no encontrada" });
-        if (reqDoc.data().to !== session.userId) return res.status(403).json({ error: "Solicitud no válida" });
-        await reqDoc.ref.update({ status: "declined", updatedAt: new Date().toISOString() });
-        res.json({ ok: true });
+        const result = await FriendshipModel.rejectRequest(requestId, user.id);
+        res.json(result);
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo rechazar la solicitud" });
+        sendError(res, error);
     }
 });
 
 // DELETE /api/auth/friends/:friendId — elimina amigo
 router.delete("/auth/friends/:friendId", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
-        const friendId = req.params.friendId;
-        if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
-        const [outgoing, incoming] = await Promise.all([
-            friendshipsCollection().where("from", "==", session.userId).get(),
-            friendshipsCollection().where("from", "==", friendId).get()
-        ]);
-        const batch = db.batch();
-        [...outgoing.docs, ...incoming.docs]
-            .filter((doc) => {
-                const data = doc.data();
-                return data.status === "accepted" &&
-                    ((data.from === session.userId && data.to === friendId) ||
-                        (data.from === friendId && data.to === session.userId));
-            })
-            .forEach((doc) => batch.delete(doc.ref));
-        await batch.commit();
-        res.json({ ok: true });
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const result = await FriendshipModel.removeFriend(user.id, req.params.friendId);
+        res.json(result);
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo eliminar el amigo" });
+        sendError(res, error);
     }
 });
 
@@ -424,7 +380,9 @@ router.get("/auth/user/:nickname", async (req, res) => {
         if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const user = await findUserByNickname(nickname);
         if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
-        res.json({ user: { id: user.id, name: user.name, nickname: user.nickname, photoURL: user.photoURL } });
+        // El nickname puede estar en user.nickname o user.prefs.nickname
+        const effectiveNickname = user.nickname || (user.prefs && user.prefs.nickname) || null;
+        res.json({ user: { id: user.id, name: user.name, nickname: effectiveNickname, photoURL: user.photoURL } });
     } catch (error) {
         res.status(400).json({ error: error.message || "Error al buscar usuario" });
     }

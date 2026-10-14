@@ -31,46 +31,83 @@ function defaultPrefs() {
     };
 }
 
-const USER_ROLES = {
-    USER: "user",
-    ADMIN: "admin"
-};
-
-function defaultRole() {
-    return USER_ROLES.USER;
+// ---- Roles (tarea 1: sistema de roles Admin/User) ----
+// Solo existen dos roles: "user" (por defecto) y "admin".
+// `role` es el campo propio. Además se acepta el booleano `isAdmin` que usa el
+// resto del equipo en Firestore, para que las dos implementaciones convivan sin
+// que nadie se quede sin acceso al panel.
+function normalizeRole(raw) {
+    return String(raw || "").trim().toLowerCase() === "admin" ? "admin" : "user";
 }
 
-function isAdmin(user) {
-    return user && user.role === USER_ROLES.ADMIN;
+function roleOfUser(user) {
+    const role = String((user && user.role) || "").trim().toLowerCase();
+    if (role === "admin" || role === "user") return role;
+    if (user && user.isAdmin === true) return "admin";
+    return "user";
 }
+
+// Se escribe siempre `role` y, por compatibilidad, también `isAdmin`.
+function rolePatch(role) {
+    const clean = normalizeRole(role);
+    return { role: clean, isAdmin: clean === "admin" };
+}
+
+// ADMIN_EMAILS="admin@x.com,otro@y.com" en el .env: esas cuentas reciben rol
+// admin al entrar. Permite crear al primer administrador sin tocar Firestore.
+function bootstrapAdminEmails() {
+    return new Set(
+        String(process.env.ADMIN_EMAILS || "")
+            .split(",")
+            .map((email) => email.trim().toLowerCase())
+            .filter(Boolean)
+    );
+}
+
+function roleForNewUser(email) {
+    return bootstrapAdminEmails().has(String(email || "").trim().toLowerCase()) ? "admin" : "user";
+}
+
+function isAdminUser(user) {
+    return Boolean(user) && roleOfUser(user) === "admin";
+}
+
+// Compatibilidad con el código del equipo: su authService exporta estos mismos
+// nombres (`USER_ROLES`, `hasRole`, `isAdmin`) y sus rutas los importan, así que
+// los exponemos también aquí para que el merge no rompa nada.
+const USER_ROLES = { USER: "user", ADMIN: "admin" };
 
 function hasRole(user, role) {
-    return user && user.role === role;
+    return roleOfUser(user) === normalizeRole(role);
 }
 
+const isAdmin = isAdminUser;
+
 function publicUser(user) {
-    const prefs = user.prefs || defaultPrefs();
+    const role = roleOfUser(user);
     return {
         id: user.id,
         name: user.name,
         email: user.email,
-        nickname: user.nickname || null,
         photoURL: user.photoURL || null,
         provider: user.provider || (user.passHash ? "password" : "firebase"),
-        nickname: prefs.nickname || user.name,
-        colorTheme: prefs.colorTheme || "default",
-        role: user.role || defaultRole(),
-        prefs: prefs
+        role,
+        isAdmin: role === "admin",
+        nickname: (user.prefs && user.prefs.nickname) || user.nickname || user.name || null,
+        prefs: user.prefs || defaultPrefs()
     };
 }
 
+// Tarjeta pública mínima de otro usuario (la usan las rutas de amistades).
 function cardUser(user) {
+    if (!user) return null;
     return {
         id: user.id,
         name: user.name,
         email: user.email,
         photoURL: user.photoURL || null,
-        provider: user.provider || (user.passHash ? "password" : "firebase")
+        provider: user.provider || null,
+        role: normalizeRole(user.role)
     };
 }
 
@@ -90,6 +127,32 @@ function cleanTop5Item(item) {
         poster: String(item.poster || "").trim().slice(0, 500) || null,
         type
     };
+}
+
+// Hasta 5 favoritas por usuario: { movieId?, imdbID?, title, year?, poster?, type? }.
+function validateTop5(items) {
+    if (!Array.isArray(items)) throw new Error("'top5' debe ser un array");
+    const out = [];
+    for (const raw of items.slice(0, 5)) {
+        if (!raw || typeof raw !== "object") continue;
+        const title = String(raw.title || "").trim();
+        if (!title) continue;
+        out.push({
+            movieId: raw.movieId ? String(raw.movieId).slice(0, 160) : null,
+            imdbID: raw.imdbID ? String(raw.imdbID).slice(0, 20) : null,
+            title: title.slice(0, 200),
+            year: raw.year ? String(raw.year).slice(0, 4) : null,
+            poster: raw.poster ? String(raw.poster).slice(0, 500) : null,
+            type: raw.type ? String(raw.type).slice(0, 20) : null
+        });
+    }
+    return out;
+}
+
+async function listStoredUsers() {
+    if (!db) return [...localUsers.values()];
+    const snapshot = await db.collection("users").limit(5000).get();
+    return snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
 }
 
 function isAdmin(user) {
@@ -122,17 +185,42 @@ async function findUserByEmail(email) {
     return Object.assign({ id: doc.id }, doc.data());
 }
 
-async function findUserByNickname(nickname) {
+// Usuario por id (el id es el email del usuario). Sirve para las dos formas de
+// guardar: memoria (clave = email) y Firestore (doc = email).
+async function storedUserById(userId) {
+    const key = String(userId || "").trim().toLowerCase();
+    if (!key) return null;
     if (!db) {
-        for (const u of localUsers.values()) {
-            if (u.nickname && u.nickname.toLowerCase() === nickname.toLowerCase()) return u;
+        if (localUsers.has(key)) return localUsers.get(key);
+        for (const user of localUsers.values()) {
+            if (String(user.id || "").toLowerCase() === key) return user;
         }
         return null;
     }
-    const query = await db.collection("users").where("nickname", "==", nickname).limit(1).get();
-    if (query.empty) return null;
-    const doc = query.docs[0];
+    const doc = await db.collection("users").doc(key).get();
+    if (!doc.exists) return null;
     return Object.assign({ id: doc.id }, doc.data());
+}
+
+// ---- Nickname público y color de tema (los usa el front del equipo) ----
+// El nickname se guarda en el campo propio `nickname` y también dentro de
+// `prefs`, porque el front lee los dos sitios.
+function nicknameOf(user) {
+    if (!user) return "";
+    return String(user.nickname || (user.prefs && user.prefs.nickname) || "").trim().toLowerCase();
+}
+
+function nicknameError(message, code) {
+    const err = new Error(message);
+    err.code = code;
+    return err;
+}
+
+async function findUserByNickname(nickname) {
+    const wanted = String(nickname || "").trim().toLowerCase();
+    if (!wanted) return null;
+    const users = await listStoredUsers();
+    return users.find((user) => nicknameOf(user) === wanted) || null;
 }
 
 // Devuelve un usuario por su id (el doc id de la colección users, normalmente su email).
@@ -149,38 +237,29 @@ async function getUserById(userId) {
 }
 
 async function setUserNickname(userId, nickname) {
-    const cleanNickname = nickname.trim().toLowerCase();
-    if (cleanNickname.length < 3) {
-        const err = new Error("El apodo debe tener al menos 3 caracteres");
-        err.code = "INVALID_NICKNAME";
-        throw err;
+    const clean = String(nickname || "").trim().toLowerCase();
+    if (clean.length < 3) throw nicknameError("El apodo debe tener al menos 3 caracteres", "INVALID_NICKNAME");
+    if (clean.length > 30) throw nicknameError("El apodo no puede superar 30 caracteres", "INVALID_NICKNAME");
+    if (!/^[a-z0-9_]+$/.test(clean)) throw nicknameError("El apodo solo puede contener letras, números y guión bajo", "INVALID_NICKNAME");
+
+    const owner = String(userId || "").trim().toLowerCase();
+    const existing = await findUserByNickname(clean);
+    if (existing && String(existing.id || "").toLowerCase() !== owner) {
+        throw nicknameError("Ese apodo ya está en uso", "NICKNAME_TAKEN");
     }
-    if (cleanNickname.length > 30) {
-        const err = new Error("El apodo no puede superar 30 caracteres");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) {
-        const err = new Error("El apodo solo puede contener letras, números y guión bajo");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
-    const existing = await findUserByNickname(cleanNickname);
-    if (existing && existing.id !== userId) {
-        const err = new Error("Ese apodo ya está en uso");
-        err.code = "NICKNAME_TAKEN";
-        throw err;
-    }
+
+    const user = await storedUserById(userId);
+    const prefs = { ...defaultPrefs(), ...(user && user.prefs), nickname: clean };
     if (!db) {
-        const u = localUsers.get(userId);
-        if (u) {
-            u.nickname = cleanNickname;
-            localUsers.set(userId, u);
+        if (user) {
+            user.nickname = clean;
+            user.prefs = prefs;
+            localUsers.set(String(user.email || owner).toLowerCase(), user);
         }
-        return cleanNickname;
+        return clean;
     }
-    await db.collection("users").doc(userId).set({ nickname: cleanNickname }, { merge: true });
-    return cleanNickname;
+    await db.collection("users").doc(String(userId)).set({ nickname: clean, prefs }, { merge: true });
+    return clean;
 }
 
 async function createSession(userId) {
@@ -281,8 +360,8 @@ const authService = {
                 firebaseUid: decoded.uid || null,
                 photoURL: decoded.picture || null,
                 emailVerified: Boolean(decoded.email_verified),
+                ...rolePatch(roleForNewUser(email)),
                 prefs: defaultPrefs(),
-                role: defaultRole(),
                 createdAt: new Date().toISOString()
             };
             if (!db) {
@@ -297,6 +376,9 @@ const authService = {
             if (!user.provider) patch.provider = user.passHash ? "password" : provider;
             if ((!user.name || user.name.length < 2) && displayName) patch.name = displayName;
             if (!user.photoURL && decoded.picture) patch.photoURL = decoded.picture;
+            // Backfill de rol para cuentas creadas antes de existir roles.
+            // Si el usuario ya tiene isAdmin:true (campo del equipo) se respeta.
+            if (!user.role) Object.assign(patch, rolePatch(user.isAdmin === true ? "admin" : roleForNewUser(email)));
             if (Object.keys(patch).length > 0) {
                 Object.assign(user, patch);
                 if (!db) {
@@ -346,16 +428,11 @@ const authService = {
         return merged;
     },
 
-    getById: async (userId) => {
-        return getUserById(userId);
-    },
+    // ---- Usuarios (amistades, Top 5 y administración) ----
 
-    getTop5: async (userId) => {
-        const user = await getUserById(userId);
-        return user && Array.isArray(user.top5) ? user.top5 : [];
-    },
+    getById: async (id) => storedUserById(id),
 
-    setTop5: async (userId, items) => {
+    setTop5strict: async (userId, items) => {
         if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
         const top5 = items.slice(0, 5).map(cleanTop5Item);
         if (!db) {
@@ -369,244 +446,148 @@ const authService = {
         await db.collection("users").doc(userId).set({ top5 }, { merge: true });
         return top5;
     },
+    // Sesión técnica a partir del token (la usan las rutas de auth/nickname).
+    readSession: async (token) => readSession(token),
 
-    // Actualiza perfil público (nickname, colorTheme)
-    updateProfile: async (token, { nickname, colorTheme }) => {
-        const session = await readSession(token);
-        if (!session) return null;
-        const prefs = {};
-        if (nickname !== undefined) {
-            const clean = String(nickname).trim().slice(0, 30);
-            if (clean.length < 2) throw new Error("El apodo debe tener al menos 2 caracteres");
-            prefs.nickname = clean;
-        }
-        if (colorTheme !== undefined) {
-            const validThemes = ["default", "vibrant", "neon", "pastel"];
-            if (!validThemes.includes(colorTheme)) throw new Error("Tema de color no válido");
-            prefs.colorTheme = colorTheme;
-        }
-        if (Object.keys(prefs).length === 0) return null;
-        const merged = await updateUserPrefs(session.userId, prefs);
-        return merged;
-    },
-
-    // Obtiene perfil público de un usuario por ID
-    getPublicProfile: async (userId) => {
-        if (!userId) return null;
-        let user = null;
-        if (!db) {
-            for (const u of localUsers.values()) {
-                if (u.id === userId) {
-                    user = u;
-                    break;
-                }
-            }
-        } else {
-            const doc = await db.collection("users").doc(userId).get();
-            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
-        }
-        if (!user) return null;
-        return publicUser(user);
-    },
-
-    // Busca usuarios por nombre/apodo (para añadir amigos)
-    searchUsers: async (query, currentUserIdOrOptions) => {
-        if (!query || !query.trim()) return [];
-        const searchTerm = query.trim().toLowerCase();
-        const options = currentUserIdOrOptions && typeof currentUserIdOrOptions === "object"
-            ? currentUserIdOrOptions
-            : { excludeId: currentUserIdOrOptions };
-        const excludedId = options.excludeId || null;
-        const maxResults = Math.min(Math.max(Number.parseInt(options.limit, 10) || 20, 1), 50);
-        let users = [];
-        if (!db) {
-            for (const u of localUsers.values()) {
-                if (u.id !== excludedId) {
-                    users.push(u);
-                }
-            }
-        } else {
-            const snapshot = await db.collection("users").get();
-            snapshot.forEach((doc) => {
-                const u = Object.assign({ id: doc.id }, doc.data());
-                if (u.id !== excludedId) users.push(u);
-            });
-        }
+    // Busca usuarios por nombre o email (para añadir amigos).
+    searchUsers: async (query, { excludeId, limit } = {}) => {
+        const q = String(query || "").trim().toLowerCase();
+        const max = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 50);
+        const exclude = excludeId ? String(excludeId).trim().toLowerCase() : null;
+        const users = await listStoredUsers();
         return users
-            .filter((u) => {
-                const name = (u.name || "").toLowerCase();
-                const nickname = (u.prefs?.nickname || "").toLowerCase();
-                const email = (u.email || "").toLowerCase();
-                return name.includes(searchTerm) || nickname.includes(searchTerm) || email.includes(searchTerm);
+            .filter((user) => user && user.id)
+            .filter((user) => String(user.id).toLowerCase() !== exclude)
+            .filter((user) => {
+                if (!q) return true;
+                return String(user.name || "").toLowerCase().includes(q)
+                    || String(user.email || "").toLowerCase().includes(q)
+                    || String(user.id).toLowerCase().includes(q);
             })
-                .slice(0, maxResults)
-            .map((u) => publicUser(u));
+            .slice(0, max)
+            .map(cardUser);
     },
 
-    // Sistema de seguimiento (follow/unfollow)
-    followUser: async (token, targetUserId) => {
-        const session = await readSession(token);
-        if (!session) return null;
-        if (session.userId === targetUserId) throw new Error("No puedes seguirte a ti mismo");
-
-        if (!db) {
-            const me = localUsers.get(session.userId);
-            const target = localUsers.get(targetUserId);
-            if (!me || !target) throw new Error("Usuario no encontrado");
-            me.following = me.following || [];
-            target.followers = target.followers || [];
-            if (!me.following.includes(targetUserId)) me.following.push(targetUserId);
-            if (!target.followers.includes(session.userId)) target.followers.push(session.userId);
-            localUsers.set(session.userId, me);
-            localUsers.set(targetUserId, target);
-            return { ok: true };
-        }
-
-        const meRef = db.collection("users").doc(session.userId);
-        const targetRef = db.collection("users").doc(targetUserId);
-
-        await db.runTransaction(async (transaction) => {
-            const meDoc = await transaction.get(meRef);
-            const targetDoc = await transaction.get(targetRef);
-            if (!meDoc.exists || !targetDoc.exists) throw new Error("Usuario no encontrado");
-
-            const meData = meDoc.data();
-            const targetData = targetDoc.data();
-
-            const following = meData.following || [];
-            const followers = targetData.followers || [];
-
-            if (!following.includes(targetUserId)) {
-                following.push(targetUserId);
-                transaction.update(meRef, { following });
-            }
-            if (!followers.includes(session.userId)) {
-                followers.push(session.userId);
-                transaction.update(targetRef, { followers });
-            }
+    // Listado paginado de usuarios para el panel de administración.
+    listUsers: async ({ q, role, page, limit } = {}) => {
+        const query = String(q || "").trim().toLowerCase();
+        const wantedRole = role ? normalizeRole(role) : null;
+        const pageNum = Math.min(Math.max(Number.parseInt(page, 10) || 1, 1), 1000);
+        const pageSize = Math.min(Math.max(Number.parseInt(limit, 10) || 20, 1), 100);
+        const users = await listStoredUsers();
+        const filtered = users.filter((user) => {
+            if (!user || !user.id) return false;
+            if (wantedRole && normalizeRole(user.role) !== wantedRole) return false;
+            if (!query) return true;
+            return String(user.name || "").toLowerCase().includes(query)
+                || String(user.email || "").toLowerCase().includes(query)
+                || String(user.id).toLowerCase().includes(query);
         });
-        return { ok: true };
+        filtered.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id), "es"));
+        const byRole = filtered.reduce((acc, user) => {
+            const key = normalizeRole(user.role);
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+        }, { admin: 0, user: 0 });
+        const start = (pageNum - 1) * pageSize;
+        return {
+            results: filtered.slice(start, start + pageSize).map(publicUser),
+            total: filtered.length,
+            page: pageNum,
+            limit: pageSize,
+            byRole
+        };
     },
 
-    unfollowUser: async (token, targetUserId) => {
-        const session = await readSession(token);
-        if (!session) return null;
-        if (session.userId === targetUserId) throw new Error("No puedes dejar de seguirte a ti mismo");
-
-        if (!db) {
-            const me = localUsers.get(session.userId);
-            const target = localUsers.get(targetUserId);
-            if (!me || !target) throw new Error("Usuario no encontrado");
-            me.following = (me.following || []).filter((id) => id !== targetUserId);
-            target.followers = (target.followers || []).filter((id) => id !== session.userId);
-            localUsers.set(session.userId, me);
-            localUsers.set(targetUserId, target);
-            return { ok: true };
+    countUsers: async () => {
+        if (!db) return localUsers.size;
+        try {
+            const snap = await db.collection("users").count().get();
+            return snap.data().count;
+        } catch (e) {
+            const snap = await db.collection("users").limit(5000).get();
+            return snap.size;
         }
-
-        const meRef = db.collection("users").doc(session.userId);
-        const targetRef = db.collection("users").doc(targetUserId);
-
-        await db.runTransaction(async (transaction) => {
-            const meDoc = await transaction.get(meRef);
-            const targetDoc = await transaction.get(targetRef);
-            if (!meDoc.exists || !targetDoc.exists) throw new Error("Usuario no encontrado");
-
-            const meData = meDoc.data();
-            const targetData = targetDoc.data();
-
-            const following = (meData.following || []).filter((id) => id !== targetUserId);
-            const followers = (targetData.followers || []).filter((id) => id !== session.userId);
-
-            transaction.update(meRef, { following });
-            transaction.update(targetRef, { followers });
-        });
-        return { ok: true };
     },
 
-    getFollowing: async (token) => {
-        const session = await readSession(token);
-        if (!session) return null;
-        let user = null;
+    // Cambia el rol de un usuario (solo lo llaman las rutas de admin).
+    setRole: async (id, role) => {
+        const key = String(id || "").trim().toLowerCase();
+        if (!key) throw new Error("Falta el usuario");
+        const clean = String(role || "").trim().toLowerCase();
+        if (clean !== "admin" && clean !== "user") throw new Error("Rol inválido (usa 'admin' o 'user')");
+        const user = await authService.getById(key);
+        if (!user) return null;
+        // Se guarda `role` y también `isAdmin` para que lo lea el resto del equipo.
+        const patch = rolePatch(clean);
         if (!db) {
-            user = localUsers.get(session.userId);
+            Object.assign(user, patch);
+            localUsers.set(key, user);
         } else {
-            const doc = await db.collection("users").doc(session.userId).get();
-            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
+            await db.collection("users").doc(key).set(patch, { merge: true });
         }
-        if (!user) return [];
-
-        const followingIds = user.following || [];
-        if (followingIds.length === 0) return [];
-
-        let followingUsers = [];
-        if (!db) {
-            for (const id of followingIds) {
-                const u = localUsers.get(id);
-                if (u) followingUsers.push(publicUser(u));
-            }
-        } else {
-            const snapshot = await db.collection("users").where("__name__", "in", followingIds).get();
-            snapshot.forEach((doc) => {
-                followingUsers.push(publicUser(Object.assign({ id: doc.id }, doc.data())));
-            });
-        }
-        return followingUsers;
+        return publicUser({ ...user, ...patch });
     },
 
-    getFollowers: async (token) => {
-        const session = await readSession(token);
-        if (!session) return null;
-        let user = null;
-        if (!db) {
-            user = localUsers.get(session.userId);
-        } else {
-            const doc = await db.collection("users").doc(session.userId).get();
-            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
-        }
-        if (!user) return [];
-
-        const followerIds = user.followers || [];
-        if (followerIds.length === 0) return [];
-
-        let followerUsers = [];
-        if (!db) {
-            for (const id of followerIds) {
-                const u = localUsers.get(id);
-                if (u) followerUsers.push(publicUser(u));
-            }
-        } else {
-            const snapshot = await db.collection("users").where("__name__", "in", followerIds).get();
-            snapshot.forEach((doc) => {
-                followerUsers.push(publicUser(Object.assign({ id: doc.id }, doc.data())));
-            });
-        }
-        return followerUsers;
+    getTop5: async (id) => {
+        const user = await authService.getById(id);
+        if (!user || !Array.isArray(user.top5)) return [];
+        return user.top5;
     },
 
-    getUserMovies: async (userId) => {
-        if (!userId) return [];
-        const { MovieModel } = require("../models/movieModel");
-        return MovieModel.getAllMovies(userId);
+    setTop5: async (id, items) => {
+        const key = String(id || "").trim().toLowerCase();
+        if (!key) throw new Error("Falta el usuario");
+        const clean = validateTop5(items);
+        if (!db) {
+            const user = localUsers.get(key);
+            if (!user) return [];
+            user.top5 = clean;
+            localUsers.set(key, user);
+            return clean;
+        }
+        await db.collection("users").doc(key).set({ top5: clean }, { merge: true });
+        return clean;
     },
 
-    isFollowing: async (token, targetUserId) => {
-        const session = await readSession(token);
-        if (!session) return false;
-        let user = null;
-        if (!db) {
-            user = localUsers.get(session.userId);
-        } else {
-            const doc = await db.collection("users").doc(session.userId).get();
-            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
+    // ---- Ayuda para desarrollo/pruebas ----
+    // Crea (o reutiliza) un usuario local y una sesión sin Firebase. Solo
+    // funciona en modo local: con Firestore conectado lanza NOT_LOCAL_MODE.
+    seedLocalUser: async ({ email, name, role } = {}) => {
+        if (db) {
+            const err = new Error("seedLocalUser solo está disponible en modo local (sin Firestore)");
+            err.code = "NOT_LOCAL_MODE";
+            throw err;
         }
-        if (!user) return false;
-        return (user.following || []).includes(targetUserId);
-    },
-    readSession: async (token) => {
-        return await readSession(token);
+        const cleanEmail = String(email || "").trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) throw new Error("Email inválido");
+        const existing = localUsers.get(cleanEmail);
+        const user = existing || {
+            id: cleanEmail,
+            name: String(name || cleanEmail.split("@")[0]).slice(0, 80),
+            email: cleanEmail,
+            passHash: null,
+            provider: "local",
+            prefs: defaultPrefs(),
+            createdAt: new Date().toISOString()
+        };
+        if (name) user.name = String(name).slice(0, 80);
+        user.role = role ? normalizeRole(role) : normalizeRole(user.role || roleForNewUser(cleanEmail));
+        localUsers.set(cleanEmail, user);
+        const token = await createSession(user.id);
+        return { token, user: publicUser(user) };
     }
-
 };
 
-module.exports = { authService, findUserByNickname, setUserNickname, isAdmin, hasRole, USER_ROLES };
+module.exports = {
+    authService,
+    cardUser,
+    isAdminUser,
+    isAdmin,
+    hasRole,
+    USER_ROLES,
+    findUserByNickname,
+    setUserNickname,
+    getUserById,
+    nicknameOf
+};
