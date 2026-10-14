@@ -1,0 +1,5 @@
+Firestore conectado (variables de entorno)
+[enrich] Enriquecimiento automático activo: 25 series/día, hora 04:00.
+Servidor arrancado en http://localhost:8080
+[enrich] Tanda diaria (arranque): hasta 25 series.
+[enrich] Tanda terminada: {"processed":25,"updated":0,"skipped":25}
