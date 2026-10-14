@@ -1,12 +1,10 @@
-// Las series viven en su propia colección "series" de Firestore.
-// La colección separa el catálogo público (búsqueda y populares)
-// de la colección personal mediante el campo userId.
-// Las películas usan la colección "movies" (ver movieModel.js).
+// Este modelo separa dos usos de la colección movies:
+// catálogo público (búsqueda y populares) y colección personal (userId).
 // La conexión se centraliza en ./firebase.js.
 // Soporta credenciales por .env o por firebase-key.json (legacy).
 const firebaseConn = require("./firebase");
 const db = firebaseConn.getDb();
-const { omdbService } = require("../services/omdbService");
+const { enrichWithScraping } = require("../services/scrapingService");
 
 // Almacén en memoria para que el modo local sí persista mientras el servidor corre.
 const localSeries = [];
@@ -70,9 +68,7 @@ function toPopularItem(doc) {
         poster: doc.poster || null,
         rating: doc.rating || null,
         genre: doc.genre || null,
-        plot: doc.plot || null,
-        totalSeasons: doc.totalSeasons || null,
-        seasons: Array.isArray(doc.seasons) ? doc.seasons : null
+        plot: doc.plot || null
     };
 }
 
@@ -80,8 +76,6 @@ const SeriesModel = {
     isFirestoreConnected: () => firebaseConn.isFirestoreConnected(),
 
     formatData: (rawJson) => {
-        const totalSeasonsRaw = rawJson.totalSeasons || rawJson.TotalSeasons;
-        const totalSeasons = Number.parseInt(totalSeasonsRaw, 10);
         return {
             title: rawJson.Title || "Sin título",
             year: rawJson.Year || "----",
@@ -94,8 +88,6 @@ const SeriesModel = {
             rating: rawJson.imdbRating && rawJson.imdbRating !== "N/A" ? rawJson.imdbRating : null,
             type: rawJson.Type || null,
             imdbID: rawJson.imdbID || null,
-            totalSeasons: !Number.isNaN(totalSeasons) && totalSeasons > 0 ? totalSeasons : null,
-            seasons: Array.isArray(rawJson.seasons) ? rawJson.seasons : [],
             createdAt: new Date().toISOString()
         };
     },
@@ -111,16 +103,34 @@ const SeriesModel = {
         }
     },
 
+    // Enriquece los datos de una serie con scraping si faltan campos críticos.
+    // Prioriza datos de OMDb/Firestore; el scraping solo rellena huecos.
+    enrichSeriesData: async (serie) => {
+        if (!serie || !serie.title) return serie;
+        try {
+            const enriched = await enrichWithScraping(serie, serie.title, "series");
+            return enriched;
+        } catch (error) {
+            console.warn(`[seriesModel] Error enriqueciendo "${serie.title}":`, error.message);
+            return serie;
+        }
+    },
+
     findCatalogSeries: async ({ title, year, imdbID }) => {
         const series = await SeriesModel.getCatalogSeries();
         const wantedId = String(imdbID || "").trim().toLowerCase();
         const wantedTitle = String(title || "").trim().toLowerCase();
         const wantedYear = String(year || "").trim();
-        return series.find((serie) => {
+        const found = series.find((serie) => {
             if (wantedId && String(serie.imdbID || "").toLowerCase() !== wantedId) return false;
             if (!wantedId && String(serie.title || "").trim().toLowerCase() !== wantedTitle) return false;
             return !wantedYear || String(serie.year || "").includes(wantedYear);
         }) || null;
+
+        if (found) {
+            return await SeriesModel.enrichSeriesData(found);
+        }
+        return null;
     },
 
     searchCatalog: async ({ query, year, page }) => {
@@ -211,6 +221,41 @@ const SeriesModel = {
         }
     },
 
+    claimOrphanSeries: async (userId) => {
+        if (!userId) return 0;
+        if (!db) {
+            let claimed = 0;
+            localSeries.forEach((m) => {
+                if (!m.userId) {
+                    m.userId = userId;
+                    claimed++;
+                }
+            });
+            if (claimed) console.log(`Reclamadas ${claimed} locales para ${userId}`);
+            return claimed;
+        }
+        try {
+            const snapshot = await db.collection("series").get();
+            const batch = db.batch();
+            let claimed = 0;
+            snapshot.forEach((doc) => {
+                const data = doc.data() || {};
+                if (!data.userId && String(data.type || "").toLowerCase() === "series") {
+                    batch.update(doc.ref, { userId });
+                    claimed++;
+                }
+            });
+            if (claimed) {
+                await batch.commit();
+                console.log(`Reclamadas ${claimed} en Firestore para ${userId}`);
+            }
+            return claimed;
+        } catch (error) {
+            console.error("Error al reclamar series:", error.message || error);
+            return 0;
+        }
+    },
+
     getSeriesById: async (id, userId) => {
         if (!id) throw new Error("Falta el id");
         if (!db) {
@@ -238,27 +283,6 @@ const SeriesModel = {
         if (data.userId !== userId) return false;
         await docRef.delete();
         return true;
-    },
-
-    updateSeasonsByImdbID: async (imdbID, totalSeasons, seasons) => {
-        if (!db || !imdbID) return 0;
-        try {
-            const snapshot = await db.collection("series").where("imdbID", "==", imdbID).get();
-            if (snapshot.empty) return 0;
-            const batch = db.batch();
-            snapshot.forEach((doc) => {
-                batch.update(doc.ref, {
-                    totalSeasons,
-                    seasons,
-                    dateEnriched: new Date().toISOString()
-                });
-            });
-            await batch.commit();
-            return snapshot.size;
-        } catch (error) {
-            console.error("Error al actualizar temporadas:", error.message || error);
-            return 0;
-        }
     },
 
     getPopularFromDb: async ({ year, limit }) => {
@@ -324,28 +348,43 @@ const SeriesModel = {
 
         if (unique.length === 0) return [];
 
-        const withPoster = unique.filter((m) => !!m.poster);
-        const pool = withPoster.length >= want ? withPoster : unique;
+        // Enriquecer los items seleccionados con scraping si faltan datos críticos (solo póster y género para rendimiento)
+        const enriched = await Promise.all(
+            unique.slice(0, want * 2).map(async (m) => {
+                if (!m.poster || !m.genre || m.genre === "Sin género") {
+                    return await SeriesModel.enrichSeriesData(m);
+                }
+                return m;
+            })
+        );
+
+        const withPoster = enriched.filter((m) => !!m.poster);
+        const pool = withPoster.length >= want ? withPoster : enriched;
 
         return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
     },
 
-    getSeasons: async (imdbID) => {
-        const id = (imdbID || "").trim();
-        if (!/^tt\d+$/i.test(id)) {
-            throw new Error("IMDb ID inválido");
+    // Actualiza las temporadas de una serie por su IMDb ID.
+    // Usado por el servicio de enriquecimiento automático.
+    updateSeasonsByImdbID: async (imdbID, totalSeasons, seasons) => {
+        if (!db || !imdbID) return 0;
+        try {
+            const snapshot = await db.collection("series").where("imdbID", "==", imdbID).get();
+            if (snapshot.empty) return 0;
+            const batch = db.batch();
+            snapshot.forEach((doc) => {
+                batch.update(doc.ref, {
+                    totalSeasons: totalSeasons || null,
+                    seasons: seasons || [],
+                    dateEnriched: new Date().toISOString()
+                });
+            });
+            await batch.commit();
+            return snapshot.size;
+        } catch (error) {
+            console.error("Error al actualizar temporadas:", error.message || error);
+            return 0;
         }
-        const data = await omdbService.getById(id);
-        const totalSeasons = Number.parseInt(data.totalSeasons, 10) || 0;
-        const seasons = [];
-        for (let s = 1; s <= totalSeasons; s++) {
-            seasons.push({ season: s, episodes: 0 });
-        }
-        return { totalSeasons, seasons };
-    },
-
-    getEpisodes: async (imdbID, season) => {
-        return omdbService.getEpisodesBySeason(imdbID, season);
     }
 };
 
