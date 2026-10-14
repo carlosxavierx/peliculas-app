@@ -28,40 +28,8 @@ const localReplies = new Map(); // reviewId -> [ replies ]
 const MAX_STATS_READ = 5000;
 
 // ---------- Utilidades ----------
-function slugify(value) {
-    if (typeof value !== "string") return "untitled";
-    const out = value
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-    return out || "untitled";
-}
-
-function normalizeMediaType(raw) {
-    const v = String(raw || "").trim().toLowerCase();
-    if (v === "movie" || v === "movies" || v === "film") return "movie";
-    if (v === "series" || v === "serie" || v === "tv" || v === "show") return "series";
-    throw new Error("mediaType inválido (usa 'movie' o 'series')");
-}
-
-function normalizeImdbId(raw) {
-    const v = String(raw || "").trim();
-    if (!v) return null;
-    if (!/^tt\d{1,12}$/i.test(v)) throw new Error("Identificador del contenido inválido (formato tt1234567)");
-    return v.toLowerCase();
-}
-
-function normalizeYear(raw) {
-    const v = String(raw == null ? "" : raw).trim().slice(0, 4);
-    if (!v) return null;
-    if (!/^\d{4}$/.test(v)) throw new Error("Año inválido (4 cifras)");
-    const n = Number.parseInt(v, 10);
-    if (n < 1900 || n > 2100) throw new Error("Año fuera de rango (1900-2100)");
-    return String(n);
-}
+// slugify, normalizeMediaType, normalizeImdbId, normalizeYear y buildMediaKey
+// vienen de ./mediaKey (import arriba). No redefinir aquí.
 
 // Quita caracteres de control pero conserva saltos de línea y texto UTF-8.
 function sanitizeText(raw) {

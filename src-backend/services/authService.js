@@ -81,8 +81,6 @@ function hasRole(user, role) {
     return roleOfUser(user) === normalizeRole(role);
 }
 
-const isAdmin = isAdminUser;
-
 function publicUser(user) {
     const role = roleOfUser(user);
     return {
@@ -145,6 +143,51 @@ function isAdmin(user) {
     return false;
 }
 
+// Hasta 5 favoritas por usuario: { movieId?, imdbID?, title, year?, poster?, type? }.
+function validateTop5(items) {
+    if (!Array.isArray(items)) throw new Error("'top5' debe ser un array");
+    const out = [];
+    for (const raw of items.slice(0, 5)) {
+        if (!raw || typeof raw !== "object") continue;
+        const title = String(raw.title || "").trim();
+        if (!title) continue;
+        out.push({
+            movieId: raw.movieId ? String(raw.movieId).slice(0, 160) : null,
+            imdbID: raw.imdbID ? String(raw.imdbID).slice(0, 20) : null,
+            title: title.slice(0, 200),
+            year: raw.year ? String(raw.year).slice(0, 4) : null,
+            poster: raw.poster ? String(raw.poster).slice(0, 500) : null,
+            type: raw.type ? String(raw.type).slice(0, 20) : null
+        });
+    }
+    return out;
+}
+
+async function listStoredUsers() {
+    if (!db) return [...localUsers.values()];
+    const snapshot = await db.collection("users").limit(5000).get();
+    return snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
+}
+
+// ---- Nickname público (lo usa el front del equipo) ----
+function nicknameOf(user) {
+    if (!user) return "";
+    return String(user.nickname || (user.prefs && user.prefs.nickname) || "").trim().toLowerCase();
+}
+
+function nicknameError(message, code) {
+    const err = new Error(message);
+    err.code = code;
+    return err;
+}
+
+async function findUserByNickname(nickname) {
+    const wanted = String(nickname || "").trim().toLowerCase();
+    if (!wanted) return null;
+    const users = await listStoredUsers();
+    return users.find((user) => nicknameOf(user) === wanted) || null;
+}
+
 function cleanDisplayName(raw, emailFallback) {
     const clean = (raw || "").toString().trim().slice(0, 80);
     if (clean.length >= 2) return clean;
@@ -190,24 +233,25 @@ async function getUserById(userId) {
 }
 
 async function setUserNickname(userId, nickname) {
-    const cleanNickname = nickname.trim().toLowerCase();
-    if (cleanNickname.length < 3) {
+    const clean = String(nickname || "").trim().toLowerCase();
+    if (clean.length < 3) {
         const err = new Error("El apodo debe tener al menos 3 caracteres");
         err.code = "INVALID_NICKNAME";
         throw err;
     }
-    if (cleanNickname.length > 30) {
+    if (clean.length > 30) {
         const err = new Error("El apodo no puede superar 30 caracteres");
         err.code = "INVALID_NICKNAME";
         throw err;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) {
+    if (!/^[a-z0-9_]+$/.test(clean)) {
         const err = new Error("El apodo solo puede contener letras, números y guión bajo");
         err.code = "INVALID_NICKNAME";
         throw err;
     }
-    const existing = await findUserByNickname(cleanNickname);
-    if (existing && existing.id !== userId) {
+    const owner = String(userId || "").trim().toLowerCase();
+    const existing = await findUserByNickname(clean);
+    if (existing && String(existing.id || "").toLowerCase() !== owner) {
         const err = new Error("Ese apodo ya está en uso");
         err.code = "NICKNAME_TAKEN";
         throw err;
@@ -397,21 +441,6 @@ const authService = {
 
     getById: async (id) => storedUserById(id),
 
-    setTop5: async (userId, items) => {
-        if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
-        const top5 = items.slice(0, 5).map(cleanTop5Item);
-        if (!db) {
-            const user = localUsers.get(userId);
-            if (user) {
-                user.top5 = top5;
-                localUsers.set(userId, user);
-            }
-            return top5;
-        }
-        await db.collection("users").doc(userId).set({ top5 }, { merge: true });
-        return top5;
-    },
-
     // Busca usuarios por nombre o email (para añadir amigos).
     searchUsers: async (query, { excludeId, limit } = {}) => {
         const q = String(query || "").trim().toLowerCase();
@@ -542,4 +571,17 @@ const authService = {
     }
 };
 
-module.exports = { authService, findUserByNickname, setUserNickname, isAdmin, hasRole, USER_ROLES };
+module.exports = {
+    authService,
+    cardUser,
+    isAdminUser,
+    isAdmin,
+    hasRole,
+    USER_ROLES,
+    findUserByNickname,
+    setUserNickname,
+    getUserById,
+    nicknameOf,
+    listStoredUsers,
+    validateTop5
+};

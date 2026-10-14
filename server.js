@@ -200,15 +200,20 @@ module.exports = app;
 // Solo arranca el servidor cuando este archivo se ejecuta directamente
 // (`node server.js` / `npm start`), no cuando se importa desde las pruebas.
 if (require.main === module) {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`Servidor arrancado en http://localhost:${PORT}`);
+        console.log('Server listening on:', server.address());
+    });
+    server.on('error', (e) => {
+        console.error('SERVER ERROR EVENT:', e.code, e.message);
+    });
+    server.on('listening', () => {
+        console.log('SERVER LISTENING EVENT');
+    });
+    server.on('close', () => {
+        console.log('SERVER CLOSE EVENT');
     });
 
-    // Rellena temporadas/episodios de las series desde OMDb en segundo plano:
-    // una tanda al arrancar (si hoy no se ha hecho ninguna) y una diaria a la hora
-    // configurada. No bloquea el servidor. Se controla con las variables
-    // SEASON_ENRICH_ENABLED, SEASON_ENRICH_DAILY_LIMIT, SEASON_ENRICH_HOUR y
-    // SEASON_ENRICH_DELAY del .env.
     startDailyEnrichment();
 }
 if (!process.env.GEMINI_API_KEY) {
@@ -216,14 +221,3 @@ if (!process.env.GEMINI_API_KEY) {
 } else {
     console.log("Gemini IA configurado: las reseñas se clasifican por sentimiento de su texto.");
 }
-
-app.listen(PORT, () => {
-    console.log(`Servidor arrancado en http://localhost:${PORT}`);
-});
-
-// Rellena temporadas/episodios de las series desde OMDb en segundo plano:
-// una tanda al arrancar (si hoy no se ha hecho ninguna) y una diaria a la hora
-// configurada. No bloquea el servidor. Se controla con las variables
-// SEASON_ENRICH_ENABLED, SEASON_ENRICH_DAILY_LIMIT, SEASON_ENRICH_HOUR y
-// SEASON_ENRICH_DELAY del .env.
-startDailyEnrichment();

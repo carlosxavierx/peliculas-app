@@ -29,6 +29,12 @@ function loadEnvIfNeeded() {
     }
 }
 
+function isPlaceholderKey(v) {
+    if (!v) return true;
+    const s = String(v);
+    return /YOUR_PRIVATE_KEY|YOUR_FIREBASE|TU_|XXXX/i.test(s) || s.trim().length < 100;
+}
+
 function serviceAccountFromEnv() {
     // Modo local forzado (pruebas/CI): DISABLE_FIREBASE=1 evita conectar con
     // Firestore aunque haya credenciales en .env.
@@ -37,6 +43,9 @@ function serviceAccountFromEnv() {
     const clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || "").trim();
     let privateKey = process.env.FIREBASE_PRIVATE_KEY || "";
     if (!projectId || !clientEmail || !privateKey) return null;
+    // Si el .env aún tiene el placeholder (YOUR_PRIVATE_KEY_HERE), lo ignoramos
+    // para que caiga al firebase-key.json en vez de romper con "Failed to parse private key".
+    if (isPlaceholderKey(privateKey) || /YOUR_|tu_/i.test(projectId) || /YOUR_|tu_/i.test(clientEmail)) return null;
     // En el .env la clave viene con \n escapados: hay que convertirlos.
     privateKey = privateKey.replace(/\\n/g, "\n");
     return { projectId, clientEmail, privateKey };
