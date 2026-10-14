@@ -81,8 +81,6 @@ function hasRole(user, role) {
     return roleOfUser(user) === normalizeRole(role);
 }
 
-const isAdmin = isAdminUser;
-
 function publicUser(user) {
     const role = roleOfUser(user);
     return {
