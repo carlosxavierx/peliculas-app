@@ -1599,7 +1599,7 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
 .chat-message {
     display: flex;
     gap: 0.6rem;
-    max-width: 85%;
+    max-width: 95%;
     animation: msg-in 0.25s ease-out;
 }
 @keyframes msg-in {
