@@ -590,6 +590,12 @@ const authService = {
         return MovieModel.getAllMovies(userId);
     },
 
+    getUserSeries: async (userId) => {
+        if (!userId) return [];
+        const { SeriesModel } = require("../models/seriesModel");
+        return SeriesModel.getAllSeries(userId);
+    },
+
     isFollowing: async (token, targetUserId) => {
         const session = await readSession(token);
         if (!session) return false;

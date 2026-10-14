@@ -9,6 +9,7 @@ const { useState, useEffect } = React;
 const h = React.createElement;
 
 const BRAND = "CineAIros";
+const brandLetters = BRAND.split("");
 const SLOGAN = "Descubre, explora y guarda tus películas favoritas";
 
 // Temas de color disponibles
@@ -621,7 +622,11 @@ function SiteHeader(props) {
                     className: "logo-img", src: "/img/logo-icon.png", alt: "", "data-img-fallback": "off",
                     onError: (e) => { e.target.style.display = "none"; }
                 }),
-                h("span", { className: "logo-text" }, BRAND)
+                h("span", { className: "logo-text" },
+                    brandLetters.map((ch, i) =>
+                        h("span", { className: "brand-letter", "data-idx": i }, ch)
+                    )
+                )
             ),
             h("nav", { className: "main-nav" + (open ? " open" : "") },
                 h("button",
@@ -2220,7 +2225,7 @@ function MediaPage(props) {
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
-                        h("button", { onClick: handleSave, disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
+                        h("button", { onClick: () => handleSave(result), disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
                         h("button", { className: "btn-ghost", type: "button", onClick: () => { setResult(null); setResultWarning(null); } }, "Descartar")
                     )
                 )
@@ -2736,7 +2741,7 @@ function SeriesPage(props) {
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
-                        h("button", { onClick: handleSave, disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
+                        h("button", { onClick: () => handleSave(result), disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
                         h("button", { className: "btn-ghost", type: "button", onClick: () => { setResult(null); setResultWarning(null); } }, "Descartar")
                     )
                 )
@@ -3364,6 +3369,9 @@ function UserProfile(props) {
     const moviesState = React.useState([]);
     const movies = moviesState[0];
     const setMovies = moviesState[1];
+    const seriesState = React.useState([]);
+    const series = seriesState[0];
+    const setSeries = seriesState[1];
     const loadingState = React.useState(true);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -3410,9 +3418,20 @@ function UserProfile(props) {
         }
     };
 
+    const loadSeries = async () => {
+        try {
+            const res = await fetch("/api/users/" + encodeURIComponent(userId) + "/series");
+            const data = await res.json();
+            setSeries(Array.isArray(data.series) ? data.series : []);
+        } catch (e) {
+            setSeries([]);
+        }
+    };
+
     React.useEffect(() => {
         loadProfile();
         loadMovies();
+        loadSeries();
     }, [userId]);
 
     const handleFollow = async () => {
@@ -3449,9 +3468,11 @@ function UserProfile(props) {
         }
         setDetailLoading(true);
         try {
+            const isSerie = String(movie.type || "").toLowerCase() === "series";
+            const base = isSerie ? "/api/series/search" : "/api/movies/search";
             const url = movie.imdbID
-                ? "/api/movies/search?i=" + encodeURIComponent(movie.imdbID)
-                : "/api/movies/search?t=" + encodeURIComponent(movie.title);
+                ? base + "?i=" + encodeURIComponent(movie.imdbID)
+                : base + "?t=" + encodeURIComponent(movie.title);
             const res = await fetch(url);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el detalle");
@@ -3468,7 +3489,9 @@ function UserProfile(props) {
 
     const isOwnProfile = currentUser && currentUser.id === profile.id;
     const shown = movies || [];
-    const recent = shown.slice(0, 10);
+    const shownSeries = series || [];
+    const allItems = [...shown, ...shownSeries].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    const recent = allItems.slice(0, 10);
 
     return h("div", { className: "movies-page" },
         h("div", { className: "profile-header" },
@@ -3487,23 +3510,30 @@ function UserProfile(props) {
         ),
         h("div", { className: "hero-stats account-stats" },
             h("div", null, h("strong", null, String(shown.length)), h("span", null, "películas")),
+            h("div", null, h("strong", null, String(shownSeries.length)), h("span", null, "series")),
             h("div", null, h("strong", null, profile.prefs?.followers?.length || 0), h("span", null, "seguidores")),
             h("div", null, h("strong", null, profile.prefs?.following?.length || 0), h("span", null, "siguiendo"))
         ),
         detailLoading ? h("p", { className: "muted" }, "Cargando detalle...") : null,
         h(MovieCarousel, {
-            title: "Guardadas Recientemente",
-            subtitle: "Películas de " + (profile.nickname || profile.name),
+            title: "Recientemente guardadas",
+            subtitle: "Actividad de " + (profile.nickname || profile.name),
             movies: recent,
             onDelete: null,
             onDetail: openDetail,
             showDelete: false,
-            emptyText: "Aún no ha guardado películas"
+            emptyText: "Aún no ha guardado nada"
         }),
         h("h2", null, "Todas las Películas"),
         h("div", { className: "movies-grid" },
             shown.map((movie) =>
                 h(MovieCard, { key: movie.id, movie: movie, onDelete: null, onDetail: openDetail, showDelete: false })
+            )
+        ),
+        h("h2", null, "Todas las Series"),
+        h("div", { className: "movies-grid" },
+            shownSeries.map((serie) =>
+                h(MovieCard, { key: serie.id, movie: serie, onDelete: null, onDetail: openDetail, showDelete: false })
             )
         ),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
@@ -4569,10 +4599,15 @@ function AdminDashboard(props) {
                         h("strong", { className: "admin-card-value" }, String(stats.users)),
                         h("span", { className: "admin-card-note" }, "Cuentas registradas")
                     ),
-                    h("div", { key: "r", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Reseñas totales"),
-                        h("strong", { className: "admin-card-value" }, String(stats.reviews)),
-                        h("span", { className: "admin-card-note" }, "Reseñas publicadas")
+                    h("div", { key: "m", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Películas en catálogo"),
+                        h("strong", { className: "admin-card-value" }, String(stats.movies || 0)),
+                        h("span", { className: "admin-card-note" }, "Títulos disponibles")
+                    ),
+                    h("div", { key: "s", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Series en catálogo"),
+                        h("strong", { className: "admin-card-value" }, String(stats.series || 0)),
+                        h("span", { className: "admin-card-note" }, "Títulos disponibles")
                     ),
                     h("div", { key: "p", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Reseñas positivas"),

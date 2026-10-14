@@ -128,6 +128,16 @@ router.get("/users/:id/movies", async (req, res) => {
     }
 });
 
+// GET /api/users/:id/series — Series guardadas de un usuario (público)
+router.get("/users/:id/series", async (req, res) => {
+    try {
+        const series = await authService.getUserSeries(req.params.id);
+        res.json({ series: Array.isArray(series) ? series : [] });
+    } catch (error) {
+        res.status(500).json({ error: "No se pudo obtener las series" });
+    }
+});
+
 // GET /api/users/search?q=texto — Buscar usuarios
 router.get("/users/search", async (req, res) => {
     try {
