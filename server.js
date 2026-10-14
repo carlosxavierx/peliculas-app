@@ -38,6 +38,7 @@ const movieRoutes = require("./src-backend/routes/movieRoutes");
 const seriesRoutes = require("./src-backend/routes/seriesRoutes");
 const reviewRoutes = require("./src-backend/routes/reviewRoutes");
 const adminRoutes = require("./src-backend/routes/adminRoutes");
+const chatAgentRoutes = require("./src-backend/routes/chatAgentRoutes");
 const { startDailyEnrichment } = require("./src-backend/services/seasonEnrichmentService");
 
 const app = express();
@@ -105,6 +106,7 @@ app.use("/api/series/search", (req, res, next) => {
 
 app.use("/api", movieRoutes);
 app.use("/api", seriesRoutes);
+app.use("/api", chatAgentRoutes);
 
 // Anti fuerza bruta en login/registro: 20 intentos por IP y minuto.
 const authHits = new Map();
