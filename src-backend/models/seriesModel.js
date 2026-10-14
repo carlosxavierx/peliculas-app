@@ -68,7 +68,11 @@ function toPopularItem(doc) {
         poster: doc.poster || null,
         rating: doc.rating || null,
         genre: doc.genre || null,
-        plot: doc.plot || null
+        plot: doc.plot || null,
+        director: doc.director && doc.director !== "Desconocido" && doc.director !== "N/A" ? doc.director : null,
+        actors: doc.actors && doc.actors !== "N/A" ? doc.actors : null,
+        totalSeasons: doc.totalSeasons || null,
+        seasons: Array.isArray(doc.seasons) ? doc.seasons : null
     };
 }
 
@@ -364,26 +368,10 @@ const SeriesModel = {
         return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
     },
 
-    // Actualiza las temporadas de una serie por su IMDb ID.
-    // Usado por el servicio de enriquecimiento automático.
-    updateSeasonsByImdbID: async (imdbID, totalSeasons, seasons) => {
-        if (!db || !imdbID) return 0;
-        try {
-            const snapshot = await db.collection("series").where("imdbID", "==", imdbID).get();
-            if (snapshot.empty) return 0;
-            const batch = db.batch();
-            snapshot.forEach((doc) => {
-                batch.update(doc.ref, {
-                    totalSeasons: totalSeasons || null,
-                    seasons: seasons || [],
-                    dateEnriched: new Date().toISOString()
-                });
-            });
-            await batch.commit();
-            return snapshot.size;
-        } catch (error) {
-            console.error("Error al actualizar temporadas:", error.message || error);
-            return 0;
+    getSeasons: async (imdbID) => {
+        const id = (imdbID || "").trim();
+        if (!/^tt\d+$/i.test(id)) {
+            throw new Error("Código del contenido inválido");
         }
     }
 };

@@ -84,7 +84,7 @@ router.get("/users/search", async (req, res) => {
     }
 });
 
-// POST /api/friends/requests { to: "otro@email.com" } — enviar solicitud.
+// POST /api/friends/requests { to: "otro@correo.com" } — enviar solicitud.
 router.post("/friends/requests", async (req, res) => {
     try {
         const user = await authUser(req);
@@ -93,7 +93,7 @@ router.post("/friends/requests", async (req, res) => {
         }
         const to = req.body && req.body.to;
         if (!to || !String(to).trim()) {
-            return res.status(400).json({ error: "Falta el parámetro 'to' (email del destinatario)" });
+            return res.status(400).json({ error: "Falta el parámetro 'to' (correo del destinatario)" });
         }
         const target = await authService.getById(to);
         if (!target) {

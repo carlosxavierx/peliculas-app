@@ -28,8 +28,40 @@ const localReplies = new Map(); // reviewId -> [ replies ]
 const MAX_STATS_READ = 5000;
 
 // ---------- Utilidades ----------
-// slugify / normalizeMediaType / normalizeImdbId / normalizeYear / buildMediaKey
-// viven en ./mediaKey (una sola fuente de verdad para reseñas y catálogo).
+function slugify(value) {
+    if (typeof value !== "string") return "untitled";
+    const out = value
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    return out || "untitled";
+}
+
+function normalizeMediaType(raw) {
+    const v = String(raw || "").trim().toLowerCase();
+    if (v === "movie" || v === "movies" || v === "film") return "movie";
+    if (v === "series" || v === "serie" || v === "tv" || v === "show") return "series";
+    throw new Error("mediaType inválido (usa 'movie' o 'series')");
+}
+
+function normalizeImdbId(raw) {
+    const v = String(raw || "").trim();
+    if (!v) return null;
+    if (!/^tt\d{1,12}$/i.test(v)) throw new Error("Identificador del contenido inválido (formato tt1234567)");
+    return v.toLowerCase();
+}
+
+function normalizeYear(raw) {
+    const v = String(raw == null ? "" : raw).trim().slice(0, 4);
+    if (!v) return null;
+    if (!/^\d{4}$/.test(v)) throw new Error("Año inválido (4 cifras)");
+    const n = Number.parseInt(v, 10);
+    if (n < 1900 || n > 2100) throw new Error("Año fuera de rango (1900-2100)");
+    return String(n);
+}
 
 // Quita caracteres de control pero conserva saltos de línea y texto UTF-8.
 function sanitizeText(raw) {
@@ -49,7 +81,7 @@ function validateReviewInput(input) {
     const year = input.mediaYear != null || input.year != null
         ? normalizeYear(input.mediaYear != null ? input.mediaYear : input.year)
         : null;
-    if (!imdbID && !title) throw new Error("Falta identificar la obra (imdbID o mediaTitle)");
+    if (!imdbID && !title) throw new Error("Falta identificar la obra (identificador o título)");
     const text = sanitizeText(input.text);
     if (text.length < 50) {
         const err = new Error("La reseña debe tener al menos 50 caracteres");
@@ -93,6 +125,27 @@ function sortReviews(list, sort) {
     return arr;
 }
 
+// ---------- Sentimiento ----------
+// La IA (Gemini) etiqueta el tono de cada reseña sobre su texto y lo guarda en
+// el campo `sentiment` ("positive" | "neutral" | "negative"). Las reseñas aún
+// sin etiqueta usan la valoración como fallback: ★>=7 positiva, ★<=4 negativa
+// y el resto (incluidas las sin valoración) neutra.
+function sentimentOf(doc) {
+    const stored = String((doc && doc.sentiment) || "").toLowerCase();
+    if (stored === "positive" || stored === "negative" || stored === "neutral") return stored;
+    const rating = Number(doc && doc.rating);
+    if (Number.isInteger(rating)) {
+        if (rating >= 7) return "positive";
+        if (rating <= 4) return "negative";
+    }
+    return "neutral";
+}
+
+function hasAiSentiment(doc) {
+    const stored = String((doc && doc.sentiment) || "").toLowerCase();
+    return stored === "positive" || stored === "negative" || stored === "neutral";
+}
+
 function publicReview(doc, userVote) {
     return {
         id: doc.id,
@@ -105,9 +158,7 @@ function publicReview(doc, userVote) {
         userName: doc.userName,
         text: doc.text,
         rating: doc.rating != null ? doc.rating : null,
-        genre: doc.genre || null,
-        sentiment: doc.sentiment || null,
-        sentimentLabel: doc.sentimentLabel || null,
+        sentiment: hasAiSentiment(doc) ? doc.sentiment : null,
         upvotes: Number(doc.upvotes) || 0,
         downvotes: Number(doc.downvotes) || 0,
         score: Number(doc.score) || 0,
@@ -211,7 +262,7 @@ const ReviewModel = {
         const cleanImdb = imdbID != null && String(imdbID).trim() !== "" ? normalizeImdbId(imdbID) : null;
         const cleanTitle = title != null ? sanitizeText(title) : "";
         const cleanYear = year != null && String(year).trim() !== "" ? normalizeYear(year) : null;
-        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (imdbID o title)");
+        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (identificador o título)");
         const key = buildMediaKey({ mediaType: type, imdbID: cleanImdb, title: cleanTitle || "untitled", year: cleanYear });
         const sortMode = sort === "votes" || sort === "recent" ? sort : "relevance";
         const pageNum = Math.min(Math.max(Number.parseInt(page, 10) || 1, 1), 1000);
@@ -286,7 +337,7 @@ const ReviewModel = {
         const cleanImdb = imdbID != null && String(imdbID).trim() !== "" ? normalizeImdbId(imdbID) : null;
         const cleanTitle = title != null ? sanitizeText(title) : "";
         const cleanYear = year != null && String(year).trim() !== "" ? normalizeYear(year) : null;
-        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (imdbID o title)");
+        if (!cleanImdb && !cleanTitle) throw new Error("Falta identificar la obra (identificador o título)");
         const key = buildMediaKey({ mediaType: type, imdbID: cleanImdb, title: cleanTitle || "untitled", year: cleanYear });
         let docs;
         if (!db) {
@@ -296,12 +347,38 @@ const ReviewModel = {
             docs = snap.docs.map((d) => d.data());
         }
         const ratings = docs.map((d) => d.rating).filter((n) => Number.isInteger(n));
+        // Clasificación por valoración del usuario.
+        const positive = ratings.filter((n) => n >= 7).length;
+        const negative = ratings.filter((n) => n <= 4).length;
+
+        // Sentimiento del texto: prioriza la etiqueta de la IA (Gemini)
+        // guardada en `sentiment`; sin etiqueta, usa la valoración como fallback.
+        let sPositive = 0, sNegative = 0, sNeutral = 0, classified = 0;
+        docs.forEach((d) => {
+            if (hasAiSentiment(d)) classified += 1;
+            const label = sentimentOf(d);
+            if (label === "positive") sPositive += 1;
+            else if (label === "negative") sNegative += 1;
+            else sNeutral += 1;
+        });
+        const sentimentSource = classified === 0 ? "rating" : classified === docs.length ? "ai" : "mixed";
+
         return {
             mediaKey: key,
             count: docs.length,
             avgRating: ratings.length ? Number((ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2)) : null,
             ratingsCount: ratings.length,
-            score: docs.reduce((a, d) => a + (Number(d.score) || 0), 0)
+            positive,
+            negative,
+            score: docs.reduce((a, d) => a + (Number(d.score) || 0), 0),
+            sentiment: {
+                source: sentimentSource,
+                count: docs.length,
+                classified,
+                positive: sPositive,
+                negative: sNegative,
+                neutral: sNeutral
+            }
         };
     },
 
@@ -431,6 +508,24 @@ const ReviewModel = {
         if (rating !== undefined) patch.rating = rating;
         await ref.set(patch, { merge: true });
         return publicReview({ id: ref.id, ...data, ...patch }, 0);
+    },
+
+    // Guarda la etiqueta de sentimiento puesta por la IA (Gemini) sobre el texto.
+    updateSentiment: async (id, sentiment) => {
+        const label = String(sentiment || "").toLowerCase();
+        if (label !== "positive" && label !== "negative" && label !== "neutral") return null;
+        if (!db) {
+            const doc = localReviews.find((r) => r.id === id);
+            if (!doc) return null;
+            doc.sentiment = label;
+            doc.sentimentAt = new Date().toISOString();
+            return label;
+        }
+        await db.collection("reviews").doc(id).set(
+            { sentiment: label, sentimentAt: new Date().toISOString() },
+            { merge: true }
+        );
+        return label;
     },
 
     remove: async (id, userId) => {

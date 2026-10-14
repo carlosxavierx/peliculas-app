@@ -87,7 +87,7 @@ function applyColorTheme(themeKey) {
     root.setAttribute("data-theme", themeKey);
 }
 
-// "Popular ahora" se carga desde Firebase a través de /api/movies/popular.
+// "Popular Ahora" se carga desde Firebase a través de /api/movies/popular.
 
 // Roles de usuario
 const USER_ROLES = {
@@ -96,7 +96,16 @@ const USER_ROLES = {
 };
 
 function isAdmin(user) {
-    return user && user.role === USER_ROLES.ADMIN;
+    if (!user) return false;
+    // Misma regla que el backend (authService.js): rol canónico en "role",
+    // compatibilidad con "prefs.role", correos de prueba y apodo con "admin".
+    if (user.role && String(user.role).trim().toLowerCase() === USER_ROLES.ADMIN) return true;
+    const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
+    if (prefRole === "admin") return true;
+    const adminEmails = ["admin@test.com", "admin@example.com"];
+    if (adminEmails.includes(user.email)) return true;
+    if (user.nickname && String(user.nickname).toLowerCase().includes("admin")) return true;
+    return false;
 }
 
 function hasRole(user, role) {
@@ -163,16 +172,16 @@ function isFirebaseUnavailableMessage(msg) {
 function friendlyFirebaseError(err) {
     const code = (err && err.code) || "";
     const map = {
-        "auth/email-already-in-use": "Ese email ya está registrado. Prueba a entrar.",
+        "auth/email-already-in-use": "Ese correo ya está registrado. Prueba a entrar.",
         "auth/user-not-found": "No existe una cuenta Firebase con ese correo. Usa Crear cuenta primero.",
-        "auth/wrong-password": "Email o contraseña incorrectos.",
-        "auth/invalid-credential": "Email o contraseña incorrectos.",
-        "auth/invalid-email": "El email no es válido.",
+        "auth/wrong-password": "Correo o contraseña incorrectos.",
+        "auth/invalid-credential": "Correo o contraseña incorrectos.",
+        "auth/invalid-email": "El correo no es válido.",
         "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
         "auth/popup-closed-by-user": "Ventana de Google cerrada. Inténtalo de nuevo.",
         "auth/cancelled-popup-request": "Ya hay una ventana de Google abierta.",
         "auth/popup-blocked": "El navegador bloqueó la ventana de Google. Permite ventanas emergentes.",
-        "auth/operation-not-allowed": "Ese método de login no está activado en Firebase Console.",
+        "auth/operation-not-allowed": "Ese método de inicio de sesión no está activado en Firebase Console.",
         "auth/unauthorized-domain": "Este dominio no está autorizado en Firebase Auth.",
         "auth/invalid-continue-uri": "La URL de retorno no es válida. Revisa los dominios autorizados en Firebase.",
         "auth/missing-continue-uri": "Falta la URL de retorno de Firebase.",
@@ -265,6 +274,20 @@ function reviewQueryOf(mediaType, detail) {
         if (detail.year) parts.push("year=" + encodeURIComponent(String(detail.year).slice(0, 4)));
     }
     return parts.join("&");
+}
+
+function timeAgoEs(iso) {
+    if (!iso) return "";
+    const ms = Date.now() - new Date(iso).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return "";
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1) return "hace un momento";
+    if (mins < 60) return "hace " + mins + (mins === 1 ? " minuto" : " minutos");
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return "hace " + hours + (hours === 1 ? " hora" : " horas");
+    const days = Math.floor(hours / 24);
+    if (days < 7) return "hace " + days + (days === 1 ? " día" : " días");
+    return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function toFrontReview(raw) {
@@ -470,7 +493,7 @@ function ReviewsModal(props) {
                 error ? h("p", { className: "error" }, error) : null,
                 writing ? h("div", { className: "review-form" },
                     user ? h("div", null,
-                        h("h3", null, "Escribe tu reseña"),
+                        h("h3", null, "Escribe tu Reseña"),
                         h("textarea", {
                             value: text,
                             onChange: (e) => setText(e.target.value),
@@ -595,7 +618,7 @@ function SiteHeader(props) {
         h("div", { className: "header-inner" },
             h("button", { className: "logo", onClick: () => go("home"), "aria-label": "Ir al inicio" },
                 h("img", {
-                    className: "logo-img", src: "/img/logo-icon.png", alt: "",
+                    className: "logo-img", src: "/img/logo-icon.png", alt: "", "data-img-fallback": "off",
                     onError: (e) => { e.target.style.display = "none"; }
                 }),
                 h("span", { className: "logo-text" }, BRAND)
@@ -619,7 +642,8 @@ function SiteHeader(props) {
                         userMenuOpen && h("div", { className: "user-dropdown" },
                             h("button", { className: "dropdown-item", onClick: () => go("cuenta") }, "Mi cuenta"),
                             h("button", { className: "dropdown-item", onClick: () => go("perfil") }, "Mi perfil público"),
-                            h("button", { className: "dropdown-item", onClick: () => go("amistades") }, "Amistades"),
+                            h("button", { className: "dropdown-item", onClick: () => go("buscar-usuarios") }, "Buscar Usuarios"),
+                            h("button", { className: "dropdown-item", onClick: () => go("amigos") }, "Amigos"),
                             h("button", { className: "dropdown-item", onClick: () => go("configuracion") }, "Configuración"),
                             isAdmin(user) && h("hr", { className: "dropdown-divider" }),
                             isAdmin(user) && h("button", { className: "dropdown-item", onClick: () => go("admin") }, "Panel de administración"),
@@ -662,7 +686,7 @@ function SiteFooter(props) {
                 h("button", { className: "footer-link", onClick: () => onNavigate("peliculas") }, "Películas"),
             ),
             h("div", { className: "footer-col" },
-                h("p", { className: "footer-title" }, "Empieza ahora"),
+                h("p", { className: "footer-title" }, "Empieza Ahora"),
                 h("p", { className: "muted" }, "Busca tu primera historia y pulsa Guardar"),
                 h("button", { className: "footer-link", onClick: () => onNavigate("peliculas") }, "Continuar ahora →")
             )
@@ -674,7 +698,64 @@ function SiteFooter(props) {
 }
 
 /* ---------- MovieCard ---------- */
-const PLACEHOLDER_POSTER = "https://via.placeholder.com/300x450?text=Sin+imagen";
+// Último recurso: si el póster de un contenido no existe o su enlace ya está
+// borrado en el CDN, esta imagen genérica evita que la ficha quede sin nada.
+const POSTER_FALLBACK = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">' +
+    '<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#1a2230"/><stop offset="1" stop-color="#0f141c"/>' +
+    "</linearGradient></defs>" +
+    '<rect width="300" height="450" fill="url(#bg)"/>' +
+    '<rect x="22.5" y="22.5" width="255" height="405" rx="14" fill="none" stroke="#2a3444" stroke-width="2"/>' +
+    '<g transform="translate(150,200)">' +
+    '<rect x="-40" y="-40" width="80" height="80" rx="12" fill="none" stroke="#4a5568" stroke-width="4"/>' +
+    '<path d="M-14 -18 L26 0 L-14 18 Z" fill="#4a5568"/>' +
+    "</g>" +
+    '<text x="150" y="302" fill="#7b8698" font-family="Arial, Helvetica, sans-serif" font-size="24" text-anchor="middle">Sin imagen</text>' +
+    "</svg>"
+);
+
+// Avatar de sustitución para los perfiles sin foto.
+const AVATAR_FALLBACK = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">' +
+    '<rect width="120" height="120" fill="#1b2027"/>' +
+    '<circle cx="60" cy="46" r="22" fill="#4b5666"/>' +
+    '<path d="M20 108 a40 34 0 0 1 80 0 z" fill="#4b5666"/>' +
+    '</svg>'
+);
+
+// Se ejecuta cuando una imagen no ha podido cargar. Por imagen se puede
+// desactivar con data-img-fallback="off" o pedir el avatar con "avatar".
+function applyImageFallback(img) {
+    if (!img || img.dataset.imgFallbackDone === "1") return;
+    const mode = img.dataset.imgFallback || "poster";
+    if (mode === "off") return;
+    const original = img.getAttribute("src") || "";
+    // Primer intento: algunos CDN rechazan la imagen por el "referer"; se
+    // reintenta una vez sin enviarlo antes de darse por vencido.
+    if (img.dataset.imgFallbackRetried !== "1" && original && original.indexOf("data:") !== 0) {
+        img.dataset.imgFallbackRetried = "1";
+        img.referrerPolicy = "no-referrer";
+        img.src = original;
+        // Red de seguridad: si en 8 s sigue sin cargar, se usa la local.
+        setTimeout(function () {
+            if (!img.complete || !img.naturalWidth) applyImageFallback(img);
+        }, 8000);
+        return;
+    }
+    // Segundo intento fallido: imagen de sustitución local (nunca falla).
+    img.dataset.imgFallbackDone = "1";
+    img.removeAttribute("srcset");
+    const target = mode === "avatar" ? AVATAR_FALLBACK : POSTER_FALLBACK;
+    if (img.src !== target) img.src = target;
+}
+
+// El evento "error" de las imágenes no burbujea, pero sí se puede capturar en
+// el documento: así se arregla cualquier imagen rota sin tocar cada <img>.
+document.addEventListener("error", function (e) {
+    const t = e.target;
+    if (t && t.tagName === "IMG") applyImageFallback(t);
+}, true);
 
 function MovieCard(props) {
     const movie = props.movie;
@@ -686,13 +767,13 @@ function MovieCard(props) {
     return h("article",
         { className: "movie-card", onClick: () => { if (onDetail) onDetail(movie); } },
         h("div", { className: "movie-card-poster" },
-            h("img", { src: movie.poster || PLACEHOLDER_POSTER, alt: movie.title, loading: "lazy" }),
+            h("img", { src: movie.poster || POSTER_FALLBACK, alt: movie.title, loading: "lazy" }),
             movie.rating ? h("span", { className: "rating-badge" }, "★ " + movie.rating) : null
         ),
         h("div", { className: "movie-card-body" },
             h("h3", { title: movie.title }, movie.title),
             h("p", { className: "movie-meta" }, (movie.year || "----") + (isSeries ? " · Serie" : " · Película")),
-            movie.genre ? h("p", { className: "movie-genre" }, movie.genre) : null,
+            movie.genre ? h("p", { className: "movie-genre" }, genresLabel(movie.genre)) : null,
             (showDelete && onDelete)
                 ? h("button", {
                     className: "delete-btn",
@@ -787,7 +868,7 @@ function LandingPage(props) {
         h("section", { className: "hero" },
             h("div", { className: "hero-text" },
                 h("p", { className: "hero-kicker" }, BRAND),
-                h("h1", null, "Descubre, explora", h("br", null), "y guarda tus favoritas"),
+                h("h1", null, "Descubre, Explora", h("br", null), "y Guarda tus Favoritas"),
                 h("p", { className: "hero-sub" }, SLOGAN),
                 h("div", { className: "hero-actions" },
                     h("button", { className: "btn-primary btn-big", onClick: onExplore }, "Continuar ahora →")
@@ -803,7 +884,7 @@ function LandingPage(props) {
                     heroPosters.map((m, i) =>
                         h("div", { className: "hero-poster-card tilt-" + i, key: m.id || (m.title + i) },
                             h("img", {
-                                src: m.poster || ("https://via.placeholder.com/300x450?text=" + encodeURIComponent(m.title)),
+                                src: m.poster || POSTER_FALLBACK,
                                 alt: "",
                                 loading: "lazy"
                             })
@@ -814,18 +895,18 @@ function LandingPage(props) {
         ),
         h("section", { className: "features" },
             h("div", { className: "feature" },
-                h("span", { className: "feature-icon" }, "01"),
-                h("h3", null, "Encuentra tu próxima favorita"),
+                h("span", { className: "feature-icon" }, "1"),
+                h("h3", null, "Encuentra tu Próxima Favorita"),
                 h("p", null, "Busca entre miles de películas por su título")
             ),
             h("div", { className: "feature" },
-                h("span", { className: "feature-icon" }, "02"),
-                h("h3", null, "Desliza y descubre"),
-                h("p", null, "Explora las cards cómodamente")
+                h("span", { className: "feature-icon" }, "2"),
+                h("h3", null, "Desliza y Descubre"),
+                h("p", null, "Explora las tarjetas cómodamente")
             ),
             h("div", { className: "feature" },
-                h("span", { className: "feature-icon" }, "03"),
-                h("h3", null, "Guarda tu colección"),
+                h("span", { className: "feature-icon" }, "3"),
+                h("h3", null, "Guarda tu Colección"),
                 h("p", null, "Guarda las que te gusten y tenlas siempre a mano")
             )
         ),
@@ -848,7 +929,7 @@ function AuthChoice(props) {
             h("p", { className: "muted" }, "Elige cómo quieres continuar:"),
             h("div", { className: "choice-buttons" },
                 h("button", { className: "btn-primary btn-big", onClick: onLogin }, "Iniciar sesión"),
-                h("button", { className: "btn-ghost btn-big", onClick: onRegister }, "Crear cuenta")
+                h("button", { className: "btn-ghost btn-big", onClick: onRegister }, "Crear Cuenta")
             )
         )
     );
@@ -873,14 +954,14 @@ function ForgotPasswordPage(props) {
     const submit = async (e) => {
         e.preventDefault();
         const cleanEmail = email.trim().toLowerCase();
-        if (!cleanEmail) { setError("Escribe tu email."); return; }
+        if (!cleanEmail) { setError("Escribe tu correo."); return; }
         setLoading(true);
         setError(null);
         setSuccess(null);
         try {
             await ensureFirebase();
             await firebase.auth().sendPasswordResetEmail(cleanEmail, firebaseActionSettings("resetPassword"));
-            setSuccess("Si el email existe, recibirás un enlace para restablecer la contraseña.");
+            setSuccess("Si el correo existe, recibirás un enlace para restablecer la contraseña.");
         } catch (err) {
             setError(friendlyFirebaseError(err));
         } finally {
@@ -890,17 +971,17 @@ function ForgotPasswordPage(props) {
 
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
-            h("h1", null, "Recuperar contraseña"),
-            h("p", { className: "muted" }, "Te enviaremos un enlace a tu email para crear una nueva contraseña."),
+            h("h1", null, "Recuperar Contraseña"),
+            h("p", { className: "muted" }, "Te enviaremos un enlace a tu correo para crear una nueva contraseña."),
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, success) : null,
             h("form", { onSubmit: submit },
                 h("div", { className: "auth-field" },
-                    h("label", null, "Email"),
+                    h("label", null, "Correo"),
                     h("input", {
                         type: "email", value: email,
                         onChange: (e) => setEmail(e.target.value),
-                        placeholder: "tu@email.com", autoComplete: "email"
+                        placeholder: "tu@correo.com", autoComplete: "email"
                     })
                 ),
                 h("button", { className: "btn-primary", type: "submit", disabled: loading },
@@ -944,7 +1025,7 @@ function EmailVerificationPage(props) {
 
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
-            h("h1", null, "Verificación de correo"),
+            h("h1", null, "Verificación de Correo"),
             loading ? h("p", { className: "muted" }, "Comprobando el enlace...") : null,
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, "Correo verificado correctamente. Ya puedes iniciar sesión.") : null,
@@ -1019,14 +1100,14 @@ function PasswordResetPage(props) {
 
     return h("div", { className: "auth-wrap" },
         h("div", { className: "auth-card" },
-            h("h1", null, "Nueva contraseña"),
+            h("h1", null, "Nueva Contraseña"),
             email ? h("p", { className: "muted" }, email) : null,
             error ? h("p", { className: "error" }, error) : null,
             success ? h("p", { className: "success" }, success) : null,
             !success && !error && !loading
                 ? h("form", { onSubmit: submit },
                     h("div", { className: "auth-field" },
-                        h("label", null, "Nueva contraseña"),
+                        h("label", null, "Nueva Contraseña"),
                         h("input", {
                             type: "password", value: password,
                             onChange: (e) => setPassword(e.target.value),
@@ -1088,7 +1169,7 @@ function LoginPage(props) {
         e.preventDefault();
         const cleanEmail = email.trim().toLowerCase();
         if (!cleanEmail || !password) {
-            setError("Escribe tu email y tu contraseña.");
+            setError("Escribe tu correo y tu contraseña.");
             return;
         }
         setLoading(true);
@@ -1135,11 +1216,11 @@ function LoginPage(props) {
             error ? h("p", { className: "error" }, error) : null,
             h("form", { onSubmit: submit },
                 h("div", { className: "auth-field" },
-                    h("label", null, "Email"),
+                    h("label", null, "Correo"),
                     h("input", {
                         type: "email", value: email,
                         onChange: (e) => setEmail(e.target.value),
-                        placeholder: "tu@email.com", autoComplete: "email"
+                        placeholder: "tu@correo.com", autoComplete: "email"
                     })
                 ),
                 h("div", { className: "auth-field" },
@@ -1167,7 +1248,7 @@ function LoginPage(props) {
                 h("button", { type: "button", onClick: onSwitch }, "Regístrate")
             ),
             h("p", { className: "auth-switch" }, "¿Has olvidado la contraseña? ",
-                h("button", { type: "button", onClick: onForgot }, "Recuperar contraseña")
+                h("button", { type: "button", onClick: onForgot }, "Recuperar Contraseña")
             )
         )
     );
@@ -1183,14 +1264,25 @@ const ALL_GENRES = [
 /* Traducir géneros al español para mostrar */
 function genreLabel(g) {
     const map = {
-        Action: "Acción", Adventure: "Aventura", Animation: "Animación",
-        Comedy: "Comedia", Crime: "Crimen", Documentary: "Documental",
-        Drama: "Drama", Family: "Familiar", Fantasy: "Fantasía",
-        History: "Histórico", Horror: "Terror", Music: "Música",
-        Mystery: "Misterio", Romance: "Romance", "Sci-Fi": "Ciencia ficción",
-        Thriller: "Suspense", War: "Bélica", Western: "Western"
+        Action: "Acción", Adult: "Adultos", Adventure: "Aventura", Animation: "Animación",
+        Biography: "Biografía", Comedy: "Comedia", Crime: "Crimen", Documentary: "Documental",
+        Drama: "Drama", Family: "Familiar", Fantasy: "Fantasía", "Film-Noir": "Cine negro",
+        "Game-Show": "Concurso", History: "Histórico", Horror: "Terror", Music: "Música",
+        Musical: "Musical", Mystery: "Misterio", News: "Noticias", "Reality-TV": "Telerrealidad",
+        Romance: "Romance", "Sci-Fi": "Ciencia ficción", Short: "Cortometraje", Sport: "Deporte",
+        "Talk-Show": "Programa de entrevistas", Thriller: "Suspense", War: "Bélica", Western: "Western"
     };
     return map[g] || g;
+}
+
+/* Traducir una lista de géneros (p. ej. "Action, Adventure") al español para mostrar */
+function genresLabel(list) {
+    return String(list || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(genreLabel)
+        .join(", ");
 }
 
 function RegisterPage(props) {
@@ -1263,11 +1355,11 @@ function RegisterPage(props) {
     const checkNickname = async (value) => {
         const clean = value.trim().toLowerCase();
         if (clean.length < 3) {
-            setNicknameError("El nickname debe tener al menos 3 caracteres");
+            setNicknameError("El apodo debe tener al menos 3 caracteres");
             return;
         }
         if (clean.length > 30) {
-            setNicknameError("El nickname no puede superar 30 caracteres");
+            setNicknameError("El apodo no puede superar 30 caracteres");
             return;
         }
         if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
@@ -1281,7 +1373,7 @@ function RegisterPage(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error al comprobar");
             if (!data.available) {
-                setNicknameError("Ese nickname ya está en uso");
+                setNicknameError("Ese apodo ya está en uso");
             }
         } catch (err) {
             setNicknameError(err.message);
@@ -1361,12 +1453,12 @@ function RegisterPage(props) {
         const cleanEmail = email.trim().toLowerCase();
         const cleanNickname = nickname.trim().toLowerCase();
         if (cleanName.length < 2) { setError("Escribe tu nombre."); return; }
-        if (!cleanEmail) { setError("Escribe tu email."); return; }
+        if (!cleanEmail) { setError("Escribe tu correo."); return; }
         if (password.length < 6) { setError("La contraseña debe tener al menos 6 caracteres."); return; }
         if (password !== password2) { setError("Las contraseñas no coinciden."); return; }
-        if (cleanNickname.length < 3) { setError("El nickname debe tener al menos 3 caracteres."); return; }
-        if (cleanNickname.length > 30) { setError("El nickname no puede superar 30 caracteres."); return; }
-        if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) { setError("El nickname solo puede contener letras, números y guión bajo."); return; }
+        if (cleanNickname.length < 3) { setError("El apodo debe tener al menos 3 caracteres."); return; }
+        if (cleanNickname.length > 30) { setError("El apodo no puede superar 30 caracteres."); return; }
+        if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) { setError("El apodo solo puede contener letras, números y guión bajo."); return; }
 
         setLoading(true);
         setError(null);
@@ -1387,7 +1479,7 @@ function RegisterPage(props) {
                 });
                 if (!nicknameRes.ok) {
                     const data = await nicknameRes.json();
-                    setError(data.error || "No se pudo guardar el nickname");
+                    setError(data.error || "No se pudo guardar el apodo");
                     setLoading(false);
                     return;
                 }
@@ -1481,11 +1573,11 @@ function RegisterPage(props) {
                 })
             ),
             h("div", { className: "auth-field" },
-                h("label", null, "Email"),
+                h("label", null, "Correo"),
                 h("input", {
                     type: "email", value: email,
                     onChange: (e) => setEmail(e.target.value),
-                    placeholder: "tu@email.com", autoComplete: "email"
+                    placeholder: "tu@correo.com", autoComplete: "email"
                 })
             ),
             h("div", { className: "auth-field" },
@@ -1505,7 +1597,7 @@ function RegisterPage(props) {
                 })
             ),
             h("div", { className: "auth-field" },
-                h("label", null, "Nickname (único)"),
+                h("label", null, "Apodo (único)"),
                 h("div", { className: "nickname-field" },
                     h("span", { className: "nickname-prefix" }, "@"),
                     h("input", {
@@ -1622,7 +1714,7 @@ function RegisterPage(props) {
             ),
             step === 1 ? (
                 React.createElement(React.Fragment, null,
-                    h("h1", null, "Crear cuenta"),
+                    h("h1", null, "Crear Cuenta"),
                     h("p", { className: "muted" }, "Paso 1 de 2: tus datos básicos"),
                     error ? h("p", { className: "error" }, error) : null,
                     renderStep1(),
@@ -1632,7 +1724,7 @@ function RegisterPage(props) {
                 )
             ) : (
                 React.createElement(React.Fragment, null,
-                    h("h1", null, "Cuéntanos tus gustos"),
+                    h("h1", null, "Cuéntanos tus Gustos"),
                     h("p", { className: "muted" }, "Paso 2 de 2: preferencias"),
                     error ? h("p", { className: "error" }, error) : null,
                     renderStep2()
@@ -1672,6 +1764,7 @@ function MediaPage(props) {
     const resultState = React.useState(null);
     const result = resultState[0];
     const setResult = resultState[1];
+    const resultRef = React.useRef(null);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -1853,7 +1946,7 @@ function MediaPage(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el contenido");
             setExplore(Array.isArray(data.results) ? data.results : []);
-            setExploreTitle("Popular ahora");
+            setExploreTitle("Popular Ahora");
         } catch (e) {
             setExplore([]);
             setError(e.message || "No se pudo cargar Popular ahora desde Firebase.");
@@ -1951,7 +2044,7 @@ function MediaPage(props) {
                     }
                 }
                 setExplore(applySort(applyClientFilters(items, year, min, genre, omdbType), sortBy));
-                setExploreTitle("Resultados de tu búsqueda");
+                setExploreTitle("Resultados de tu Búsqueda");
             }
             if (!exactRes.ok && !listRes.ok) {
                 throw new Error(exactRes.data.error || listRes.data.error || "Sin resultados");
@@ -1974,7 +2067,7 @@ function MediaPage(props) {
         setResultWarning(null);
         setError(null);
         setSuccess(null);
-        setExploreTitle("Popular ahora");
+        setExploreTitle("Popular Ahora");
         loadDefaults();
     };
 
@@ -2031,6 +2124,12 @@ function MediaPage(props) {
             setDetailLoading(false);
         }
     };
+
+    React.useEffect(() => {
+        if (result && resultRef.current) {
+            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [result]);
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
@@ -2103,10 +2202,10 @@ function MediaPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result" },
+        result ? h("div", { className: "result", ref: resultRef },
             h("div", { className: "result-content" },
                 h("img", {
-                    src: result.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                    src: result.poster || POSTER_FALLBACK,
                     alt: result.title,
                     className: "poster",
                     loading: "lazy"
@@ -2114,10 +2213,10 @@ function MediaPage(props) {
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
                     h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + result.genre),
+                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
                     result.runtime ? h("p", null, h("strong", null, "Duración:"), " " + result.runtime) : null,
                     result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Nota IMDb:"), " ★ " + result.rating) : null,
+                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
@@ -2143,16 +2242,16 @@ function MediaPage(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2199,6 +2298,7 @@ function SeriesPage(props) {
     const resultState = React.useState(null);
     const result = resultState[0];
     const setResult = resultState[1];
+    const resultRef = React.useRef(null);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -2368,7 +2468,7 @@ function SeriesPage(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el contenido");
             setExplore(Array.isArray(data.results) ? data.results : []);
-            setExploreTitle("Popular ahora");
+            setExploreTitle("Popular Ahora");
         } catch (e) {
             setExplore([]);
             setError(e.message || "No se pudo cargar Popular ahora desde Firebase.");
@@ -2462,7 +2562,7 @@ function SeriesPage(props) {
                     }
                 }
                 setExplore(applySort(applyClientFilters(items, year, min, genre, omdbType), sortBy));
-                setExploreTitle("Resultados de tu búsqueda");
+                setExploreTitle("Resultados de tu Búsqueda");
             }
             if (!exactRes.ok && !listRes.ok) {
                 throw new Error(exactRes.data.error || listRes.data.error || "Sin resultados");
@@ -2485,7 +2585,7 @@ function SeriesPage(props) {
         setResultWarning(null);
         setError(null);
         setSuccess(null);
-        setExploreTitle("Popular ahora");
+        setExploreTitle("Popular Ahora");
         loadDefaults();
     };
 
@@ -2541,6 +2641,12 @@ function SeriesPage(props) {
             setDetailLoading(false);
         }
     };
+
+    React.useEffect(() => {
+        if (result && resultRef.current) {
+            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [result]);
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
@@ -2613,10 +2719,10 @@ function SeriesPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result" },
+        result ? h("div", { className: "result", ref: resultRef },
             h("div", { className: "result-content" },
                 h("img", {
-                    src: result.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                    src: result.poster || POSTER_FALLBACK,
                     alt: result.title,
                     className: "poster",
                     loading: "lazy"
@@ -2624,9 +2730,9 @@ function SeriesPage(props) {
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
                     h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + result.genre),
+                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
                     result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Nota IMDb:"), " ★ " + result.rating) : null,
+                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
@@ -2652,15 +2758,15 @@ function SeriesPage(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2711,7 +2817,7 @@ function MiCuenta(props) {
     const shownSeries = seriesList;
     const recentSeries = shownSeries.slice(0, 10);
 
-    // Top 5 combinado (películas + series) - estado para que el usuario pueda editarlo
+    // Lista de 5 favoritas combinada (películas + series) - estado editable por el usuario
     const top5State = React.useState([]);
     const top5 = top5State[0];
     const setTop5 = top5State[1];
@@ -2731,7 +2837,7 @@ function MiCuenta(props) {
     const top5SearchError = top5SearchErrorState[0];
     const setTop5SearchError = top5SearchErrorState[1];
 
-    // Cargar Top 5 guardado del backend al montar
+    // Cargar la lista de 5 favoritas guardada del backend al montar
     React.useEffect(() => {
         if (!user) return;
         let alive = true;
@@ -2746,7 +2852,7 @@ function MiCuenta(props) {
         return () => { alive = false; };
     }, [user]);
 
-    // Guardar Top 5 en el backend
+    // Guardar la lista de 5 favoritas en el backend
     const saveTop5 = async () => {
         if (!user) return;
         try {
@@ -2757,11 +2863,11 @@ function MiCuenta(props) {
             });
             setEditingTop5(false);
         } catch (e) {
-            alert("No se pudo guardar el Top 5: " + e.message);
+            alert("No se pudo guardar tu lista de favoritas: " + e.message);
         }
     };
 
-    // Combinar películas y series para selección en Top 5
+    // Combinar películas y series para la selección de 5 favoritas
     const allItems = [
         ...shownMovies.map(m => ({ ...m, mediaType: 'movie' })),
         ...shownSeries.map(s => ({ ...s, mediaType: 'series' }))
@@ -2900,7 +3006,7 @@ function MiCuenta(props) {
             if (!res.ok) throw new Error(data.error || "Error al cargar amigos");
             setFriends(data.friends || []);
         } catch (err) {
-            console.error("Error loading friends:", err);
+            console.error("Error al cargar amigos:", err);
         } finally {
             setLoadingFriends(false);
         }
@@ -2913,14 +3019,14 @@ function MiCuenta(props) {
             if (!res.ok) throw new Error(data.error || "Error al cargar solicitudes");
             setRequests(data.requests || []);
         } catch (err) {
-            console.error("Error loading requests:", err);
+            console.error("Error al cargar solicitudes:", err);
         }
     };
 
     const handleSearch = async (e) => {
         e.preventDefault();
         const q = searchQuery.trim().toLowerCase();
-        if (!q) { setSearchError("Escribe un nickname"); return; }
+        if (!q) { setSearchError("Escribe un apodo"); return; }
         if (q === (user.nickname || "").toLowerCase()) { setSearchError("No te puedes buscar a ti mismo"); return; }
         setSearching(true);
         setSearchError(null);
@@ -3028,14 +3134,14 @@ function MiCuenta(props) {
         h("div", { className: "page-head" },
             h("h1", null, "Hola, " + user.name),
             h("p", { className: "muted" }, user.email),
-            user.nickname ? h("p", { className: "muted" }, "Nickname: @" + user.nickname) : null
+            user.nickname ? h("p", { className: "muted" }, "Apodo: @" + user.nickname) : null
         ),
 
         /* ----- Índice / Tabla de contenidos ----- */
         h("nav", { className: "profile-toc" },
             h("h3", null, "📋 Índice"),
             h("ul", null,
-                h("li", null, h("a", { href: "#top5", onClick: (e) => { e.preventDefault(); document.getElementById("top5")?.scrollIntoView({ behavior: "smooth" }); } }, "⭐ Mi Top 5")),
+                h("li", null, h("a", { href: "#top5", onClick: (e) => { e.preventDefault(); document.getElementById("top5")?.scrollIntoView({ behavior: "smooth" }); } }, "⭐ Mis 5 favoritas")),
                 h("li", null, h("a", { href: "#peliculas-recientes", onClick: (e) => { e.preventDefault(); document.getElementById("peliculas-recientes")?.scrollIntoView({ behavior: "smooth" }); } }, "🎬 Películas recientes")),
                 h("li", null, h("a", { href: "#todas-peliculas", onClick: (e) => { e.preventDefault(); document.getElementById("todas-peliculas")?.scrollIntoView({ behavior: "smooth" }); } }, "📁 Todas las películas")),
                 h("li", null, h("a", { href: "#series-recientes", onClick: (e) => { e.preventDefault(); document.getElementById("series-recientes")?.scrollIntoView({ behavior: "smooth" }); } }, "📺 Series recientes")),
@@ -3049,24 +3155,24 @@ function MiCuenta(props) {
             h("div", null, h("strong", null, String(shownSeries.length)), h("span", null, "series"))
         ),
 
-        /* ----- Top 5 Combinado (Películas + Series) ----- */
+        /* ----- 5 favoritas combinadas (Películas + Series) ----- */
         h("section", { id: "top5", className: "top5-section", style: { marginBottom: "2rem" } },
             h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" } },
-                h("h2", null, "⭐ Mi Top 5 (Películas + Series)"),
+                h("h2", null, "⭐ Mis 5 Favoritas (Películas + Series)"),
                 !editingTop5 && top5.length < 5 && allItems.length > 0
-                    ? h("button", { className: "btn-primary btn-small", onClick: () => setEditingTop5(true) }, "Crear Top 5")
+                    ? h("button", { className: "btn-primary btn-small", onClick: () => setEditingTop5(true) }, "Crear 5 favoritas")
                     : editingTop5
                         ? h("div", { style: { display: "flex", gap: "0.5rem" } },
                             h("button", { className: "btn-primary btn-small", onClick: saveTop5 }, "Guardar"),
                             h("button", { className: "btn-ghost btn-small", onClick: () => { setTop5([]); setEditingTop5(false); } }, "Limpiar")
                         )
                         : top5.length > 0
-                            ? h("button", { className: "btn-ghost btn-small", onClick: () => setEditingTop5(true) }, "Editar Top 5")
+                            ? h("button", { className: "btn-ghost btn-small", onClick: () => setEditingTop5(true) }, "Editar 5 favoritas")
                             : null
             ),
 
             editingTop5 ? h("div", { className: "top5-editor" },
-                h("p", { className: "muted", style: { marginBottom: "0.75rem" } }, "Busca cualquier película o serie y haz click para añadir al Top (" + top5.length + "/5)."),
+                h("p", { className: "muted", style: { marginBottom: "0.75rem" } }, "Busca cualquier película o serie y haz clic para añadir a tus 5 favoritas (" + top5.length + "/5)."),
                 h("form", {
                     className: "top5-search top5-search--modern",
                     onSubmit: (e) => { e.preventDefault(); }
@@ -3080,7 +3186,7 @@ function MiCuenta(props) {
                         maxLength: 100,
                         autoComplete: "off",
                         className: "top5-search-input",
-                        "aria-label": "Buscar películas y series para el Top 5"
+                        "aria-label": "Buscar películas y series para tus 5 favoritas"
                     }),
                     top5Query
                         ? h("button", { type: "button", className: "top5-search-clear", onClick: clearTop5Search, "aria-label": "Limpiar búsqueda" }, "✕")
@@ -3094,9 +3200,9 @@ function MiCuenta(props) {
                             : (String(top5Candidates.length) + " en tu colección"))
                 ),
                 top5SearchError ? h("p", { className: "error" }, top5SearchError) : null,
-                top5.length >= 5 ? h("p", { className: "muted" }, "Top completo: quita alguno para añadir otro.") : null,
+                top5.length >= 5 ? h("p", { className: "muted" }, "Lista completa: quita alguna para añadir otra.") : null,
                 top5Candidates.length === 0
-                    ? h("p", { className: "muted", style: { textAlign: "center", padding: "1rem" } }, top5Searching ? "Buscando..." : (top5Query.trim().length >= 2 ? "Sin resultados para esa búsqueda. Prueba con otro título." : "Guarda o busca películas y series para crear tu Top 5."))
+                    ? h("p", { className: "muted", style: { textAlign: "center", padding: "1rem" } }, top5Searching ? "Buscando..." : (top5Query.trim().length >= 2 ? "Sin resultados para esa búsqueda. Prueba con otro título." : "Guarda o busca películas y series para crear tus 5 favoritas."))
                     : h("div", { className: "top5-available", style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.75rem", maxHeight: "320px", overflow: "auto" } },
                         top5Candidates.map(item =>
                         h("div", {
@@ -3110,7 +3216,7 @@ function MiCuenta(props) {
                             }
                         },
                             h("img", {
-                                src: item.poster || "https://via.placeholder.com/150x225?text=Sin+imagen",
+                                src: item.poster || POSTER_FALLBACK,
                                 alt: item.title,
                                 style: { width: "100%", aspectRatio: "2/3", objectFit: "cover", borderRadius: "4px", marginBottom: "0.5rem" }
                             }),
@@ -3140,7 +3246,7 @@ function MiCuenta(props) {
                                 }
                             }, idx + 1),
                             h("img", {
-                                src: item.poster || "https://via.placeholder.com/100x150?text=Sin+imagen",
+                                src: item.poster || POSTER_FALLBACK,
                                 alt: item.title,
                                 style: { width: "80px", aspectRatio: "2/3", objectFit: "cover", borderRadius: "6px", flexShrink: 0 }
                             }),
@@ -3158,16 +3264,16 @@ function MiCuenta(props) {
                     )
                 )
             ) : h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } },
-                "Aún no has creado tu Top 5. ¡Añade tus películas y series favoritas!"
+                "Aún no has creado tus 5 favoritas. ¡Añade tus películas y series favoritas!"
             )
         ),
 
         /* ----- Películas ----- */
         h("section", { id: "peliculas-recientes", className: "account-section" },
-            h("h2", null, "🎬 Películas guardadas recientemente"),
+            h("h2", null, "🎬 Películas Guardadas Recientemente"),
             detailLoading && detailType === "movie" ? h("p", { className: "muted" }, "Cargando detalle...") : null,
             h(MovieCarousel, {
-                title: "Guardadas recientemente",
+                title: "Guardadas Recientemente",
                 subtitle: "Tus últimas películas",
                 movies: recentMovies,
                 onDelete: onDelete,
@@ -3177,7 +3283,7 @@ function MiCuenta(props) {
             })
         ),
         h("section", { id: "todas-peliculas", className: "account-section" },
-            h("h2", null, "📁 Todas tus películas (" + shownMovies.length + ")"),
+            h("h2", null, "📁 Todas tus Películas (" + shownMovies.length + ")"),
             loadingList ? h("p", { className: "muted" }, "Cargando lista...") : null,
             (!loadingList && shownMovies.length === 0)
                 ? h("p", { className: "muted" }, "Vacío por ahora. Guarda alguna película para verla aquí.")
@@ -3191,10 +3297,10 @@ function MiCuenta(props) {
 
         /* ----- Series ----- */
         h("section", { id: "series-recientes", className: "account-section" },
-            h("h2", null, "📺 Series guardadas recientemente"),
+            h("h2", null, "📺 Series Guardadas Recientemente"),
             detailLoading && detailType === "series" ? h("p", { className: "muted" }, "Cargando detalle...") : null,
             h(MovieCarousel, {
-                title: "Últimas series",
+                title: "Últimas Series",
                 subtitle: "Tus últimas adiciones",
                 movies: recentSeries.map(s => Object.assign({}, s, { mediaType: "series" })),
                 onDelete: onDeleteSeries,
@@ -3204,7 +3310,7 @@ function MiCuenta(props) {
             })
         ),
         h("section", { id: "todas-series", className: "account-section" },
-            h("h2", null, "📁 Todas tus series (" + shownSeries.length + ")"),
+            h("h2", null, "📁 Todas tus Series (" + shownSeries.length + ")"),
             loadingSeries ? h("p", { className: "muted" }, "Cargando lista...") : null,
             (!loadingSeries && shownSeries.length === 0)
                 ? h("p", { className: "muted" }, "Vacío por ahora. Guarda alguna serie para verla aquí.")
@@ -3223,17 +3329,17 @@ function MiCuenta(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + (detail.year || "----") + ")"),
                         h("p", { className: "muted" }, detailType === "series" ? "📺 Serie" : "🎬 Película"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", { className: "btn-ghost", type: "button", onClick: () => openReviews(detail, detailType) }, "Reseñas"),
@@ -3367,7 +3473,7 @@ function UserProfile(props) {
     return h("div", { className: "movies-page" },
         h("div", { className: "profile-header" },
             h("div", { className: "profile-avatar" },
-                profile.photoURL ? h("img", { src: profile.photoURL, alt: profile.nickname || profile.name }) : h("span", null, (profile.nickname || profile.name || "U")[0].toUpperCase())
+                profile.photoURL ? h("img", { src: profile.photoURL, alt: profile.nickname || profile.name, "data-img-fallback": "avatar" }) : h("span", null, (profile.nickname || profile.name || "U")[0].toUpperCase())
             ),
             h("div", { className: "profile-info" },
                 h("h1", null, profile.nickname || profile.name),
@@ -3386,7 +3492,7 @@ function UserProfile(props) {
         ),
         detailLoading ? h("p", { className: "muted" }, "Cargando detalle...") : null,
         h(MovieCarousel, {
-            title: "Guardadas recientemente",
+            title: "Guardadas Recientemente",
             subtitle: "Películas de " + (profile.nickname || profile.name),
             movies: recent,
             onDelete: null,
@@ -3394,7 +3500,7 @@ function UserProfile(props) {
             showDelete: false,
             emptyText: "Aún no ha guardado películas"
         }),
-        h("h2", null, "Todas las películas"),
+        h("h2", null, "Todas las Películas"),
         h("div", { className: "movies-grid" },
             shown.map((movie) =>
                 h(MovieCard, { key: movie.id, movie: movie, onDelete: null, onDetail: openDetail, showDelete: false })
@@ -3405,15 +3511,15 @@ function UserProfile(props) {
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
                     h("img", {
-                        src: detail.poster || "https://via.placeholder.com/300x450?text=Sin+imagen",
+                        src: detail.poster || POSTER_FALLBACK,
                         alt: detail.title
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + detail.genre) : null,
+                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "IMDb:"), " ★ " + detail.rating) : null,
+                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
                         detail.plot ? h("p", null, detail.plot) : null
                     )
                 )
@@ -3766,13 +3872,13 @@ function UserSearch(props) {
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
-            h("h1", null, "Buscar usuarios"),
+            h("h1", null, "Buscar Usuarios"),
             h("p", { className: "muted" }, "Encuentra amigos y descubre sus colecciones")
         ),
         h("div", { className: "search-bar" },
             h("input", {
                 type: "text",
-                placeholder: "Buscar por nombre, apodo o email...",
+                placeholder: "Buscar por nombre, apodo o correo...",
                 value: query,
                 onChange: (e) => setQuery(e.target.value),
                 autoFocus: true
@@ -3784,7 +3890,7 @@ function UserSearch(props) {
             results.map((u) =>
                 h("div", { key: u.id, className: "user-item" },
                     h("div", { className: "user-avatar" },
-                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
+                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name, "data-img-fallback": "avatar" }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
                     ),
                     h("div", { className: "user-info" },
                         h("strong", null, u.nickname || u.name),
@@ -3882,7 +3988,7 @@ function FriendsPage(props) {
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
-            h("h1", null, "Mis amigos"),
+            h("h1", null, "Mis Amigos"),
             h("p", { className: "muted" }, "Gestiona a quién sigues y quién te sigue")
         ),
         h("div", { className: "tabs" },
@@ -3894,7 +4000,7 @@ function FriendsPage(props) {
             currentList.map((u) =>
                 h("div", { key: u.id, className: "user-item" },
                     h("div", { className: "user-avatar" },
-                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
+                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name, "data-img-fallback": "avatar" }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
                     ),
                     h("div", { className: "user-info" },
                         h("strong", null, u.nickname || u.name),
@@ -3977,14 +4083,14 @@ function ProfileSettings(props) {
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
-            h("h1", null, "Configuración de perfil"),
+            h("h1", null, "Configuración de Perfil"),
             h("p", { className: "muted" }, "Personaliza tu apodo visible y el tema de color")
         ),
         error ? h("div", { className: "error-toast" }, error) : null,
         success ? h("div", { className: "success-toast" }, success) : null,
         h("form", { className: "settings-form", onSubmit: handleSave },
             h("div", { className: "settings-section" },
-                h("h2", null, "Apodo visible"),
+                h("h2", null, "Apodo Visible"),
                 h("div", { className: "auth-field" },
                     h("label", null, "Apodo (nombre público)"),
                     h("input", {
@@ -3999,7 +4105,7 @@ function ProfileSettings(props) {
                 )
             ),
             h("div", { className: "settings-section" },
-                h("h2", null, "Tema de color"),
+                h("h2", null, "Tema de Color"),
                 h("p", { className: "muted" }, "Elige una paleta de colores para la interfaz (botones, enlaces, acentos)"),
                 h("div", { className: "theme-options" },
                     Object.entries(COLOR_THEMES).map(([key, t]) =>
@@ -4037,7 +4143,7 @@ function ChatAgent() {
     const setIsOpen = isOpenState[1];
 
     const messagesState = React.useState([
-        { role: "assistant", content: "¡Hola! Soy CineBot 🎬, tu asistente en CineAIros. ¿En qué te ayudo hoy? Puedes preguntarme por películas, series, cómo usar la página web, recomendaciones…", time: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) }
+        { role: "assistant", content: "¡Hola! Soy CineBot 🎬, tu asistente en CineAIros. ¿En qué te ayudo hoy? Puedes preguntarme por películas, series, cómo usar la aplicación, recomendaciones…", time: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) }
     ]);
     const messages = messagesState[0];
     const setMessages = messagesState[1];
@@ -4089,7 +4195,7 @@ function ChatAgent() {
                 body: JSON.stringify({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })) })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error en el chat");
+            if (!res.ok) throw new Error(data.error || "Error en la conversación");
 
             const assistantMsg = { role: "assistant", content: data.reply || "No he podido generar respuesta.", time: formatTime(new Date()) };
             setMessages((prev) => [...prev, assistantMsg]);
@@ -4107,7 +4213,7 @@ function ChatAgent() {
             h("button", {
                 className: "chat-agent-toggle",
                 onClick: toggleChat,
-                "aria-label": "Abrir chat con CineBot",
+                "aria-label": "Abrir conversación con CineBot",
                 "aria-expanded": "false"
             },
                 h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
@@ -4126,7 +4232,7 @@ function ChatAgent() {
         h("button", {
             className: "chat-agent-toggle open",
             onClick: toggleChat,
-            "aria-label": "Cerrar chat",
+            "aria-label": "Cerrar conversación",
             "aria-expanded": "true"
         },
             h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
@@ -4138,7 +4244,7 @@ function ChatAgent() {
                 h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
             )
         ),
-        h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Chat con CineBot" },
+        h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Conversación con CineBot" },
             h("header", { className: "chat-agent-header" },
                 h("div", { className: "chat-agent-title" },
                     h("div", { className: "chat-agent-avatar" },
@@ -4152,7 +4258,7 @@ function ChatAgent() {
                         h("span", null, "Asistente CineAIros")
                     )
                 ),
-                h("button", { className: "chat-agent-close", onClick: closeChat, "aria-label": "Cerrar chat" },
+                h("button", { className: "chat-agent-close", onClick: closeChat, "aria-label": "Cerrar conversación" },
                     h("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" },
                         h("path", { d: "M18 6L6 18M6 6l12 12" })
                     )
@@ -4223,7 +4329,7 @@ function AdminRoute(props) {
     if (!user) {
         return h("div", { className: "movies-page" },
             h("div", { className: "auth-card", style: { textAlign: "center", padding: "3rem" } },
-                h("h2", null, "Acceso restringido"),
+                h("h2", null, "Acceso Restringido"),
                 h("p", { className: "muted" }, "Debes iniciar sesión para acceder a esta página."),
                 h("button", { className: "btn-primary", onClick: () => onNavigate("login") }, "Iniciar sesión")
             )
@@ -4233,7 +4339,7 @@ function AdminRoute(props) {
     if (!isAdmin(user)) {
         return h("div", { className: "movies-page" },
             h("div", { className: "auth-card", style: { textAlign: "center", padding: "3rem" } },
-                h("h2", null, "Acceso denegado"),
+                h("h2", null, "Acceso Denegado"),
                 h("p", { className: "muted" }, "Esta página es solo para administradores."),
                 h("button", { className: "btn-primary", onClick: () => onNavigate("home") }, "Ir al inicio")
             )
@@ -4247,9 +4353,13 @@ function AdminRoute(props) {
 function AdminDashboard(props) {
     const user = props.user;
     const onNavigate = props.onNavigate;
-    const statsState = React.useState({ users: 0, movies: 0, series: 0 });
+    const statsState = React.useState({ users: 0, movies: 0, series: 0, reviews: 0, reviewsPositive: 0, reviewsNegative: 0, activity: [] });
     const stats = statsState[0];
     const setStats = statsState[1];
+    // Cards del resumen y actividad reciente: datos reales del backend
+    // (/api/admin/stats incluye reviews, reviewsPositive/Negative y activity).
+    const activityList = Array.isArray(stats.activity) ? stats.activity : [];
+    const neutralReviews = Math.max(0, Number(stats.reviews || 0) - (Number(stats.reviewsPositive) || 0) - (Number(stats.reviewsNegative) || 0));
     const usersState = React.useState([]);
     const users = usersState[0];
     const setUsers = usersState[1];
@@ -4259,9 +4369,76 @@ function AdminDashboard(props) {
     const errorState = React.useState(null);
     const error = errorState[0];
     const setError = errorState[1];
-    const activeTabState = React.useState("stats");
-    const activeTab = activeTabState[0];
-    const setActiveTab = activeTabState[1];
+    // Sección activa del panel: main | search | stats | users | reviews | sentiment
+    const sectionState = React.useState("main");
+    const section = sectionState[0];
+    const setSection = sectionState[1];
+    // Buscador de contenido (catálogo Firestore).
+    const searchQueryState = React.useState("");
+    const searchQuery = searchQueryState[0];
+    const setSearchQuery = searchQueryState[1];
+    const searchingState = React.useState(false);
+    const searching = searchingState[0];
+    const setSearching = searchingState[1];
+    const searchResultsState = React.useState([]);
+    const searchResults = searchResultsState[0];
+    const setSearchResults = searchResultsState[1];
+    const searchErrorState = React.useState(null);
+    const searchError = searchErrorState[0];
+    const setSearchError = searchErrorState[1];
+    const searchDoneState = React.useState(false);
+    const searchDone = searchDoneState[0];
+    const setSearchDone = searchDoneState[1];
+    // Paginación del Buscador (el backend devuelve 10 resultados/página por tipo).
+    const searchPageState = React.useState(1);
+    const searchPage = searchPageState[0];
+    const setSearchPage = searchPageState[1];
+    const searchTotalState = React.useState(0);
+    const searchTotal = searchTotalState[0];
+    const setSearchTotal = searchTotalState[1];
+    const searchMoreLoadingState = React.useState(false);
+    const searchMoreLoading = searchMoreLoadingState[0];
+    const setSearchMoreLoading = searchMoreLoadingState[1];
+    // Contenido seleccionado: base para la ficha, las reseñas y las estadísticas.
+    const selectedContentState = React.useState(null);
+    const selectedContent = selectedContentState[0];
+    const setSelectedContent = selectedContentState[1];
+    // Reseñas del contenido seleccionado (backend /api/reviews).
+    const reviewsState = React.useState([]);
+    const reviews = reviewsState[0];
+    const setReviews = reviewsState[1];
+    const reviewsLoadingState = React.useState(true);
+    const reviewsLoading = reviewsLoadingState[0];
+    const setReviewsLoading = reviewsLoadingState[1];
+    const reviewsErrorState = React.useState(null);
+    const reviewsError = reviewsErrorState[0];
+    const setReviewsError = reviewsErrorState[1];
+    const reviewsTotalState = React.useState(0);
+    const reviewsTotal = reviewsTotalState[0];
+    const setReviewsTotal = reviewsTotalState[1];
+    const reviewToDeleteState = React.useState(null);
+    const reviewToDelete = reviewToDeleteState[0];
+    const setReviewToDelete = reviewToDeleteState[1];
+    const reviewNoticeState = React.useState(null);
+    const reviewNotice = reviewNoticeState[0];
+    const setReviewNotice = reviewNoticeState[1];
+    // Resumen agregado del backend (TODAS las reseñas de la obra, /api/reviews/summary).
+    const reviewsSummaryState = React.useState(null);
+    const reviewsSummary = reviewsSummaryState[0];
+    const setReviewsSummary = reviewsSummaryState[1];
+    const reviewsSummaryLoadingState = React.useState(false);
+    const reviewsSummaryLoading = reviewsSummaryLoadingState[0];
+    const setReviewsSummaryLoading = reviewsSummaryLoadingState[1];
+    const reviewsSummaryErrorState = React.useState(null);
+    const reviewsSummaryError = reviewsSummaryErrorState[0];
+    const setReviewsSummaryError = reviewsSummaryErrorState[1];
+    // Paginación real de la lista (el backend devuelve como máximo 50 reseñas por página).
+    const reviewsPageState = React.useState(1);
+    const reviewsPage = reviewsPageState[0];
+    const setReviewsPage = reviewsPageState[1];
+    const reviewsLoadingMoreState = React.useState(false);
+    const reviewsLoadingMore = reviewsLoadingMoreState[0];
+    const setReviewsLoadingMore = reviewsLoadingMoreState[1];
 
     const loadStats = async () => {
         try {
@@ -4291,7 +4468,95 @@ function AdminDashboard(props) {
     React.useEffect(() => {
         loadStats();
         loadUsers();
+        // Refresco periódico: así las tarjetas del resumen y la actividad reciente
+        // reflejan en tiempo real nuevas reseñas y cambios de rol.
+        const timer = setInterval(loadStats, 15000);
+        return () => clearInterval(timer);
     }, []);
+
+    // Carga la lista del contenido (paginada, 50/página) y, en paralelo,
+    // el resumen agregado (TODAS las reseñas) que alimenta las estadísticas.
+    React.useEffect(() => {
+        if (!selectedContent) {
+            setReviews([]);
+            setReviewsTotal(0);
+            setReviewsLoading(false);
+            setReviewsError(null);
+            setReviewNotice(null);
+            setReviewsSummary(null);
+            setReviewsSummaryLoading(false);
+            setReviewsSummaryError(null);
+            setReviewsPage(1);
+            return;
+        }
+        let alive = true;
+        setReviewsLoading(true);
+        setReviewsError(null);
+        setReviewNotice(null);
+        setReviewsSummaryError(null);
+        setReviewsSummaryLoading(true);
+        setReviews([]);
+        setReviewsTotal(0);
+        setReviewsPage(1);
+        const mediaType = reviewMediaTypeOf(selectedContent, selectedContent.mediaType);
+        const q = reviewQueryOf(mediaType, selectedContent);
+        (async () => {
+            try {
+                const [listRes, sumRes] = await Promise.all([
+                    fetch("/api/reviews?" + q + "&sort=relevance&page=1&limit=50", { headers: authHeaders() }),
+                    fetch("/api/reviews/summary?" + q, { headers: authHeaders() })
+                ]);
+                const listData = await listRes.json().catch(() => ({}));
+                const sumData = await sumRes.json().catch(() => ({}));
+                if (!alive) return;
+                if (!listRes.ok) throw new Error(listData.error || "No se pudieron cargar las reseñas");
+                const list = Array.isArray(listData.results) ? listData.results.map(toFrontReview) : [];
+                setReviews(list);
+                setReviewsTotal(typeof listData.total === "number" ? listData.total : list.length);
+                if (sumRes.ok && typeof sumData.count === "number") {
+                    setReviewsSummary(sumData);
+                } else {
+                    setReviewsSummaryError((sumData && sumData.error) || "Resumen no disponible");
+                }
+            } catch (e) {
+                if (!alive) return;
+                const msg = e.message || "Error al recuperar las reseñas";
+                setReviewsError(msg);
+                setReviewsSummaryError(msg);
+            } finally {
+                if (alive) {
+                    setReviewsLoading(false);
+                    setReviewsSummaryLoading(false);
+                }
+            }
+        })();
+        return () => { alive = false; };
+    }, [selectedContent]);
+
+    // Carga la siguiente página (50 más) de la lista de reseñas y la añade.
+    const loadMoreReviews = async () => {
+        if (!selectedContent || reviewsLoadingMore) return;
+        setReviewsLoadingMore(true);
+        try {
+            const mediaType = reviewMediaTypeOf(selectedContent, selectedContent.mediaType);
+            const q = reviewQueryOf(mediaType, selectedContent);
+            const next = (reviewsPage || 1) + 1;
+            const res = await fetch("/api/reviews?" + q + "&sort=relevance&page=" + next + "&limit=50", { headers: authHeaders() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "No se pudieron cargar más reseñas");
+            const more = Array.isArray(data.results) ? data.results.map(toFrontReview) : [];
+            setReviews((prev) => {
+                const seen = new Set(prev.map((r) => r.id));
+                return prev.concat(more.filter((r) => !seen.has(r.id)));
+            });
+            setReviewsPage(next);
+            if (typeof data.total === "number") setReviewsTotal(data.total);
+        } catch (e) {
+            setReviewsError(e.message || "Error al cargar más reseñas");
+        } finally {
+            setReviewsLoadingMore(false);
+        }
+    };
 
     const changeUserRole = async (userId, newRole) => {
         try {
@@ -4303,58 +4568,702 @@ function AdminDashboard(props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error al cambiar rol");
             setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+            // Refresca la actividad reciente para que la promoción aparezca ya.
+            loadStats();
         } catch (e) {
             alert(e.message);
         }
     };
 
-    if (loading && activeTab === "users") {
+    if (loading && section === "users") {
         return h("div", { className: "movies-page" }, h("p", { className: "muted" }, "Cargando..."));
     }
 
-    return h("div", { className: "movies-page" },
-        h("div", { className: "page-head" },
-            h("h1", null, "Panel de Administración"),
-            h("p", { className: "muted" }, "Gestión de usuarios y estadísticas del sistema")
-        ),
-        h("div", { className: "admin-tabs" },
-            h("button", { className: "tab" + (activeTab === "stats" ? " active" : ""), onClick: () => setActiveTab("stats") }, "Estadísticas"),
-            h("button", { className: "tab" + (activeTab === "users" ? " active" : ""), onClick: () => setActiveTab("users") }, "Usuarios (" + users.length + ")")
-        ),
-        error ? h("p", { className: "error" }, error) : null,
-        activeTab === "stats" && h("div", { className: "admin-stats" },
-            h("div", { className: "hero-stats account-stats" },
-                h("div", null, h("strong", null, String(stats.users)), h("span", null, "Usuarios")),
-                h("div", null, h("strong", null, String(stats.movies)), h("span", null, "Películas guardadas")),
-                h("div", null, h("strong", null, String(stats.series)), h("span", null, "Series guardadas"))
+    const backToMain = () => setSection("main");
+
+    // Botón para volver al resumen: se coloca ARRIBA en cada sección para no
+    // tener que bajar hasta el final a buscarlo.
+    const backButton = h("button", { className: "btn-ghost btn-small admin-back", onClick: backToMain }, "← Volver");
+
+    // Búsqueda combinada de películas y series reutilizando el catálogo existente
+    // (el backend pagina a 10 resultados por tipo: guardamos el total real para paginar).
+    const mergeSearchPayload = (mData, sData) => {
+        const mItems = Array.isArray(mData.results) ? mData.results : (Array.isArray(mData) ? mData : []);
+        const sItems = Array.isArray(sData.results) ? sData.results : (Array.isArray(sData) ? sData : []);
+        const withType = [
+            ...mItems.map((m) => Object.assign({}, m, { mediaType: "movie" })),
+            ...sItems.map((s) => Object.assign({}, s, { mediaType: "series" }))
+        ];
+        const seen = new Set();
+        const merged = [];
+        for (const it of withType) {
+            const key = it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year));
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(it);
+        }
+        return {
+            merged,
+            totalMovies: Number(mData.totalResults) || 0,
+            totalSeries: Number(sData.totalResults) || 0
+        };
+    };
+
+    const runSearch = async (e) => {
+        e.preventDefault();
+        const q = searchQuery.trim();
+        if (q.length < 2) {
+            setSearchError("Escribe al menos 2 caracteres para buscar.");
+            return;
+        }
+        setSearching(true);
+        setSearchError(null);
+        setSearchDone(false);
+        try {
+            const [mData, sData] = await Promise.all([
+                fetch("/api/movies/search-list?s=" + encodeURIComponent(q) + "&page=1").then((r) => r.json().catch(() => ({}))),
+                fetch("/api/series/search-list?s=" + encodeURIComponent(q) + "&page=1").then((r) => r.json().catch(() => ({})))
+            ]);
+            const { merged, totalMovies, totalSeries } = mergeSearchPayload(mData, sData);
+            setSearchResults(merged);
+            setSearchPage(1);
+            setSearchTotal(totalMovies + totalSeries);
+        } catch (err) {
+            setSearchError("No se pudo buscar en el catálogo. Inténtalo de nuevo.");
+        } finally {
+            setSearching(false);
+            setSearchDone(true);
+        }
+    };
+
+    // Carga la siguiente página de resultados (10 más por tipo) y los añade a la lista.
+    const loadMoreSearchResults = async () => {
+        if (!searchQuery.trim() || searchMoreLoading || searchTotal <= searchResults.length) return;
+        const q = searchQuery.trim();
+        setSearchMoreLoading(true);
+        try {
+            const next = searchPage + 1;
+            const [mData, sData] = await Promise.all([
+                fetch("/api/movies/search-list?s=" + encodeURIComponent(q) + "&page=" + next).then((r) => r.json().catch(() => ({}))),
+                fetch("/api/series/search-list?s=" + encodeURIComponent(q) + "&page=" + next).then((r) => r.json().catch(() => ({})))
+            ]);
+            const { merged, totalMovies, totalSeries } = mergeSearchPayload(mData, sData);
+            setSearchResults((prev) => {
+                const seen = new Set(prev.map((it) => it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year))));
+                return prev.concat(merged.filter((it) => !seen.has(it.mediaType + "|" + String(it.imdbID || it.id || (it.title + "|" + it.year)))));
+            });
+            setSearchPage(next);
+            setSearchTotal(totalMovies + totalSeries);
+        } catch (err) {
+            setSearchError("No se pudieron cargar más resultados.");
+        } finally {
+            setSearchMoreLoading(false);
+        }
+    };
+
+    // Guarda el contenido elegido en el estado del dashboard (T5+ lo consumirá).
+    const selectContent = (item) => {
+        setSelectedContent(item);
+    };
+
+    // Confirmación visual de borrado.
+    const askDeleteReview = (review) => setReviewToDelete(review);
+    const closeDeleteReview = () => setReviewToDelete(null);
+    const confirmDeleteReview = () => {
+        setReviewToDelete(null);
+        setReviewNotice("Confirmado. La reseña quedará pendiente de revisión por un administrador.");
+    };
+
+    // Tarjeta de una reseña del panel (reutiliza las clases .review-* de la app).
+    const reviewCard = (r) =>
+        h("article", { key: r.id, className: "review-item admin-review" },
+            h("div", { className: "review-header" },
+                h("strong", null, r.user || "Usuario"),
+                h("time", { className: "review-date" },
+                    new Date(r.createdAt || Date.now()).toLocaleDateString("es-ES"))
             ),
-            h("p", { className: "muted", style: { marginTop: "1rem" } }, "Bienvenido, " + user.name + " (Administrador)")
-        ),
-        activeTab === "users" && h("div", { className: "admin-users" },
-            h("div", { className: "movies-grid" },
-                users.map((u) =>
-                    h("div", { key: u.id, className: "movie-card", style: { maxWidth: "400px", flex: "1 1 300px" } },
-                        h("div", { className: "movie-card-body" },
-                            h("h3", null, u.name || u.nickname || "Sin nombre"),
-                            h("p", { className: "movie-meta" }, u.email),
-                            h("p", { className: "movie-meta" }, "Rol: " + (u.role || "user")),
-                            u.createdAt && h("p", { className: "muted", style: { fontSize: "0.8rem" } }, "Registrado: " + new Date(u.createdAt).toLocaleDateString("es-ES")),
-                            h("div", { className: "result-actions", style: { marginTop: "1rem" } },
-                                h("select", {
-                                    value: u.role || "user",
-                                    onChange: (e) => changeUserRole(u.id, e.target.value),
-                                    className: "role-select"
-                                },
-                                    h("option", { value: "user" }, "Usuario"),
-                                    h("option", { value: "admin" }, "Administrador")
+            h("p", { className: "review-text" }, r.text),
+            h("div", { className: "review-actions" },
+                r.rating ? h("span", { className: "chip chip--rating" }, "★ " + r.rating + "/10") : null,
+                r.sentiment === "positive" || r.sentiment === "negative" || r.sentiment === "neutral"
+                    ? h("span", { className: "chip admin-review-sent admin-review-sent-" + r.sentiment },
+                        "IA: " + (r.sentiment === "positive" ? "positiva" : r.sentiment === "negative" ? "negativa" : "neutra"))
+                    : null,
+                typeof r.score === "number" && r.score !== 0
+                    ? h("span", { className: "chip" }, (r.score > 0 ? "+" : "") + r.score + " puntos")
+                    : null,
+                h("button", { className: "btn-danger btn-small", onClick: () => askDeleteReview(r) }, "Eliminar")
+            )
+        );
+
+    // Diálogo de confirmación (reutiliza el modal existente de la app).
+    const confirmDialog = reviewToDelete
+        ? h("div", { className: "modal-backdrop", onClick: closeDeleteReview },
+            h("div", { className: "modal admin-confirm-modal", onClick: (e) => e.stopPropagation() },
+                h("button", { className: "modal-close", onClick: closeDeleteReview }, "✕"),
+                h("div", { className: "admin-confirm-content" },
+                    h("h2", null, "Eliminar Reseña"),
+                    h("p", { className: "muted" }, "¿Estás seguro de que deseas eliminar esta reseña?"),
+                    h("p", { className: "admin-confirm-preview" },
+                        h("strong", null, (reviewToDelete.user || "Usuario") + " — "),
+                        String(reviewToDelete.text || "").slice(0, 160)
+                    ),
+                    h("div", { className: "admin-confirm-actions" },
+                        h("button", { className: "btn-ghost btn-small", onClick: closeDeleteReview }, "Cancelar"),
+                        h("button", { className: "btn-danger btn-small", onClick: confirmDeleteReview }, "Confirmar")
+                    )
+                )
+            )
+        )
+        : null;
+
+    // Métricas por contenido: provienen del resumen agregado del backend
+    // (/api/reviews/summary), calculado sobre TODAS las reseñas de la obra sin límite de página.
+
+    const statCard = (label, value, note, extra) =>
+        h("div", { key: label, className: "admin-card" + (extra || "") },
+            h("span", { className: "admin-card-label" }, label),
+            h("strong", { className: "admin-card-value" }, value),
+            h("span", { className: "admin-card-note" }, note));
+
+    // Gráfico de sentimiento a partir del resumen agregado del backend
+    // (TODAS las reseñas de la obra). Prioriza la clasificación real de la IA
+    // (Gemini) sobre el texto (summary.sentiment); sin etiquetas usa el fallback
+    // por valoración (★≥7 / ★≤4).
+    const chartPct = (value, total) => (total > 0 ? Math.round((value / total) * 100) : 0);
+
+    const sentimentSourceText = (s) => {
+        const sm = s && s.sentiment;
+        if (!sm || typeof sm.count !== "number") return "";
+        if (sm.source === "ai") return "Todas las reseñas clasificadas por la IA (Gemini) a partir de su texto.";
+        if (sm.source === "mixed") return sm.classified + " de " + sm.count + " reseñas clasificadas por la IA (Gemini); el resto usa la valoración como respaldo.";
+        if (sm.source === "rating") return "Sin clave de IA configurada: clasificación por valoración (★≥7 positiva, ★≤4 negativa).";
+        return "";
+    };
+
+    const sentimentChart = (s) => {
+        if (!s || typeof s.count !== "number" || s.count <= 0) return null;
+        const ai = s.sentiment && typeof s.sentiment.count === "number" && s.sentiment.count > 0 ? s.sentiment : null;
+        const total = ai ? ai.count : s.count;
+        const pos = ai ? (Number(ai.positive) || 0) : (Number(s.positive) || 0);
+        const neg = ai ? (Number(ai.negative) || 0) : (Number(s.negative) || 0);
+        const neu = ai ? (Number(ai.neutral) || 0) : Math.max(0, total - pos - neg);
+        const segs = [
+            { key: "pos", label: "Positivas", cls: "sent-positive", value: pos },
+            { key: "neu", label: "Neutras", cls: "sent-neutral", value: neu },
+            { key: "neg", label: "Negativas", cls: "sent-negative", value: neg }
+        ].filter((seg) => seg.value > 0);
+        if (segs.length === 0) return null;
+        return h("div", { className: "admin-chart" },
+            h("div", {
+                className: "admin-chart-bar", role: "img",
+                "aria-label": "Distribución del tono de las reseñas"
+            },
+                segs.map((seg) =>
+                    h("span", {
+                        key: seg.key,
+                        className: "admin-chart-seg " + seg.cls,
+                        style: { width: (seg.value / total) * 100 + "%" },
+                        title: seg.label + ": " + seg.value + " (" + chartPct(seg.value, total) + "%)"
+                    })
+                )
+            ),
+            h("div", { className: "admin-chart-legend" },
+                segs.map((seg) =>
+                    h("span", { key: seg.key, className: "admin-chart-legend-item" },
+                        h("span", { className: "admin-chart-dot " + seg.cls }),
+                        h("span", null, seg.label),
+                        h("strong", null, String(seg.value)),
+                        h("span", { className: "muted" }, "(" + chartPct(seg.value, total) + "%)")
+                    )
+                )
+            )
+        );
+    };
+
+    // Reseñas por género del catálogo (agregado global del backend).
+    const genreChart = (list) => {
+        if (!Array.isArray(list) || list.length === 0) {
+            return h("p", { className: "muted admin-stats-note" },
+                "Aún no hay reseñas asociadas a géneros del catálogo.");
+        }
+        const max = Math.max.apply(null, list.map((g) => Number(g.count) || 0)) || 1;
+        return h("div", { className: "admin-genre-chart" },
+            list.map((g) =>
+                h("div", { key: g.genre, className: "admin-genre-row" },
+                    h("span", { className: "admin-genre-label", title: g.genre }, genreLabel(g.genre)),
+                    h("div", { className: "admin-genre-track" },
+                        h("span", {
+                            className: "admin-genre-fill",
+                            style: { width: ((Number(g.count) || 0) / max) * 100 + "%" }
+                        })
+                    ),
+                    h("span", { className: "admin-genre-value" },
+                        g.count + " " + (g.count === 1 ? "reseña" : "reseñas") +
+                        (Number(g.positive) || Number(g.negative)
+                            ? " · +" + (Number(g.positive) || 0) + "/-" + (Number(g.negative) || 0)
+                            : ""))
+                )
+            )
+        );
+    };
+
+    // Texto de acción para un evento de actividad reciente (p. ej. promociones
+    // y nuevas reseñas que registra el backend en la colección activity).
+    const activityActionText = (a) => {
+        if (!a || typeof a !== "object") return "";
+        switch (a.type) {
+            case "promote":
+                return "promovió a " + (a.target || "un usuario") + " a administrador";
+            case "demote":
+                return "retiró el rol de administrador a " + (a.target || "un usuario");
+            case "review":
+                return "añadió una reseña a «" + (a.target || "una obra") + "»";
+            default:
+                return a.details || a.action || "";
+        }
+    };
+
+    const views = {
+        main: h("div", { className: "admin-main" }, [
+            error ? h("p", { className: "error" }, error) : null,
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" },
+                    h("h2", null, "Resumen"),
+                    h("span", { className: "chip" }, "Datos en tiempo real")
+                ),
+                h("div", { className: "admin-cards" },
+                    h("div", { key: "u", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Usuarios totales"),
+                        h("strong", { className: "admin-card-value" }, String(stats.users)),
+                        h("span", { className: "admin-card-note" }, "Cuentas registradas")
+                    ),
+                    h("div", { key: "r", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reseñas totales"),
+                        h("strong", { className: "admin-card-value" }, String(stats.reviews)),
+                        h("span", { className: "admin-card-note" }, "Reseñas publicadas")
+                    ),
+                    h("div", { key: "p", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reseñas positivas"),
+                        h("strong", { className: "admin-card-value" }, String(stats.reviewsPositive)),
+                        h("span", { className: "admin-card-note" }, "Valoración ★ ≥ 7")
+                    ),
+                    h("div", { key: "n", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reseñas negativas"),
+                        h("strong", { className: "admin-card-value" }, String(stats.reviewsNegative)),
+                        h("span", { className: "admin-card-note" }, "Valoración ★ ≤ 4")
+                    ),
+                    h("div", { key: "ne", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Reseñas neutras"),
+                        h("strong", { className: "admin-card-value" }, String(neutralReviews)),
+                        h("span", { className: "admin-card-note" }, "Sin valoración o ★ 5-6")
+                    )
+                )
+            ),
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" }, h("h2", null, "Menú de Administración")),
+                h("div", { className: "admin-menu" },
+                    h("button", { key: "search", className: "admin-menu-card", onClick: () => setSection("search") },
+                        h("span", { className: "admin-menu-title" }, "Buscador de Contenido"),
+                        h("span", { className: "admin-menu-desc" }, "Busca películas y series del catálogo")
+                    ),
+                    h("button", { key: "stats", className: "admin-menu-card", onClick: () => setSection("stats") },
+                        h("span", { className: "admin-menu-title" }, "Estadísticas"),
+                        h("span", { className: "admin-menu-desc" }, "Métricas del contenido seleccionado")
+                    ),
+                    h("button", { key: "users", className: "admin-menu-card", onClick: () => setSection("users") },
+                        h("span", { className: "admin-menu-title" }, "Gestión de Usuarios"),
+                        h("span", { className: "admin-menu-desc" }, "Cuentas y roles")
+                    ),
+                    h("button", { key: "reviews", className: "admin-menu-card", onClick: () => setSection("reviews") },
+                        h("span", { className: "admin-menu-title" }, "Gestión de Reseñas"),
+                        h("span", { className: "admin-menu-desc" }, "Modera reseñas del catálogo")
+                    ),
+                    h("button", { key: "sentiment", className: "admin-menu-card", onClick: () => setSection("sentiment") },
+                        h("span", { className: "admin-menu-title" }, "Análisis de Sentimiento"),
+                        h("span", { className: "admin-menu-desc" }, "Valoración automática de reseñas")
+                    )
+                )
+            ),
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" },
+                    h("h2", null, "Actividad Reciente")
+                ),
+                h("div", { className: "admin-activity" },
+                    activityList.length > 0
+                        ? activityList.map((a, i) =>
+                            h("div", { key: a.id || i, className: "admin-activity-item" },
+                                h("strong", { className: "admin-activity-user" }, a.actor || "Usuario"),
+                                h("span", { className: "admin-activity-action" }, activityActionText(a)),
+                                h("time", { className: "admin-activity-date" }, a.at ? timeAgoEs(a.at) : "")
+                            )
+                        )
+                        : h("p", { className: "muted admin-stats-note" }, "Aún no hay actividad registrada.")
+                )
+            )
+        ]),
+        stats: h("div", { className: "admin-main" }, [
+            backButton,
+            // Estadísticas del contenido seleccionado (datos reales de reseñas).
+            selectedContent
+                ? h("section", { className: "admin-section" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Estadísticas del Contenido"),
+                        h("span", { className: "chip chip--selected" }, selectedContent.title || "Contenido seleccionado")
+                    ),
+                    reviewsSummaryError ? h("p", { className: "error" }, reviewsSummaryError) : null,
+                    reviewsSummaryLoading
+                        ? h("div", { className: "admin-loader" },
+                            h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                            h("span", null, "Calculando estadísticas…")
+                        )
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? h("div", { className: "admin-cards" },
+                            statCard("Reseñas totales", String(reviewsSummary.count), "Reseñas de este contenido", ""),
+                            statCard("Reseñas positivas", String(reviewsSummary.positive), "Valoración ★ ≥ 7", " stat-positive"),
+                            statCard("Reseñas negativas", String(reviewsSummary.negative), "Valoración ★ ≤ 4", " stat-negative"),
+                            statCard("Reseñas neutras", String(Math.max(0, reviewsSummary.count - reviewsSummary.positive - reviewsSummary.negative)), "Sin valoración o ★ 5-6", " stat-neutral"),
+                            statCard("Nota media", reviewsSummary.avgRating != null ? Number(reviewsSummary.avgRating).toFixed(1) : "—", "Sobre las reseñas con valoración", ""),
+                            statCard("Con valoración", String(reviewsSummary.ratingsCount), "Reseñas que incluyen estrellas", "")
+                        )
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? h("p", { className: "muted admin-stats-note" },
+                            "Métricas calculadas sobre el total de reseñas de la obra (resumen del backend). Clasificación por valoración del usuario: ★≥7 positiva, ★≤4 negativa; el resto (incluidas las sin valoración) se cuenta como neutra.") : null,
+                    // Gráficas del panel (datos reales):
+                    // sentimiento del contenido seleccionado y reviews por género del catálogo.
+                    h("div", { className: "admin-stats-charts" },
+                        h("div", { className: "admin-chart-block" },
+                            h("div", { className: "admin-chart-head" },
+                                h("h3", { className: "admin-chart-title" }, "Gráfico de Sentimiento")
+                            ),
+                            reviewsSummaryLoading
+                                ? h("div", { className: "admin-loader" },
+                                    h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                                    h("span", null, "Analizando sentimiento…"))
+                                : reviewsSummaryError
+                                    ? h("p", { className: "error" }, reviewsSummaryError)
+                                    : reviewsSummary
+                                        ? sentimentChart(reviewsSummary)
+                                        : h("p", { className: "muted admin-stats-note" },
+                                            "No hay datos de sentimiento para este contenido."),
+                            !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary && reviewsSummary.sentiment
+                                ? h("p", { className: "muted admin-chart-note" }, sentimentSourceText(reviewsSummary))
+                                : null
+                        ),
+                        h("div", { className: "admin-chart-block" },
+                            h("div", { className: "admin-chart-head" },
+                                h("h3", { className: "admin-chart-title" }, "Reseñas por Género")
+                            ),
+                            genreChart(stats.reviewsByGenre)
+                        )
+                    )
+                )
+                : h("div", { className: "admin-content-empty" },
+                    h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
+                    h("p", { className: "muted", style: { margin: 0 } },
+                        "Selecciona una serie o película para visualizar sus estadísticas."),
+                    h("button", { className: "btn-ghost btn-small", onClick: () => setSection("search") }, "Ir al buscador")
+                ),
+            h("div", { className: "admin-stats" },
+                h("div", { className: "hero-stats account-stats" },
+                    h("div", null, h("strong", null, String(stats.users)), h("span", null, "Usuarios")),
+                    h("div", null, h("strong", null, String(stats.movies)), h("span", null, "Películas guardadas")),
+                    h("div", null, h("strong", null, String(stats.series)), h("span", null, "Series guardadas"))
+                ),
+                h("p", { className: "muted", style: { marginTop: "1rem" } }, "Bienvenido, " + user.name + " (Administrador)")
+            ),
+        ]),
+        users: h("div", { className: "admin-main" }, [
+            backButton,
+            h("div", { className: "admin-users" },
+                h("div", { className: "movies-grid" },
+                    users.map((u) =>
+                        h("div", { key: u.id, className: "movie-card", style: { maxWidth: "400px", flex: "1 1 300px" } },
+                            h("div", { className: "movie-card-body" },
+                                h("h3", null, u.name || u.nickname || "Sin nombre"),
+                                h("p", { className: "movie-meta" }, u.email),
+                                h("p", { className: "movie-meta" }, "Rol: " + (u.role || "user")),
+                                u.createdAt && h("p", { className: "muted", style: { fontSize: "0.8rem" } }, "Registrado: " + new Date(u.createdAt).toLocaleDateString("es-ES")),
+                                h("div", { className: "result-actions", style: { marginTop: "1rem" } },
+                                    h("select", {
+                                        value: u.role || "user",
+                                        onChange: (e) => changeUserRole(u.id, e.target.value),
+                                        className: "role-select"
+                                    },
+                                        h("option", { value: "user" }, "Usuario"),
+                                        h("option", { value: "admin" }, "Administrador")
+                                    )
                                 )
                             )
                         )
                     )
-                )
+                ),
+                users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
             ),
-            users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
-        )
+        ]),
+        search: h("div", { className: "admin-main" }, [
+            backButton,
+            // Ficha del contenido seleccionado (o mensaje sin selección).
+            selectedContent
+                ? h("section", { className: "admin-section admin-content" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Información del Contenido"),
+                        h("span", { className: "chip chip--selected" }, "Contenido seleccionado")
+                    ),
+                    h("div", { className: "admin-content-ficha" },
+                        h("div", { className: "admin-content-poster" },
+                            h("img", {
+                                src: selectedContent.poster || POSTER_FALLBACK,
+                                alt: selectedContent.title || "Póster",
+                                loading: "lazy"
+                            })
+                        ),
+                        h("div", { className: "admin-content-info" },
+                            h("h3", { className: "admin-content-title" }, selectedContent.title || "Sin título"),
+                            h("div", { className: "admin-content-tags" },
+                                h("span", { className: "chip chip--type" },
+                                    selectedContent.mediaType === "series" ? "Serie" : "Película"),
+                                selectedContent.year
+                                    ? h("span", { className: "chip" }, "Año: " + selectedContent.year)
+                                    : null,
+                                selectedContent.rating
+                                    ? h("span", { className: "chip" }, "★ " + selectedContent.rating)
+                                    : null,
+                                selectedContent.runtime
+                                    ? h("span", { className: "chip" }, selectedContent.runtime)
+                                    : null,
+                                selectedContent.totalSeasons
+                                    ? h("span", { className: "chip" },
+                                        selectedContent.totalSeasons + (Number(selectedContent.totalSeasons) === 1 ? " temporada" : " temporadas"))
+                                    : null
+                            ),
+                            selectedContent.genre
+                                ? h("p", { className: "admin-content-genre" }, genresLabel(selectedContent.genre))
+                                : null,
+                            selectedContent.plot && selectedContent.plot !== "Sin sinopsis disponible."
+                                ? h("p", { className: "admin-content-plot" }, selectedContent.plot)
+                                : null,
+                            h("dl", { className: "admin-content-meta" },
+                                selectedContent.director && selectedContent.director !== "Desconocido"
+                                    ? h("div", { className: "admin-content-meta-row" },
+                                        h("dt", null, "Director"),
+                                        h("dd", null, selectedContent.director))
+                                    : null,
+                                selectedContent.actors && selectedContent.actors !== "N/A"
+                                    ? h("div", { className: "admin-content-meta-row" },
+                                        h("dt", null, "Reparto"),
+                                        h("dd", null, selectedContent.actors))
+                                    : null
+                            ),
+                            // Accesos directos: reseñas, estadísticas, sentimiento y gráficas.
+                            h("div", { className: "admin-content-tools" },
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("reviews") },
+                                    "Gestionar reseñas"),
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
+                                    "Ver Estadísticas"),
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("sentiment") },
+                                    "Ver Sentimiento"),
+                                h("button", { className: "btn-ghost btn-small", onClick: () => setSection("stats") },
+                                    "Ver Gráficas")
+                            ),
+                            h("button", { className: "btn-ghost btn-small", onClick: () => setSelectedContent(null) },
+                                "Quitar selección")
+                        )
+                    )
+                )
+                : h("div", { className: "admin-content-empty" },
+                    h("span", { className: "chip chip--selected" }, "Sin selección"),
+                    h("p", { className: "muted", style: { margin: 0 } },
+                        "Selecciona una serie o película para visualizar su información.")
+                ),
+            h("section", { className: "admin-section" },
+                h("div", { className: "admin-section-head" },
+                    h("h2", null, "Buscar Serie o Película"),
+                    searchDone && searchResults.length > 0
+                        ? h("span", { className: "chip" },
+                            searchResults.length +
+                            (searchTotal > searchResults.length ? " de " + searchTotal : "") +
+                            (searchResults.length === 1 && searchTotal <= 1 ? " resultado" : " resultados"))
+                        : h("span", { className: "chip" }, "Catálogo del sistema")
+                ),
+                h("form", { className: "search-form", onSubmit: runSearch },
+                    h("input", {
+                        type: "search",
+                        value: searchQuery,
+                        onChange: (e) => setSearchQuery(e.target.value),
+                        placeholder: "Buscar películas o series… (ej. Dune, Breaking Bad)",
+                        "aria-label": "Buscar contenido en el catálogo"
+                    }),
+                    h("button", { type: "submit", disabled: searching || searchQuery.trim().length === 0 },
+                        searching ? "Buscando…" : "Buscar")
+                ),
+                searchError ? h("p", { className: "error" }, searchError) : null,
+                searching ? h("div", { className: "admin-loader" },
+                    h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                    h("span", null, "Buscando en el catálogo…")
+                ) : null,
+                !searching && !searchDone
+                    ? h("p", { className: "muted admin-empty" },
+                        "Escribe al menos 2 caracteres para buscar en el catálogo y selecciona un resultado para empezar a gestionarlo.")
+                    : null,
+                !searching && searchDone && searchResults.length === 0 && !searchError
+                    ? h("p", { className: "muted admin-empty" },
+                        "Sin resultados para «" + searchQuery.trim() + "». Prueba con otro título.")
+                    : null,
+                searchResults.length > 0
+                    ? h("div", { className: "movies-grid admin-search-results" },
+                        searchResults.map((item) => {
+                            const sameRef = (a, b) => a && b && (a.imdbID || a.id) === (b.imdbID || b.id);
+                            const isSelected = selectedContent && sameRef(selectedContent, item) && selectedContent.mediaType === item.mediaType;
+                            return h("div", {
+                                key: (item.mediaType || "movie") + "|" + (item.imdbID || item.id || (item.title + "|" + item.year)),
+                                className: "admin-search-item" + (isSelected ? " is-selected" : "")
+                            },
+                                h(MovieCard, { movie: item, onDetail: selectContent, showDelete: false })
+                            );
+                        })
+                    )
+                    : null,
+                !searching && searchDone && searchResults.length > 0 && searchTotal > searchResults.length
+                    ? h("div", { className: "admin-reviews-more" },
+                        h("button", {
+                            className: "btn-ghost btn-small",
+                            onClick: loadMoreSearchResults,
+                            disabled: searchMoreLoading
+                        },
+                            searchMoreLoading
+                                ? "Cargando más…"
+                                : "Cargar más resultados (" + (searchTotal - searchResults.length) + " restantes)"))
+                    : null
+            ),
+        ]),
+        reviews: selectedContent
+            ? h("div", { className: "admin-main" }, [
+                backButton,
+                h("div", { className: "admin-reviews-media" },
+                    h("div", { className: "admin-reviews-thumb" },
+                        h("img", {
+                            src: selectedContent.poster || POSTER_FALLBACK,
+                            alt: selectedContent.title || "Póster",
+                            loading: "lazy"
+                        })
+                    ),
+                    h("div", { className: "admin-reviews-media-info" },
+                        h("span", { className: "chip chip--selected" }, "Contenido seleccionado"),
+                        h("h3", null, selectedContent.title || "Sin título"),
+                        h("p", { className: "muted", style: { margin: 0 } },
+                            (selectedContent.mediaType === "series" ? "Serie" : "Película") +
+                            (selectedContent.year ? " · " + selectedContent.year : ""))
+                    ),
+                    h("button", { className: "btn-ghost btn-small admin-change", onClick: () => setSection("search") }, "Cambiar contenido")
+                ),
+                h("section", { className: "admin-section" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Gestión de Reseñas"),
+                        !reviewsLoading && reviewsTotal > 0
+                            ? h("span", { className: "chip" }, reviewsTotal + (reviewsTotal === 1 ? " reseña" : " reseñas"))
+                            : null
+                    ),
+                    reviewNotice ? h("p", { className: "admin-notice" }, reviewNotice) : null,
+                    reviewsError ? h("p", { className: "error" }, reviewsError) : null,
+                    reviewsLoading
+                        ? h("div", { className: "admin-loader" },
+                            h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                            h("span", null, "Cargando reseñas…")
+                        )
+                        : null,
+                    !reviewsLoading && !reviewsError && reviews.length === 0
+                        ? h("div", { className: "admin-content-empty" },
+                            h("span", { className: "chip chip--selected" }, "Sin reseñas"),
+                            h("p", { className: "muted", style: { margin: 0 } },
+                                "Aún no hay reseñas para «" + (selectedContent.title || "este contenido") + "».")
+                        )
+                        : null,
+                    !reviewsLoading && reviews.length > 0
+                        ? h("div", { className: "admin-reviews-list" }, reviews.map(reviewCard))
+                        : null,
+                    !reviewsLoading && reviews.length > 0 && reviews.length < reviewsTotal
+                        ? h("div", { className: "admin-reviews-more" },
+                            h("button", {
+                                className: "btn-ghost btn-small",
+                                onClick: loadMoreReviews,
+                                disabled: reviewsLoadingMore
+                            },
+                                reviewsLoadingMore
+                                    ? "Cargando más…"
+                                    : "Cargar más reseñas (" + (reviewsTotal - reviews.length) + " restantes)")
+                        )
+                        : null
+                ),
+                confirmDialog,
+            ])
+            : h("div", { className: "admin-main" }, [
+                backButton,
+                h("div", { className: "admin-placeholder" },
+                    h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
+                    h("h2", null, "Gestión de Reseñas"),
+                    h("p", { className: "muted" }, "Selecciona una serie o película para visualizar sus reseñas."),
+                    h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
+                ),
+            ]),
+        sentiment: selectedContent
+            ? h("div", { className: "admin-main" }, [
+                backButton,
+                h("div", { className: "admin-reviews-media" },
+                    h("div", { className: "admin-reviews-thumb" },
+                        h("img", {
+                            src: selectedContent.poster || POSTER_FALLBACK,
+                            alt: selectedContent.title || "Póster",
+                            loading: "lazy"
+                        })
+                    ),
+                    h("div", { className: "admin-reviews-media-info" },
+                        h("span", { className: "chip chip--selected" }, "Contenido seleccionado"),
+                        h("h3", null, selectedContent.title || "Sin título"),
+                        h("p", { className: "muted", style: { margin: 0 } },
+                            (selectedContent.mediaType === "series" ? "Serie" : "Película") +
+                            (selectedContent.year ? " · " + selectedContent.year : ""))
+                    ),
+                    h("button", { className: "btn-ghost btn-small admin-change", onClick: () => setSection("search") }, "Cambiar contenido")
+                ),
+                h("section", { className: "admin-section" },
+                    h("div", { className: "admin-section-head" },
+                        h("h2", null, "Análisis de Sentimiento")
+                    ),
+                    reviewsSummaryError ? h("p", { className: "error" }, reviewsSummaryError) : null,
+                    reviewsSummaryLoading
+                        ? h("div", { className: "admin-loader" },
+                            h("span", { className: "admin-spinner", "aria-hidden": "true" }),
+                            h("span", null, "Analizando sentimiento…"))
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? sentimentChart(reviewsSummary)
+                        : null,
+                    !reviewsSummaryLoading && !reviewsSummaryError && reviewsSummary
+                        ? h("p", { className: "muted admin-stats-note" },
+                            sentimentSourceText(reviewsSummary) + " Cálculo sobre el TOTAL de reseñas de la obra (resumen del backend): positivas, neutras y negativas." )
+                        : null
+                ),
+            ])
+            : h("div", { className: "admin-main" }, [
+                backButton,
+                h("div", { className: "admin-placeholder" },
+                    h("span", { className: "chip chip--selected" }, "Sin contenido seleccionado"),
+                    h("h2", null, "Análisis de Sentimiento"),
+                    h("p", { className: "muted" }, "Selecciona una serie o película para analizar el tono de sus reseñas."),
+                    h("button", { className: "btn-primary", onClick: () => setSection("search") }, "Ir al buscador")
+                ),
+            ])
+    };
+
+    return h("div", { className: "movies-page" },
+        h("div", { className: "page-head" },
+            h("h1", null, "Panel de Administración"),
+            h("p", { className: "muted" }, "Gestiona reseñas, estadísticas y herramientas de administración.")
+        ),
+        h("div", { className: "admin-view" }, views[section] || views.main)
     );
 }
 
@@ -4373,7 +5282,7 @@ function CookieConsentBanner() {
     return h("div", { className: "cookie-banner" },
         h("div", { className: "cookie-content" },
             h("p", { className: "cookie-text" },
-                "Utilizamos cookies propias y de terceros para asegurar el funcionamiento de la web, analizar el tráfico y personalizar la experiencia. Puedes aceptar todas o elegir solo las esenciales."
+                "Utilizamos galletas propias y de terceros para asegurar el funcionamiento del sitio, analizar el tráfico y personalizar la experiencia. Puedes aceptar todas o elegir solo las esenciales."
             ),
             h("div", { className: "cookie-actions" },
                 h("button", {
@@ -4393,6 +5302,8 @@ function CookieConsentBanner() {
 function App() {
     const pageState = useState(() => {
         const params = new URLSearchParams(window.location.search);
+        // Ruta administrativa: /admin abre el panel (AdminRoute exige sesión + rol).
+        if (window.location.pathname === "/admin") return "admin";
         if (!params.get("oobCode")) return "home";
         if (params.get("mode") === "resetPassword") return "reset-password";
         if (params.get("mode") === "verifyEmail") return "verify-email";
@@ -4400,6 +5311,9 @@ function App() {
     });
     const page = pageState[0];
     const setPage = pageState[1];
+    // Ref para que el listener de popstate lea siempre la página actual.
+    const pageRef = React.useRef(page);
+    pageRef.current = page;
     const moviesState = useState([]);
     const movies = moviesState[0];
     const setMovies = moviesState[1];
@@ -4449,6 +5363,19 @@ function App() {
         fetchMovies();
         fetchSeries();
         restoreSession();
+    }, []);
+
+    // Sincroniza la ruta /admin con los botones atrás/adelante del navegador.
+    useEffect(() => {
+        const onPop = () => {
+            if (window.location.pathname === "/admin") {
+                setPage("admin");
+            } else if (pageRef.current === "admin") {
+                setPage("home");
+            }
+        };
+        window.addEventListener("popstate", onPop);
+        return () => window.removeEventListener("popstate", onPop);
     }, []);
 
     // Aplicar tema de color del usuario al cargar y cuando cambia
@@ -4537,6 +5464,14 @@ function App() {
     const navigate = (target) => {
         setToast(null);
         setPage(target);
+        // Ruta /admin: se refleja en la URL (compartible y compatible con back/forward).
+        if (target === "admin") {
+            if (window.location.pathname !== "/admin") {
+                window.history.pushState(null, "", "/admin");
+            }
+        } else if (window.location.pathname === "/admin") {
+            window.history.pushState(null, "", "/");
+        }
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const { authService, findUserByNickname, setUserNickname, isAdmin, cardUser } = require("../services/authService");
 const { FriendshipModel } = require("../models/friendshipModel");
 const firebaseConn = require("../models/firebase");
+const ActivityModel = require("../models/activityModel");
 const db = firebaseConn.getDb();
 
 function tokenFromHeader(req) {
@@ -62,6 +63,7 @@ router.get("/auth/me", async (req, res) => {
 });
 
 // PUT /api/auth/prefs { favoriteGenres, likesMovies, onboardingDone }
+// OJO: este router se monta en "/api" (server.js), por eso aquí va "/auth/..."
 router.put("/auth/prefs", async (req, res) => {
     try {
         const token = tokenFromHeader(req);
@@ -216,13 +218,13 @@ router.post("/auth/nickname", async (req, res) => {
         if (!session) return res.status(401).json({ error: "Sesión no válida" });
         const body = req.body || {};
         const nickname = (body.nickname || "").trim();
-        if (!nickname) return res.status(400).json({ error: "Nickname requerido" });
+        if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const saved = await setUserNickname(session.userId, nickname);
         res.json({ ok: true, nickname: saved });
     } catch (error) {
         if (error.code === "NICKNAME_TAKEN") return res.status(409).json({ error: error.message });
         if (error.code === "INVALID_NICKNAME") return res.status(400).json({ error: error.message });
-        res.status(400).json({ error: error.message || "No se pudo establecer el nickname" });
+        res.status(400).json({ error: error.message || "No se pudo establecer el apodo" });
     }
 });
 
@@ -230,7 +232,7 @@ router.post("/auth/nickname", async (req, res) => {
 router.get("/auth/nickname/check/:nickname", async (req, res) => {
     try {
         const nickname = (req.params.nickname || "").trim().toLowerCase();
-        if (!nickname) return res.status(400).json({ error: "Nickname requerido" });
+        if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const existing = await findUserByNickname(nickname);
         res.json({ available: !existing });
     } catch (error) {
@@ -317,7 +319,8 @@ router.post("/auth/friends/request", async (req, res) => {
         if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
         const body = req.body || {};
         const toNickname = (body.toNickname || "").trim().toLowerCase();
-        if (!toNickname) return res.status(400).json({ error: "Nickname del destino requerido" });
+        if (!toNickname) return res.status(400).json({ error: "Apodo del destino requerido" });
+        if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
         const target = await findUserByNickname(toNickname);
         if (!target) return res.status(404).json({ error: "Usuario no encontrado" });
         if (target.id === user.id) return res.status(400).json({ error: "No te puedes agregar a ti mismo" });
@@ -374,7 +377,7 @@ router.delete("/auth/friends/:friendId", async (req, res) => {
 router.get("/auth/user/:nickname", async (req, res) => {
     try {
         const nickname = (req.params.nickname || "").trim().toLowerCase();
-        if (!nickname) return res.status(400).json({ error: "Nickname requerido" });
+        if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
         const user = await findUserByNickname(nickname);
         if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
         // El nickname puede estar en user.nickname o user.prefs.nickname
@@ -410,17 +413,79 @@ async function requireAdmin(req, res, next) {
 router.get("/admin/stats", requireAdmin, async (req, res) => {
     try {
         if (!db) {
-            return res.json({ users: 0, movies: 0, series: 0 });
+            return res.json({ users: 0, movies: 0, series: 0, reviews: 0, reviewsPositive: 0, reviewsNegative: 0, reviewsByGenre: [], activity: [] });
         }
-        const [usersSnap, moviesSnap, seriesSnap] = await Promise.all([
+        const [usersSnap, moviesSnap, seriesSnap, reviewsSnap] = await Promise.all([
             db.collection("users").get(),
             db.collection("movies").get(),
-            db.collection("series").get()
+            db.collection("series").get(),
+            db.collection("reviews").limit(20000).get()
         ]);
+
+        // ---- Reseñas por género (TODAS las reseñas, sin límite de página) ----
+        // Índice imdbID -> géneros a partir del catálogo (las obras guardan su genre
+        // como lista separada por comas, p. ej. "Comedy, Drama, War").
+        const genreByContentKey = new Map();
+        const addGenreIndex = (data, type) => {
+            const imdb = String((data && data.imdbID) || "").trim().toLowerCase();
+            const genre = String((data && data.genre) || "").trim();
+            if (imdb && genre && genre !== "Sin género" && genre !== "N/A") {
+                genreByContentKey.set(type + ":" + imdb, genre);
+            }
+        };
+        moviesSnap.forEach((d) => addGenreIndex(d.data(), "movie"));
+        seriesSnap.forEach((d) => addGenreIndex(d.data(), "series"));
+
+        // Reseñas agrupadas por obra (mediaKey: "movie:tt4758646" / "series:tt1520211").
+        const reviewsByContent = {};
+        let reviewsPositive = 0;
+        let reviewsNegative = 0;
+        reviewsSnap.forEach((d) => {
+            const data = d.data() || {};
+            const key = String(data.mediaKey || "").toLowerCase();
+            const rating = Number(data.rating);
+            if (Number.isInteger(rating)) {
+                if (rating >= 7) reviewsPositive += 1;
+                else if (rating <= 4) reviewsNegative += 1;
+            }
+            if (!key) return;
+            const entry = reviewsByContent[key] || (reviewsByContent[key] = { count: 0, positive: 0, negative: 0 });
+            entry.count += 1;
+            if (Number.isInteger(rating)) {
+                if (rating >= 7) entry.positive += 1;
+                else if (rating <= 4) entry.negative += 1;
+            }
+        });
+
+        const byGenre = {};
+        for (const [key, info] of Object.entries(reviewsByContent)) {
+            const genreRaw = genreByContentKey.get(key);
+            if (!genreRaw) continue;
+            for (const part of String(genreRaw).split(",")) {
+                const name = part.trim();
+                if (!name) continue;
+                const gk = name.toLowerCase();
+                const entry = byGenre[gk] || (byGenre[gk] = { genre: name, count: 0, positive: 0, negative: 0 });
+                entry.count += info.count;
+                entry.positive += info.positive;
+                entry.negative += info.negative;
+            }
+        }
+        const reviewsByGenre = Object.values(byGenre)
+            .sort((a, b) => b.count - a.count || a.genre.localeCompare(b.genre))
+            .map((g) => ({ genre: g.genre, count: g.count, positive: g.positive, negative: g.negative }));
+
+        const activity = await ActivityModel.listRecent(8);
+
         res.json({
             users: usersSnap.size,
             movies: moviesSnap.size,
-            series: seriesSnap.size
+            series: seriesSnap.size,
+            reviews: reviewsSnap.size,
+            reviewsPositive,
+            reviewsNegative,
+            reviewsByGenre,
+            activity
         });
     } catch (error) {
         res.status(500).json({ error: error.message || "Error al obtener estadísticas" });
@@ -457,7 +522,7 @@ router.put("/admin/users/:id/role", requireAdmin, async (req, res) => {
     try {
         const { role } = req.body || {};
         if (!role || !["user", "admin"].includes(role)) {
-            return res.status(400).json({ error: "Rol inválido. Use 'user' o 'admin'" });
+            return res.status(400).json({ error: "Rol inválido. Usa 'user' o 'admin'" });
         }
         if (!db) {
             return res.status(503).json({ error: "No disponible en modo local" });
@@ -468,6 +533,15 @@ router.put("/admin/users/:id/role", requireAdmin, async (req, res) => {
             return res.status(404).json({ error: "Usuario no encontrado" });
         }
         await userRef.update({ role });
+        // Registro de actividad: quién (el admin autenticado) cambió el rol a quién.
+        const targetDoc = userDoc.data() || {};
+        const actorName = (req.adminUser && (req.adminUser.name || req.adminUser.nickname)) || "Administrador";
+        const targetName = targetDoc.name || targetDoc.nickname || "un usuario";
+        await ActivityModel.addEvent({
+            type: role === "admin" ? "promote" : "demote",
+            actor: actorName,
+            target: targetName
+        });
         res.json({ ok: true, role });
     } catch (error) {
         res.status(500).json({ error: error.message || "Error al cambiar rol" });

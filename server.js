@@ -211,3 +211,19 @@ if (require.main === module) {
     // SEASON_ENRICH_DELAY del .env.
     startDailyEnrichment();
 }
+if (!process.env.GEMINI_API_KEY) {
+    console.warn("AVISO: GEMINI_API_KEY no definida. El sentimiento de las reseñas usará la valoración (★) como fallback.");
+} else {
+    console.log("Gemini IA configurado: las reseñas se clasifican por sentimiento de su texto.");
+}
+
+app.listen(PORT, () => {
+    console.log(`Servidor arrancado en http://localhost:${PORT}`);
+});
+
+// Rellena temporadas/episodios de las series desde OMDb en segundo plano:
+// una tanda al arrancar (si hoy no se ha hecho ninguna) y una diaria a la hora
+// configurada. No bloquea el servidor. Se controla con las variables
+// SEASON_ENRICH_ENABLED, SEASON_ENRICH_DAILY_LIMIT, SEASON_ENRICH_HOUR y
+// SEASON_ENRICH_DELAY del .env.
+startDailyEnrichment();

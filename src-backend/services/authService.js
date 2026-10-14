@@ -111,30 +111,38 @@ function cardUser(user) {
     };
 }
 
-// Hasta 5 favoritas por usuario: { movieId?, imdbID?, title, year?, poster?, type? }.
-function validateTop5(items) {
-    if (!Array.isArray(items)) throw new Error("'top5' debe ser un array");
-    const out = [];
-    for (const raw of items.slice(0, 5)) {
-        if (!raw || typeof raw !== "object") continue;
-        const title = String(raw.title || "").trim();
-        if (!title) continue;
-        out.push({
-            movieId: raw.movieId ? String(raw.movieId).slice(0, 160) : null,
-            imdbID: raw.imdbID ? String(raw.imdbID).slice(0, 20) : null,
-            title: title.slice(0, 200),
-            year: raw.year ? String(raw.year).slice(0, 4) : null,
-            poster: raw.poster ? String(raw.poster).slice(0, 500) : null,
-            type: raw.type ? String(raw.type).slice(0, 20) : null
-        });
-    }
-    return out;
+function cleanTop5Item(item) {
+    if (!item || typeof item !== "object") throw new Error("Cada favorita de la lista debe ser un objeto");
+    const title = String(item.title || "").trim().slice(0, 200);
+    const imdbID = String(item.imdbID || "").trim();
+    if (!title && !imdbID) throw new Error("Cada favorita necesita un título o un código de contenido");
+    if (imdbID && !/^tt\d+$/i.test(imdbID)) throw new Error("Código del contenido inválido en la lista de favoritas");
+    const type = String(item.type || "movie").toLowerCase().trim();
+    if (type !== "movie" && type !== "series") throw new Error("Tipo inválido en la lista de favoritas");
+    return {
+        movieId: String(item.movieId || "").trim().slice(0, 300) || null,
+        imdbID: imdbID || null,
+        title: title || imdbID,
+        year: String(item.year || "").trim().slice(0, 9) || null,
+        poster: String(item.poster || "").trim().slice(0, 500) || null,
+        type
+    };
 }
 
-async function listStoredUsers() {
-    if (!db) return [...localUsers.values()];
-    const snapshot = await db.collection("users").limit(5000).get();
-    return snapshot.docs.map((doc) => Object.assign({ id: doc.id }, doc.data()));
+function isAdmin(user) {
+    if (!user) return false;
+    // 1. Rol canónico: campo "role" del documento (lo que escribe el panel admin)
+    const canonRole = user.role && String(user.role).trim().toLowerCase();
+    if (canonRole === USER_ROLES.ADMIN) return true;
+    // 2. Compatibilidad: role guardado en prefs (configurable en Firestore)
+    const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
+    if (prefRole === "admin") return true;
+    // 3. Revisar email dominios comunes de pruebas (ej. admin@dominio.com)
+    const adminEmails = ["admin@test.com", "admin@example.com"];
+    if (adminEmails.includes(user.email)) return true;
+    // 4. Fallback: si el apodo contiene "admin"
+    if (user.nickname && user.nickname.toString().toLowerCase().includes("admin")) return true;
+    return false;
 }
 
 function cleanDisplayName(raw, emailFallback) {
@@ -168,37 +176,41 @@ async function storedUserById(userId) {
     return Object.assign({ id: doc.id }, doc.data());
 }
 
-// ---- Nickname público y color de tema (los usa el front del equipo) ----
-// El nickname se guarda en el campo propio `nickname` y también dentro de
-// `prefs`, porque el front lee los dos sitios.
-function nicknameOf(user) {
-    if (!user) return "";
-    return String(user.nickname || (user.prefs && user.prefs.nickname) || "").trim().toLowerCase();
-}
-
-function nicknameError(message, code) {
-    const err = new Error(message);
-    err.code = code;
-    return err;
-}
-
-async function findUserByNickname(nickname) {
-    const wanted = String(nickname || "").trim().toLowerCase();
-    if (!wanted) return null;
-    const users = await listStoredUsers();
-    return users.find((user) => nicknameOf(user) === wanted) || null;
+// Devuelve un usuario por su id (el doc id de la colección users, normalmente su email).
+async function getUserById(userId) {
+    if (!db) {
+        for (const u of localUsers.values()) {
+            if (String(u.id) === String(userId)) return u;
+        }
+        return null;
+    }
+    const doc = await db.collection("users").doc(String(userId)).get();
+    if (!doc.exists) return null;
+    return Object.assign({ id: doc.id }, doc.data());
 }
 
 async function setUserNickname(userId, nickname) {
-    const clean = String(nickname || "").trim().toLowerCase();
-    if (clean.length < 3) throw nicknameError("El nickname debe tener al menos 3 caracteres", "INVALID_NICKNAME");
-    if (clean.length > 30) throw nicknameError("El nickname no puede superar 30 caracteres", "INVALID_NICKNAME");
-    if (!/^[a-z0-9_]+$/.test(clean)) throw nicknameError("El nickname solo puede contener letras, números y guión bajo", "INVALID_NICKNAME");
-
-    const owner = String(userId || "").trim().toLowerCase();
-    const existing = await findUserByNickname(clean);
-    if (existing && String(existing.id || "").toLowerCase() !== owner) {
-        throw nicknameError("Ese nickname ya está en uso", "NICKNAME_TAKEN");
+    const cleanNickname = nickname.trim().toLowerCase();
+    if (cleanNickname.length < 3) {
+        const err = new Error("El apodo debe tener al menos 3 caracteres");
+        err.code = "INVALID_NICKNAME";
+        throw err;
+    }
+    if (cleanNickname.length > 30) {
+        const err = new Error("El apodo no puede superar 30 caracteres");
+        err.code = "INVALID_NICKNAME";
+        throw err;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) {
+        const err = new Error("El apodo solo puede contener letras, números y guión bajo");
+        err.code = "INVALID_NICKNAME";
+        throw err;
+    }
+    const existing = await findUserByNickname(cleanNickname);
+    if (existing && existing.id !== userId) {
+        const err = new Error("Ese apodo ya está en uso");
+        err.code = "NICKNAME_TAKEN";
+        throw err;
     }
 
     const user = await storedUserById(userId);
@@ -295,7 +307,7 @@ const authService = {
         }
         const email = String(decoded.email || "").trim().toLowerCase();
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-            const err = new Error("La cuenta de Firebase no tiene un email válido");
+            const err = new Error("La cuenta de Firebase no tiene un correo válido");
             err.code = "INVALID_FIREBASE_TOKEN";
             throw err;
         }
@@ -385,8 +397,20 @@ const authService = {
 
     getById: async (id) => storedUserById(id),
 
-    // Sesión técnica a partir del token (la usan las rutas de auth/nickname).
-    readSession: async (token) => readSession(token),
+    setTop5: async (userId, items) => {
+        if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
+        const top5 = items.slice(0, 5).map(cleanTop5Item);
+        if (!db) {
+            const user = localUsers.get(userId);
+            if (user) {
+                user.top5 = top5;
+                localUsers.set(userId, user);
+            }
+            return top5;
+        }
+        await db.collection("users").doc(userId).set({ top5 }, { merge: true });
+        return top5;
+    },
 
     // Busca usuarios por nombre o email (para añadir amigos).
     searchUsers: async (query, { excludeId, limit } = {}) => {
@@ -518,13 +542,4 @@ const authService = {
     }
 };
 
-module.exports = {
-    authService,
-    cardUser,
-    isAdminUser,
-    isAdmin,
-    hasRole,
-    USER_ROLES,
-    findUserByNickname,
-    setUserNickname
-};
+module.exports = { authService, findUserByNickname, setUserNickname, isAdmin, hasRole, USER_ROLES };

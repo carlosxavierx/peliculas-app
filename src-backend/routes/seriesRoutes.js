@@ -27,7 +27,7 @@ router.get("/series/search", async (req, res) => {
     const { t, i, y } = req.query;
     try {
         if ((!t || !t.trim()) && (!i || !i.trim())) {
-            return res.status(400).json({ error: "Falta el parámetro 't' (título) o 'i' (IMDb ID)" });
+            return res.status(400).json({ error: "Falta el parámetro 't' (título) o 'i' (código del contenido)" });
         }
         if (t && t.trim().length > 100) {
             return res.status(400).json({ error: "El título es demasiado largo" });
@@ -142,7 +142,7 @@ router.delete("/series/:id", async (req, res) => {
 router.get("/series/seasons", async (req, res) => {
     const { imdbID } = req.query;
     if (!imdbID || !imdbID.trim()) {
-        return res.status(400).json({ error: "Falta el parámetro 'imdbID'" });
+        return res.status(400).json({ error: "Falta el código del contenido" });
     }
     try {
         const data = await SeriesModel.getSeasons(imdbID);
@@ -159,7 +159,7 @@ router.get("/series/seasons", async (req, res) => {
 router.get("/series/episodes", async (req, res) => {
     const { imdbID, season } = req.query;
     if (!imdbID || !imdbID.trim()) {
-        return res.status(400).json({ error: "Falta el parámetro 'imdbID'" });
+        return res.status(400).json({ error: "Falta el código del contenido" });
     }
     if (season === undefined || season === null || String(season).trim() === "") {
         return res.status(400).json({ error: "Falta el parámetro 'season'" });

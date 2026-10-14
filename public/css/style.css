@@ -18,6 +18,7 @@
     --accent-soft: #ff7b93;       /* carmesí claro para texto sobre oscuro */
     --sky: #7fb0d8;               /* azul claro de la "AI" */
     --sky-bright: #a9cdf0;
+    --sky-dark: #3f7ba6;          /* azul más oscuro, para rellenos con texto blanco */
     --bronze: #c9a227;            /* dorado del tagline */
     --bronze-bright: #e6c25c;     /* dorado claro para estrellas */
     --bg: #0d1219;                /* azul noche del fondo del logo */
@@ -184,7 +185,7 @@ button { font-family: inherit; }
     padding: 0.7rem 1.4rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none;
     background: transparent; display: inline-block;
 }
-.btn-ghost:hover { border-color: var(--sky); color: #fff; }
+.btn-ghost:hover { background: var(--sky-dark); border-color: var(--sky-dark); color: #fff; }
 .hero-stats { display: flex; gap: 2rem; }
 .hero-stats div { display: flex; flex-direction: column; }
 .hero-stats strong { font-size: 1.25rem; color: #fff; }
@@ -244,6 +245,7 @@ button { font-family: inherit; }
     border-left: 5px solid var(--accent);
     padding-left: 0.75rem;
     border-radius: 2px;
+    cursor: pointer;
 }
 
 /* Buscador con botón carmesí */
@@ -307,7 +309,7 @@ button { font-family: inherit; }
     background: transparent; border: 1px solid rgba(127, 176, 216, 0.4);
     color: var(--sky-bright); font-weight: 600;
 }
-.result-actions .btn-ghost:hover { border-color: var(--sky); color: #fff; }
+.result-actions .btn-ghost:hover { background: var(--sky-dark); border-color: var(--sky-dark); color: #fff; }
 
 /* ---------- Carrusel (títulos con barra mezcla + ›) ---------- */
 .carousel-section { margin: 2rem 0; }
@@ -728,6 +730,7 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     flex-shrink: 0;
     border: 3px solid var(--bronze);
     overflow: hidden;
+    cursor: pointer;
 }
 .profile-avatar img {
     width: 100%;
@@ -799,6 +802,7 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     flex-shrink: 0;
     border: 2px solid var(--bronze);
     overflow: hidden;
+    cursor: pointer;
 }
 .user-avatar img {
     width: 100%;
@@ -1020,31 +1024,13 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
 .btn-primary:hover {
     background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary)) !important;
 }
-.nav-link.active {
-    background: rgba(var(--color-primary), 0.2) !important;
-    color: var(--color-primary) !important;
-    box-shadow: inset 0 -2px 0 var(--color-primary) !important;
-}
-.user-chip {
-    background: rgba(var(--color-primary), 0.12) !important;
-    border-color: rgba(var(--color-primary), 0.3) !important;
-    color: var(--color-primary) !important;
-}
-.user-chip:hover {
-    border-color: var(--color-primary) !important;
-}
-.btn-ghost {
-    border-color: rgba(var(--color-primary), 0.4) !important;
-    color: var(--color-primary) !important;
-}
-.btn-ghost:hover {
-    border-color: var(--color-primary) !important;
-}
 .hero-kicker,
-.footer-title,
+.footer-title {
+    color: var(--color-accent) !important;
+}
 .feature-icon,
 .q-num {
-    color: var(--color-accent) !important;
+    color: #fff !important;
 }
 .carousel-section h2,
 .movies-page > h2,
@@ -1794,3 +1780,382 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
         transform: translateY(0) scale(1);
     }
 }
+
+/* ============================================================
+   Panel de Administración (Tarea 3)
+   ============================================================ */
+.admin-section { margin-bottom: 2rem; }
+.admin-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+}
+.admin-section-head h2 {
+    font-size: 1.05rem; color: var(--text); margin: 0;
+    border-left: 4px solid var(--bronze); padding-left: 0.6rem; border-radius: 2px;
+}
+
+/* Etiqueta pequeña (chip) */
+.chip {
+    display: inline-flex; align-items: center;
+    font-size: 0.72rem; line-height: 1; font-weight: 500;
+    color: var(--muted); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 0.3rem 0.6rem; white-space: nowrap;
+}
+.chip--soon {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.35);
+    background: rgba(201, 162, 39, 0.08);
+}
+
+/* Cards de resumen */
+.admin-cards {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+}
+.admin-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem 1.2rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+    border-top: 3px solid var(--accent);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.admin-card:hover { border-color: var(--line); transform: translateY(-2px); }
+.admin-card:nth-child(2) { border-top-color: var(--sky); }
+.admin-card:nth-child(3) { border-top-color: var(--bronze); }
+.admin-card:nth-child(4) { border-top-color: var(--accent-deep); }
+.admin-card-label {
+    font-size: 0.78rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+}
+.admin-card-value { font-size: 1.9rem; font-weight: 900; color: var(--text); line-height: 1.15; }
+.admin-card-note { font-size: 0.78rem; color: var(--muted-dim); }
+
+/* Menú de administración */
+.admin-menu {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem;
+}
+.admin-menu-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem;
+    text-align: left; font-family: inherit; font-size: 0.95rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.1rem 1.2rem; cursor: pointer; color: var(--text);
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.admin-menu-card:hover { background: var(--card-hover); border-color: var(--sky); transform: translateY(-2px); }
+.admin-menu-title { font-weight: 700; font-size: 0.98rem; }
+.admin-menu-desc { font-size: 0.8rem; color: var(--muted); }
+
+/* Actividad reciente */
+.admin-activity {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden;
+}
+.admin-activity-item {
+    display: grid; grid-template-columns: 170px 1fr 120px;
+    gap: 0.75rem 1rem; align-items: baseline;
+    padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--line);
+}
+.admin-activity-item:last-child { border-bottom: 0; }
+.admin-activity-user { font-size: 0.88rem; font-weight: 700; }
+.admin-activity-action { font-size: 0.85rem; color: var(--muted); }
+.admin-activity-date { font-size: 0.78rem; color: var(--muted-dim); text-align: right; }
+
+/* Panel placeholder (futuras tareas) */
+.admin-placeholder {
+    border: 1px dashed var(--line); border-radius: var(--radius);
+    background: var(--surface); padding: 2.5rem 1.5rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center;
+}
+.admin-placeholder h2 { font-size: 1.2rem; margin: 0; }
+.admin-placeholder .btn-primary { margin-top: 0.8rem; }
+
+.admin-back { margin-top: 1.5rem; }
+
+@media (max-width: 900px) {
+    .admin-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .admin-cards { grid-template-columns: 1fr; }
+    .admin-activity-item { grid-template-columns: 1fr; gap: 0.25rem; }
+    .admin-activity-date { text-align: left; }
+}
+
+/* ============================================================
+   Tarea 4 — Buscador de Contenido (Admin)
+   ============================================================ */
+/* Contenido seleccionado */
+.admin-selected {
+    display: flex; gap: 1rem; align-items: center;
+    background: var(--surface);
+    border: 1px solid rgba(201, 162, 39, 0.45);
+    border-left: 4px solid var(--bronze);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+}
+.admin-selected-thumb {
+    width: 64px; height: 96px; border-radius: 8px; overflow: hidden;
+    background: #000; border: 1px solid var(--line); flex-shrink: 0;
+}
+.admin-selected-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.admin-selected-noimg {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 1.8rem;
+}
+.admin-selected-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+.admin-selected-info h3 { margin: 0; font-size: 1.05rem; color: var(--text); }
+.chip--selected {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.12);
+}
+.admin-selected-info .btn-small { align-self: flex-start; }
+
+/* Loader de búsqueda */
+.admin-loader {
+    display: flex; align-items: center; gap: 0.6rem;
+    color: var(--muted); padding: 0.75rem 0; font-size: 0.92rem;
+}
+.admin-spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--line);
+    border-top-color: var(--bronze);
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+.admin-empty { padding: 0.75rem 0; }
+
+/* Resultados (reutiliza MovieCard) */
+.admin-search-results { padding-top: 0; }
+.admin-search-item .movie-card { height: 100%; }
+.admin-search-item.is-selected .movie-card {
+    outline: 2px solid var(--bronze);
+    outline-offset: 2px;
+    border-color: var(--bronze);
+}
+
+@media (max-width: 480px) {
+    .admin-selected { flex-direction: column; align-items: flex-start; }
+}
+
+/* ============================================================
+   Tarea 5 — Ficha de contenido seleccionado (Admin)
+   ============================================================ */
+.admin-content-ficha {
+    display: flex; gap: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--bronze);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+}
+.admin-content-poster {
+    width: 220px; flex-shrink: 0;
+    border-radius: 10px; overflow: hidden;
+    background: #000; border: 1px solid var(--line);
+    align-self: flex-start;
+}
+.admin-content-poster img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; display: block; }
+.admin-content-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+.admin-content-title { margin: 0; font-size: 1.4rem; color: var(--text); line-height: 1.25; }
+.admin-content-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip--type {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.12);
+    font-weight: 700;
+}
+.admin-content-genre { margin: 0; color: var(--sky); font-size: 0.9rem; }
+.admin-content-plot { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.6; }
+
+.admin-content-meta {
+    display: flex; flex-direction: column; gap: 0.35rem;
+    margin: 0.25rem 0 0; width: 100%;
+}
+.admin-content-meta-row { display: flex; gap: 0.6rem; font-size: 0.9rem; }
+.admin-content-meta-row dt { color: var(--muted); min-width: 90px; }
+.admin-content-meta-row dd { margin: 0; color: var(--text); }
+
+/* Zona reservada para las Tareas 6/8/9/12 */
+.admin-content-tools {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    border-top: 1px dashed var(--line);
+    padding-top: 0.75rem; margin-top: 0.5rem; width: 100%;
+}
+
+/* Estado sin selección */
+.admin-content-empty {
+    display: flex; align-items: center; gap: 0.75rem;
+    border: 1px dashed var(--line);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+}
+.admin-content-empty .chip--selected { flex-shrink: 0; }
+
+@media (max-width: 640px) {
+    .admin-content-ficha { flex-direction: column; }
+    .admin-content-poster { width: 100%; max-width: 260px; }
+}
+
+/* ============================================================
+   Tarea 6 — Gestión de Reviews (Admin)
+   ============================================================ */
+.chip--done {
+    color: #7bd88f;
+    border-color: rgba(93, 216, 138, 0.4);
+    background: rgba(93, 216, 138, 0.1);
+}
+.btn-danger {
+    background: transparent;
+    border: 1px solid #e0334f;
+    color: #ff7a8f;
+}
+.btn-danger:hover { background: #e0334f; color: #fff; }
+
+/* Cabecera del contenido en la vista de reviews */
+.admin-reviews-media {
+    display: flex; align-items: center; gap: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--bronze);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.25rem;
+}
+.admin-reviews-thumb {
+    width: 56px; height: 84px; flex-shrink: 0;
+    border-radius: 8px; overflow: hidden;
+    background: #000; border: 1px solid var(--line);
+}
+.admin-reviews-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.admin-reviews-media-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+.admin-reviews-media-info h3 { margin: 0; font-size: 1.1rem; color: var(--text); }
+.admin-change { flex-shrink: 0; }
+
+/* Lista de reviews del panel */
+.admin-reviews-list { display: flex; flex-direction: column; gap: 1rem; }
+.admin-review {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1rem 1.2rem; margin: 0;
+}
+.admin-review .review-header { align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.admin-review .review-actions { flex-wrap: wrap; }
+.chip--rating {
+    color: var(--bronze-bright);
+    border-color: rgba(201, 162, 39, 0.5);
+    background: rgba(201, 162, 39, 0.1);
+    font-weight: 600;
+}
+.admin-notice {
+    background: rgba(93, 216, 138, 0.08);
+    border: 1px solid rgba(93, 216, 138, 0.35);
+    color: #7bd88f;
+    border-radius: var(--radius);
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+    margin: 0 0 1rem;
+}
+
+/* Confirmación de borrado (visual, sin eliminar todavía) */
+.admin-confirm-modal { max-width: 460px; }
+.admin-confirm-content { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+.admin-confirm-content h2 { margin: 0; color: #fff; font-size: 1.3rem; }
+.admin-confirm-preview {
+    margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+.admin-confirm-actions { display: flex; gap: 0.6rem; margin-top: 0.35rem; }
+
+@media (max-width: 480px) {
+    .admin-reviews-media { flex-wrap: wrap; }
+    .admin-change { width: 100%; }
+}
+
+/* ============================================================
+   Tarea 8 — Estadísticas por contenido (Admin)
+   ============================================================ */
+.admin-card.stat-positive .admin-card-value { color: #7bd88f; }
+.admin-card.stat-negative .admin-card-value { color: #ff7a8f; }
+.admin-card.stat-neutral .admin-card-value { color: var(--bronze-bright); }
+.admin-stats-note { margin: 0.6rem 0 0; font-size: 0.8rem; max-width: 720px; }
+.admin-content-empty .btn-ghost { flex-shrink: 0; }
+.admin-reviews-more { margin-top: 1rem; text-align: center; }
+
+/* ============================================================
+   Tareas 9 y 12 — Gráficas del panel (sentimiento y géneros)
+   ============================================================ */
+.admin-stats-charts {
+    display: flex; flex-direction: column; gap: 1.5rem;
+    margin-top: 1.5rem; padding-top: 1.25rem;
+    border-top: 1px dashed var(--line);
+}
+.admin-chart-block {
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 4px solid var(--sky); border-radius: var(--radius);
+    padding: 1rem 1.2rem 1.1rem;
+}
+.admin-chart-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+}
+.admin-chart-title { font-size: 0.95rem; color: var(--text); margin: 0; }
+
+/* Tarea 9 — barra segmentada de sentimiento */
+.admin-chart-bar {
+    display: flex; width: 100%; height: 1.05rem;
+    border-radius: 999px; overflow: hidden;
+    background: var(--surface-2); border: 1px solid var(--line);
+}
+.admin-chart-seg { height: 100%; transition: width 0.4s ease; }
+.admin-chart-seg.sent-positive { background: #2f9e60; }
+.admin-chart-seg.sent-neutral { background: var(--bronze); }
+.admin-chart-seg.sent-negative { background: #c4283f; }
+.admin-chart-legend {
+    display: flex; flex-wrap: wrap; gap: 0.7rem 1.3rem;
+    margin-top: 0.75rem; font-size: 0.85rem;
+}
+.admin-chart-legend-item { display: inline-flex; align-items: center; gap: 0.42rem; color: var(--text); }
+.admin-chart-legend-item strong { font-variant-numeric: tabular-nums; }
+.admin-chart-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.admin-chart-dot.sent-positive { background: #7bd88f; }
+.admin-chart-dot.sent-neutral { background: var(--bronze-bright); }
+.admin-chart-dot.sent-negative { background: #ff7a8f; }
+
+/* Tarea 12 — barras horizontales por género */
+.admin-genre-chart { display: flex; flex-direction: column; gap: 0.6rem; }
+.admin-genre-row {
+    display: grid; grid-template-columns: 150px 1fr 150px;
+    gap: 0.75rem; align-items: center; font-size: 0.85rem;
+}
+.admin-genre-label {
+    color: var(--text); font-weight: 600; text-align: right;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.admin-genre-track {
+    height: 0.7rem; border-radius: 999px; overflow: hidden;
+    background: var(--surface-2); border: 1px solid var(--line);
+}
+.admin-genre-fill {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--sky));
+    border-radius: 999px; transition: width 0.4s ease;
+}
+.admin-genre-value {
+    color: var(--muted); text-align: right;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+@media (max-width: 560px) {
+    .admin-genre-row { grid-template-columns: 1fr; gap: 0.2rem; }
+    .admin-genre-label { text-align: left; }
+    .admin-genre-value { text-align: left; }
+}
+
+/* Tarea 9 — sentimiento por reseña (etiqueta de la IA) y nota de origen */
+.admin-chart-note { font-size: 0.82rem; margin-top: 0.65rem; }
+.admin-review-sent { font-size: 0.72rem; padding: 0.22rem 0.6rem; }
+.admin-review-sent-positive { color: #7bd88f; border-color: rgba(123, 216, 143, 0.45); }
+.admin-review-sent-negative { color: #ff7a8f; border-color: rgba(255, 122, 143, 0.45); }
+.admin-review-sent-neutral { color: var(--bronze-bright); border-color: rgba(230, 194, 92, 0.45); }
