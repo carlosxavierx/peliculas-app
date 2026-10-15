@@ -127,7 +127,6 @@ function cleanTop5Item(item) {
     };
 }
 
-<<<<<<< HEAD
 function isAdmin(user) {
     if (!user) return false;
     // 1. Rol canónico: campo "role" del documento (lo que escribe el panel admin)
@@ -144,8 +143,6 @@ function isAdmin(user) {
     return false;
 }
 
-=======
->>>>>>> Rama-Pablo
 // Hasta 5 favoritas por usuario: { movieId?, imdbID?, title, year?, poster?, type? }.
 function validateTop5(items) {
     if (!Array.isArray(items)) throw new Error("'top5' debe ser un array");

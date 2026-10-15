@@ -42,7 +42,6 @@ const chatRoutes = require("./src-backend/routes/chatRoutes");
 const chatAgentRoutes = require("./src-backend/routes/chatAgentRoutes");
 const marathonRoutes = require("./src-backend/routes/marathonRoutes");
 const adminRoutes = require("./src-backend/routes/adminRoutes");
-const chatAgentRoutes = require("./src-backend/routes/chatAgentRoutes");
 const { startDailyEnrichment } = require("./src-backend/services/seasonEnrichmentService");
 
 const app = express();
