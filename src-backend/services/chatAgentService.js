@@ -61,30 +61,54 @@ async function callGeminiNative(contents, apiKey, model) {
         generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
     };
 
-    const res = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify(payload)
-    });
+    const TIMEOUT_MS = 60000;
+    const backoff = [0, 1500, 4000];
+    let lastError = null;
 
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("[ChatAgent] Gemini error:", res.status, JSON.stringify(err).slice(0, 500));
-        return { text: "", functionCalls: [], rawError: { status: res.status, body: err } };
-    }
+    for (let attempt = 0; attempt < backoff.length; attempt++) {
+        if (backoff[attempt] > 0) await new Promise((r) => setTimeout(r, backoff[attempt]));
 
-    const data = await res.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    let text = "";
-    const functionCalls = [];
-    for (const p of parts) {
-        if (typeof p.text === "string") text += p.text;
-        if (p.functionCall) functionCalls.push(p.functionCall);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": apiKey
+                },
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+
+            clearTimeout(timer);
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                lastError = `HTTP ${res.status}`;
+                console.error(`[ChatAgent] Gemini HTTP ${res.status} (${model}): ${JSON.stringify(err).slice(0, 200)}`);
+                const isRetriable = res.status === 408 || res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504;
+                if (!isRetriable) return { text: "", functionCalls: [], rawError: { status: res.status, body: err } };
+                continue;
+            }
+
+            const data = await res.json();
+            const parts = data.candidates?.[0]?.content?.parts || [];
+            let text = "";
+            const functionCalls = [];
+            for (const p of parts) {
+                if (typeof p.text === "string") text += p.text;
+                if (p.functionCall) functionCalls.push(p.functionCall);
+            }
+            return { text, functionCalls };
+        } catch (error) {
+            clearTimeout(timer);
+            lastError = error.message || String(error);
+            console.error(`[ChatAgent] Error llamando a Gemini (intento ${attempt + 1}/${backoff.length}): ${error.message}`);
+        }
     }
-    return { text, functionCalls };
+    console.error(`[ChatAgent] Sin éxito tras ${backoff.length} intentos: ${lastError}`);
+    return { text: "", functionCalls: [], rawError: { status: 503, body: { message: lastError } } };
 }
 
 // Bucle de chat con formato nativo Gemini (contents con roles user/model).
@@ -102,20 +126,21 @@ async function processChatGemini(messages, userId, apiKey, model) {
 
     const maxIterations = 3;
     for (let i = 0; i < maxIterations; i++) {
-        let result;
-        try {
-            result = await callGeminiNative(contents, apiKey, model);
-        } catch (e) {
-            console.error("[ChatAgent] Gemini network error:", e.message);
-            return "Problema de conexión con mi cerebro. Revisa tu internet e inténtalo de nuevo.";
-        }
+        let result = await callGeminiNative(contents, apiKey, model);
 
         if (result.rawError) {
             if (result.rawError.status === 403) {
-                return "Mi clave de IA no tiene acceso (error de proyecto en Google AI Studio). Revisa la facturación o genera una clave nueva en https://aistudio.google.com/apikey y actualiza GEMINI_API_KEY en el .env";
+                const errMsg = JSON.stringify(result.rawError.body || {});
+                if (errMsg.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED")) {
+                    return "Tu clave AQ no funciona con este endpoint. Activa facturación en Google Cloud o usa una clave AIza antigua. O añade OPENAI_API_KEY/GROQ_API_KEY al .env.";
+                }
+                return "Mi clave de IA no tiene acceso (error 403). Activa facturación en Google Cloud Console o genera una clave nueva en https://aistudio.google.com/apikey y actualiza GEMINI_API_KEY en el .env";
             }
             if (result.rawError.status === 404) {
-                return "El modelo de IA configurado no está disponible. Cambia CHAT_MODEL en el .env (p. ej. gemini-flash-latest) y reinicia el servidor.";
+                return "El modelo de IA configurado no está disponible. Cambia CHAT_MODEL en el .env (p. ej. gemini-1.5-flash) y reinicia el servidor.";
+            }
+            if (result.rawError.status === 503) {
+                return "El servicio de IA está saturado (cuota gratuita agotada). Opciones: 1) Activa facturación en Google Cloud Console, 2) Añade OPENAI_API_KEY o GROQ_API_KEY al .env, 3) Espera a que se restablezca la cuota diaria.";
             }
             return TEMP_ERROR_MSG;
         }
