@@ -2132,7 +2132,9 @@ function MediaPage(props) {
 
     React.useEffect(() => {
         if (result && resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => {
+                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
         }
     }, [result]);
 
@@ -2649,7 +2651,9 @@ function SeriesPage(props) {
 
     React.useEffect(() => {
         if (result && resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => {
+                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
         }
     }, [result]);
 
