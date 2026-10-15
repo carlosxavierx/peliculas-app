@@ -369,6 +369,86 @@ const SeriesModel = {
         return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
     },
 
+    // Series por género desde Firestore.
+    // Filtra por género (coincidencia parcial en el string de géneros separado por comas).
+    getByGenreFromDb: async ({ genre, limit }) => {
+        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 12, 1), 30);
+        const genreLower = String(genre || "").trim().toLowerCase();
+
+        let docs = [];
+        if (!db) {
+            return [];
+        } else {
+            try {
+                const snapshot = await db
+                    .collection("series")
+                    .where("type", "==", "series")
+                    .limit(500)
+                    .get();
+                snapshot.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (error) {
+                console.error("Error al leer series por género desde Firestore:", error.message || error);
+                return [];
+            }
+        }
+
+        let filtered = docs.filter((m) => {
+            const t = String(m.type || "").toLowerCase();
+            if (t && t !== "series") return false;
+            if (!m.title) return false;
+            const serieGenre = String(m.genre || "").toLowerCase();
+            return serieGenre.includes(genreLower);
+        });
+
+        if (filtered.length === 0 && db) {
+            try {
+                const fallback = await db.collection("series").limit(500).get();
+                const all = [];
+                fallback.forEach((d) => {
+                    all.push({ id: d.id, ...d.data() });
+                });
+                filtered = all.filter((m) => {
+                    const t = String(m.type || "").toLowerCase();
+                    if (!t) return !!m.title;
+                    if (t !== "series") return false;
+                    if (!m.title) return false;
+                    const serieGenre = String(m.genre || "").toLowerCase();
+                    return serieGenre.includes(genreLower);
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        const seen = new Set();
+        const unique = [];
+        for (const m of filtered) {
+            const imdb = String(m.imdbID || "").trim().toLowerCase();
+            const key = imdb || ((String(m.title || "").toLowerCase().trim()) + "__" + String(m.year || "").trim());
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(m);
+        }
+
+        if (unique.length === 0) return [];
+
+        const enriched = await Promise.all(
+            unique.slice(0, want * 2).map(async (m) => {
+                if (!m.poster || !m.genre || m.genre === "Sin género") {
+                    return await SeriesModel.enrichSeriesData(m);
+                }
+                return m;
+            })
+        );
+
+        const withPoster = enriched.filter((m) => !!m.poster);
+        const pool = withPoster.length >= want ? withPoster : enriched;
+
+        return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
+    },
+
     // Actualiza las temporadas de una serie por su IMDb ID.
     // Usado por el servicio de enriquecimiento automático.
     updateSeasonsByImdbID: async (imdbID, totalSeasons, seasons) => {
