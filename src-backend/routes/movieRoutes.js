@@ -84,6 +84,27 @@ router.get("/movies/popular", async (req, res) => {
     }
 });
 
+// Pel├¡culas por g├⌐nero: /api/movies/genre/:genre?limit=12
+// Devuelve pel├¡culas que contengan el g├⌐nero indicado (coincidencia parcial, case-insensitive).
+router.get("/movies/genre/:genre", async (req, res) => {
+    try {
+        const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 12, 1), 30);
+        const genre = decodeURIComponent(req.params.genre || "").trim();
+
+        if (!genre) {
+            return res.status(400).json({ error: "Falta el par├ímetro de g├⌐nero" });
+        }
+
+        const fromDb = await MovieModel.getByGenreFromDb({ genre, limit });
+        res.json({ results: fromDb, totalResults: fromDb.length, source: "firebase", genre });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+
+
 // Top 5 por guardados: las más guardadas por los usuarios (cambia solo).
 router.get("/movies/top5", async (req, res) => {
     try {
