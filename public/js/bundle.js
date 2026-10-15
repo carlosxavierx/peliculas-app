@@ -16,18 +16,18 @@ const SLOGAN = "Descubre, explora y guarda tus películas favoritas";
 const COLOR_THEMES = {
     default: {
         name: "Predeterminado",
-        primary: "#b3122e",
-        primaryHover: "#8c0e24",
-        primaryLight: "#fddde5",
-        accent: "#c9a227",
-        background: "#0d1219",
-        surface: "#151c27",
-        text: "#f4f6f9",
-        textMuted: "#a7b1c0",
-        border: "#2a3444",
+        primary: "#9C0D38",
+        primaryHover: "#b81a42",
+        primaryLight: "#d44a6a",
+        accent: "#b9d2e8",
+        background: "#0d151f",
+        surface: "#1C3144",
+        text: "#FFFFFF",
+        textMuted: "#b0c4d8",
+        border: "#2a4a6a",
         success: "#10b981",
         error: "#ef4444",
-        primaryRgb: "179, 18, 46"
+        primaryRgb: "156, 13, 56"
     },
     vibrant: {
         name: "Colores vivos",
@@ -539,7 +539,7 @@ function ReviewsModal(props) {
                                 h("strong", null, review.user),
                                 h("span", { className: "review-date" }, new Date(review.createdAt).toLocaleDateString("es-ES"))
                             ),
-                            review.rating ? h("p", { className: "muted" }, "★ " + review.rating + "/10") : null,
+                            review.rating ? h("p", { className: "muted" }, h("span", { className: "stars" }, "★ " + review.rating + "/10")) : null,
                             h("p", { className: "review-text" }, review.text),
                             h("div", { className: "review-actions" },
                                 h("button", {
@@ -608,6 +608,9 @@ function SiteHeader(props) {
     const userMenuState = React.useState(false);
     const userMenuOpen = userMenuState[0];
     const setUserMenuOpen = userMenuState[1];
+    const userMenuTimer = React.useRef(null);
+    const cancelUserMenuClose = () => { if (userMenuTimer.current) { clearTimeout(userMenuTimer.current); userMenuTimer.current = null; } };
+    const scheduleUserMenuClose = () => { cancelUserMenuClose(); userMenuTimer.current = setTimeout(() => { setUserMenuOpen(false); userMenuTimer.current = null; }, 300); };
 
     const go = (target) => {
         setOpen(false);
@@ -619,7 +622,7 @@ function SiteHeader(props) {
         h("div", { className: "header-inner" },
             h("button", { className: "logo", onClick: () => go("home"), "aria-label": "Ir al inicio" },
                 h("img", {
-                    className: "logo-img", src: "/img/logo-icon.png", alt: "", "data-img-fallback": "off",
+                    className: "logo-img", src: "/img/logo.png?v=3", alt: "CineAIros", "data-img-fallback": "off",
                     onError: (e) => { e.target.style.display = "none"; }
                 }),
                 h("span", { className: "logo-text" },
@@ -642,7 +645,7 @@ function SiteHeader(props) {
                     "Series"
                 ),
                 user
-                    ? h("div", { className: "user-menu" },
+                    ? h("div", { className: "user-menu", onMouseEnter: cancelUserMenuClose, onMouseLeave: scheduleUserMenuClose },
                         h("button", { className: "user-chip", title: "Mi cuenta", onClick: () => setUserMenuOpen(!userMenuOpen) }, user.nickname || user.name),
                         userMenuOpen && h("div", { className: "user-dropdown" },
                             h("button", { className: "dropdown-item", onClick: () => go("cuenta") }, "Mi cuenta"),
@@ -682,7 +685,11 @@ function SiteFooter(props) {
     return h("footer", { className: "site-footer" },
         h("div", { className: "footer-inner" },
             h("div", { className: "footer-col" },
-                h("p", { className: "footer-logo" }, BRAND),
+                h("p", { className: "footer-logo" },
+                    brandLetters.map((ch, i) =>
+                        h("span", { className: "brand-letter", "data-idx": i }, ch)
+                    )
+                ),
                 h("p", { className: "muted" }, SLOGAN)
             ),
             h("div", { className: "footer-col" },
@@ -2289,11 +2296,11 @@ function MediaPage(props) {
                 }),
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
-                    h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
-                    result.runtime ? h("p", null, h("strong", null, "Duración:"), " " + result.runtime) : null,
-                    result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
+                    h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + result.director),
+                    h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(result.genre)),
+                    result.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + result.runtime) : null,
+                    result.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + result.actors) : null,
+                    result.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + result.rating)) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
@@ -2332,11 +2339,11 @@ function MediaPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + detail.runtime) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2855,10 +2862,10 @@ function SeriesPage(props) {
                 }),
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
-                    h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
-                    result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
+                    h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + result.director),
+                    h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(result.genre)),
+                    result.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + result.actors) : null,
+                    result.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + result.rating)) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
@@ -2897,10 +2904,10 @@ function SeriesPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -3373,8 +3380,9 @@ function MiCuenta(props) {
                             }
                         },
                             h("span", {
+                                className: "top5-rank",
                                 style: {
-                                    fontSize: "2rem", fontWeight: 900, color: "var(--bronze)",
+                                    fontSize: "2rem", fontWeight: 900, color: "var(--accent)",
                                     minWidth: "50px", textAlign: "center",
                                     display: "flex", alignItems: "center", justifyContent: "center"
                                 }
@@ -3469,11 +3477,11 @@ function MiCuenta(props) {
                     h("div", null,
                         h("h2", null, detail.title + " (" + (detail.year || "----") + ")"),
                         h("p", { className: "muted" }, detailType === "series" ? "📺 Serie" : "🎬 Película"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + detail.runtime) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", { className: "btn-ghost", type: "button", onClick: () => openReviews(detail, detailType) }, "Reseñas"),
@@ -3675,10 +3683,10 @@ function UserProfile(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null
                     )
                 )
@@ -4138,10 +4146,7 @@ function ChatAgent() {
             h("header", { className: "chat-agent-header" },
                 h("div", { className: "chat-agent-title" },
                     h("div", { className: "chat-agent-avatar" },
-                        h("svg", { viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                            h("path", { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z", stroke: "currentColor", strokeWidth: "2" }),
-                            h("path", { d: "M12 6v6l4 2", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-                        )
+                        h("img", { src: "/img/logo.png?v=3", alt: "CineBot" })
                     ),
                     h("div", null,
                         h("h3", null, "CineBot"),
@@ -4924,7 +4929,7 @@ function AdminDashboard(props) {
                                     ? h("span", { className: "chip" }, "Año: " + selectedContent.year)
                                     : null,
                                 selectedContent.rating
-                                    ? h("span", { className: "chip" }, "★ " + selectedContent.rating)
+                                    ? h("span", { className: "chip chip--rating" }, "★ " + selectedContent.rating)
                                     : null,
                                 selectedContent.runtime
                                     ? h("span", { className: "chip" }, selectedContent.runtime)
