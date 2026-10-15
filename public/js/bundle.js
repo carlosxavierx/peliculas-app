@@ -1770,7 +1770,7 @@ function MediaPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
-    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" })); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -2307,7 +2307,7 @@ function SeriesPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
-    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" })); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
