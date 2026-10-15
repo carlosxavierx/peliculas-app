@@ -2037,6 +2037,32 @@ function MediaPage(props) {
                 }
                 setResult(exactRes.data);
                 setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+            } else if (listRes.ok) {
+                // Fallback: usar el primer resultado de la lista si no hay coincidencia exacta
+                let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
+                if (items.length > 0) {
+                    let first = items[0];
+                    // Si necesita enriquecer (filtros de nota/género), pedimos detalle
+                    if (min > 0 || genre !== "") {
+                        setLoadingDetails(true);
+                        try {
+                            const enriched = await enrichWithDetails([first]);
+                            first = enriched[0] || first;
+                        } finally {
+                            setLoadingDetails(false);
+                        }
+                    }
+                    const warnings = [];
+                    const firstRating = ratingOf(first);
+                    if (min > 0 && (firstRating === null || firstRating < min)) {
+                        warnings.push("Su nota (" + (first.rating || "sin nota") + ") está por debajo de tu filtro de " + min + ".");
+                    }
+                    if (genre && String(first.genre || "").toLowerCase().indexOf(genre.toLowerCase()) === -1) {
+                        warnings.push("Su género no coincide con tu filtro.");
+                    }
+                    setResult(first);
+                    setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                }
             }
             if (listRes.ok) {
                 let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
@@ -2559,6 +2585,32 @@ function SeriesPage(props) {
                 }
                 setResult(exactRes.data);
                 setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+            } else if (listRes.ok) {
+                // Fallback: usar el primer resultado de la lista si no hay coincidencia exacta
+                let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
+                if (items.length > 0) {
+                    let first = items[0];
+                    // Si necesita enriquecer (filtros de nota/género), pedimos detalle
+                    if (min > 0 || genre !== "") {
+                        setLoadingDetails(true);
+                        try {
+                            const enriched = await enrichWithDetails([first]);
+                            first = enriched[0] || first;
+                        } finally {
+                            setLoadingDetails(false);
+                        }
+                    }
+                    const warnings = [];
+                    const firstRating = ratingOf(first);
+                    if (min > 0 && (firstRating === null || firstRating < min)) {
+                        warnings.push("Su nota (" + (first.rating || "sin nota") + ") está por debajo de tu filtro de " + min + ".");
+                    }
+                    if (genre && String(first.genre || "").toLowerCase().indexOf(genre.toLowerCase()) === -1) {
+                        warnings.push("Su género no coincide con tu filtro.");
+                    }
+                    setResult(first);
+                    setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                }
             }
             if (listRes.ok) {
                 let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
