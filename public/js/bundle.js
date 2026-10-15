@@ -1770,6 +1770,7 @@ function MediaPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -2209,7 +2210,7 @@ function MediaPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: resultRefCallback },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
@@ -2306,6 +2307,7 @@ function SeriesPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -2728,7 +2730,7 @@ function SeriesPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: resultRefCallback },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
