@@ -2857,6 +2857,63 @@ function SeriesPage(props) {
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
+    // Géneros para los carruseles (los 15 pedidos, en orden)
+    const GENRE_CAROUSELS = [
+        ["Action", "Acción"],
+        ["Adventure", "Aventura"],
+        ["Animation", "Animación"],
+        ["Comedy", "Comedia"],
+        ["Crime", "Crimen"],
+        ["Documentary", "Documental"],
+        ["Drama", "Drama"],
+        ["Fantasy", "Fantasía"],
+        ["Horror", "Terror"],
+        ["Mystery", "Misterio"],
+        ["Romance", "Romance"],
+        ["Sci-Fi", "Ciencia ficción"],
+        ["Thriller", "Suspense"],
+        ["War", "Bélica"],
+        ["Western", "Western"]
+    ];
+
+    // Estado para series por género
+    const genreSeriesState = React.useState({});
+    const genreSeries = genreSeriesState[0];
+    const setGenreSeries = genreSeriesState[1];
+    const genreLoadingState = React.useState({});
+    const genreLoading = genreLoadingState[0];
+    const setGenreLoading = genreLoadingState[1];
+
+    // Cargar series para un género específico
+    const loadGenreSeries = async (genreKey, genreLabel) => {
+        setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
+        try {
+            const res = await fetch("/api/series/genre/" + encodeURIComponent(genreKey) + "?limit=12");
+            if (res.status === 429) throw rateLimitExceeded();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
+            setGenreSeries(prev => ({ ...prev, [genreKey]: Array.isArray(data.results) ? data.results : [] }));
+        } catch (e) {
+            if (e && e.code === "RATE_LIMIT") throw e;
+            setGenreSeries(prev => ({ ...prev, [genreKey]: [] }));
+        } finally {
+            setGenreLoading(prev => ({ ...prev, [genreKey]: false }));
+        }
+    };
+
+    // Cargar todos los géneros al montar
+    React.useEffect(() => {
+        let alive = true;
+        const loadAll = async () => {
+            for (const [key, label] of GENRE_CAROUSELS) {
+                if (!alive) break;
+                await loadGenreSeries(key, label);
+            }
+        };
+        loadAll();
+        return () => { alive = false; };
+    }, []);
+
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
             h("h1", null, "Series"),
@@ -2967,6 +3024,17 @@ function SeriesPage(props) {
                 showDelete: false,
                 emptyText: "Haz una búsqueda para ver aquí más resultados."
             }),
+        GENRE_CAROUSELS.map(([genreKey, genreLabel]) =>
+            h(MovieCarousel, {
+                key: genreKey,
+                title: genreLabel,
+                subtitle: "Series de " + genreLabel.toLowerCase(),
+                movies: genreSeries[genreKey] || [],
+                onDetail: openDetail,
+                showDelete: false,
+                emptyText: genreLoading[genreKey] ? "Cargando..." : "No hay series de " + genreLabel.toLowerCase() + " disponibles."
+            })
+        ),
         h("p", { className: "muted hint" }, user ? "Lo que guardes lo encontrarás en tu página personal." : "Entra en tu cuenta para tener tu página personal con tu colección."),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
             h("div", { className: "modal", onClick: (e) => e.stopPropagation() },
