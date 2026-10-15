@@ -2157,7 +2157,7 @@ function MediaPage(props) {
     const loadGenreMovies = async (genreKey, genreLabel) => {
         setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
         try {
-            const res = await fetch("/api/movies/genre/" + encodeURIComponent(genreKey) + "?limit=12");
+            const res = await fetch("/api/movies/genre/" + encodeURIComponent(genreKey) + "?limit=500");
             if (res.status === 429) throw rateLimitExceeded();
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
@@ -2735,7 +2735,7 @@ function SeriesPage(props) {
     const loadGenreSeries = async (genreKey, genreLabel) => {
         setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
         try {
-            const res = await fetch("/api/series/genre/" + encodeURIComponent(genreKey) + "?limit=12");
+            const res = await fetch("/api/series/genre/" + encodeURIComponent(genreKey) + "?limit=500");
             if (res.status === 429) throw rateLimitExceeded();
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
