@@ -31,10 +31,10 @@ const COLOR_THEMES = {
     },
     vibrant: {
         name: "Colores vivos",
-        primary: "#d62839",
-        primaryHover: "#b3122e",
-        primaryLight: "#ffe1ea",
-        accent: "#f59e0b",
+        primary: "#e11d48",
+        primaryHover: "#be123c",
+        primaryLight: "#ffe4e6",
+        accent: "#fb7185",
         background: "#1a0f15",
         surface: "#25161d",
         text: "#fdf2f8",
@@ -42,37 +42,37 @@ const COLOR_THEMES = {
         border: "#6b1d2b",
         success: "#10b981",
         error: "#ef4444",
-        primaryRgb: "214, 40, 57"
+        primaryRgb: "225, 29, 72"
     },
     neon: {
         name: "Neón",
-        primary: "#a855f7",
-        primaryHover: "#9333ea",
-        primaryLight: "#f3e8ff",
-        accent: "#06b6d4",
-        background: "#0f0f1a",
-        surface: "#1a1a2e",
-        text: "#fafafa",
-        textMuted: "#a1a1aa",
-        border: "#3f3f5c",
+        primary: "#e6395f",
+        primaryHover: "#c81e4e",
+        primaryLight: "#ffdde5",
+        accent: "#ff5c8a",
+        background: "#0a0f1c",
+        surface: "#111c30",
+        text: "#f4f8ff",
+        textMuted: "#93a9c9",
+        border: "#24344d",
         success: "#22d3ee",
         error: "#f87171",
-        primaryRgb: "168, 85, 247"
+        primaryRgb: "230, 57, 95"
     },
     pastel: {
         name: "Pastel",
-        primary: "#8b5cf6",
-        primaryHover: "#7c3aed",
-        primaryLight: "#ede9fe",
-        accent: "#f472b6",
-        background: "#fafafa",
+        primary: "#b83a6a",
+        primaryHover: "#962c55",
+        primaryLight: "#fbe4ec",
+        accent: "#be185d",
+        background: "#faf7f9",
         surface: "#ffffff",
-        text: "#4c1d95",
-        textMuted: "#7e69a3",
-        border: "#ddd6fe",
+        text: "#413252",
+        textMuted: "#6f5f86",
+        border: "#e5d5e0",
         success: "#4ade80",
         error: "#fca5a5",
-        primaryRgb: "139, 92, 246"
+        primaryRgb: "184, 58, 106"
     }
 };
 
@@ -4114,14 +4114,7 @@ function ChatAgent() {
                 "aria-label": "Abrir conversación con CineBot",
                 "aria-expanded": "false"
             },
-                h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                    h("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }),
-                    h("path", { d: "M8 10h8", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }),
-                    h("path", { d: "M8 14h5", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-                ),
-                h("svg", { className: "close-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                    h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
-                )
+                h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-toggle-logo" })
             )
         );
     }
@@ -4133,21 +4126,11 @@ function ChatAgent() {
             "aria-label": "Cerrar conversación",
             "aria-expanded": "true"
         },
-            h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                h("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }),
-                h("path", { d: "M8 10h8", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }),
-                h("path", { d: "M8 14h5", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-            ),
-            h("svg", { className: "close-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
-            )
+            h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-toggle-logo" })
         ),
         h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Conversación con CineBot" },
             h("header", { className: "chat-agent-header" },
                 h("div", { className: "chat-agent-title" },
-                    h("div", { className: "chat-agent-avatar" },
-                        h("img", { src: "/img/logo.png?v=3", alt: "CineBot" })
-                    ),
                     h("div", null,
                         h("h3", null, "CineBot"),
                         h("span", null, "Asistente CineAIros")
@@ -4168,10 +4151,7 @@ function ChatAgent() {
                                     h("path", { d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", stroke: "currentColor", strokeWidth: "2" }),
                                     h("circle", { cx: "12", cy: "7", r: "4", stroke: "currentColor", strokeWidth: "2" })
                                 )
-                                : h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" },
-                                    h("path", { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" }),
-                                    h("path", { d: "M12 6v6l4 2" })
-                                )
+                                : h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-message-logo" })
                         ),
                         h("div", { className: "chat-message-bubble" }, msg.content),
                         h("div", { className: "chat-message-time" }, msg.time)

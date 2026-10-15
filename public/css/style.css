@@ -1038,45 +1038,274 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
 }
 
 [data-theme="vibrant"] {
-    --color-primary: #ec4899;
-    --color-primary-hover: #db2777;
-    --color-primary-light: #fce7f3;
-    --color-accent: #f97316;
-    --color-background: #fff7ed;
-    --color-surface: #ffffff;
-    --color-text: #9d174d;
-    --color-text-muted: #be185d;
-    --color-border: #fbcfe8;
+    --color-primary: #e11d48;
+    --color-primary-hover: #be123c;
+    --color-primary-light: #ffe4e6;
+    --color-accent: #fb7185;
+    --color-background: #1a0f15;
+    --color-surface: #25161d;
+    --color-text: #fdf2f8;
+    --color-text-muted: #f9a8d4;
+    --color-border: #6b1d2b;
     --color-success: #10b981;
     --color-error: #ef4444;
 }
 
 [data-theme="neon"] {
-    --color-primary: #a855f7;
-    --color-primary-hover: #9333ea;
-    --color-primary-light: #f3e8ff;
-    --color-accent: #06b6d4;
-    --color-background: #0f0f1a;
-    --color-surface: #1a1a2e;
-    --color-text: #fafafa;
-    --color-text-muted: #a1a1aa;
-    --color-border: #3f3f5c;
+    --color-primary: #e6395f;
+    --color-primary-hover: #c81e4e;
+    --color-primary-light: #ffdde5;
+    --color-accent: #ff5c8a;
+    --color-background: #0a0f1c;
+    --color-surface: #111c30;
+    --color-text: #f4f8ff;
+    --color-text-muted: #93a9c9;
+    --color-border: #24344d;
     --color-success: #22d3ee;
     --color-error: #f87171;
 }
 
 [data-theme="pastel"] {
-    --color-primary: #8b5cf6;
-    --color-primary-hover: #7c3aed;
-    --color-primary-light: #ede9fe;
-    --color-accent: #f472b6;
-    --color-background: #fafafa;
+    --color-primary: #b83a6a;
+    --color-primary-hover: #962c55;
+    --color-primary-light: #fbe4ec;
+    --color-accent: #be185d;
+    --color-background: #faf7f9;
     --color-surface: #ffffff;
-    --color-text: #4c1d95;
-    --color-text-muted: #7e69a3;
-    --color-border: #ddd6fe;
+    --color-text: #413252;
+    --color-text-muted: #6f5f86;
+    --color-border: #e5d5e0;
     --color-success: #4ade80;
     --color-error: #fca5a5;
+}
+
+/* ---------- Tema claro (pastel): adaptaciones de contraste ---------- */
+[data-theme="pastel"] {
+    --steel-bright: #3d5a76;      /* texto acero sobre fondo claro */
+    --bronze-bright: #8a6d1f;     /* dorado oscuro legible sobre blanco */
+    --muted: #5b4d7a;
+    --muted-dim: #7e69a3;
+    --text: var(--color-text);     /* el texto base sigue al tema claro */
+    --surface: #ffffff;            /* tarjetas y modales en blanco */
+    --surface-2: #f1eef5;         /* franjas secundarias en gris lavanda */
+    --card: #ffffff;
+}
+/* Títulos blancos que en pastel caen sobre superficie clara */
+[data-theme="pastel"] .hero h1,
+[data-theme="pastel"] .hero-stats strong,
+[data-theme="pastel"] .feature h3,
+[data-theme="pastel"] .cta-band h2,
+[data-theme="pastel"] .carousel-section h2,
+[data-theme="pastel"] .movies-page > h2,
+[data-theme="pastel"] .result-info h2,
+[data-theme="pastel"] .modal-content h2,
+[data-theme="pastel"] .movie-card h3,
+[data-theme="pastel"] .auth-card h1,
+[data-theme="pastel"] .settings-section h2,
+[data-theme="pastel"] .top5-section h2,
+[data-theme="pastel"] .question legend,
+[data-theme="pastel"] .admin-confirm-content h2,
+[data-theme="pastel"] .modal-close,
+[data-theme="pastel"] .carousel-controls button,
+[data-theme="pastel"] .theme-option strong,
+[data-theme="pastel"] .footer-title,
+[data-theme="pastel"] .share-link-box h3,
+[data-theme="pastel"] .page-head h1 {
+    color: var(--color-text);
+}
+/* Insignias de puntuación: pastilla oscura también en claro */
+[data-theme="pastel"] .rating-badge,
+[data-theme="pastel"] .badge {
+    background: rgba(0, 0, 0, 0.78) !important;
+}
+/* Texto de campos sobre caja clara */
+[data-theme="pastel"] .search-bar input,
+[data-theme="pastel"] .filter input,
+[data-theme="pastel"] .filter select,
+[data-theme="pastel"] .top5-search-input,
+[data-theme="pastel"] .chat-agent-input {
+    color: var(--color-text);
+}
+/* Azules de texto demasiado claros para fondo blanco */
+[data-theme="pastel"] .btn-ghost {
+    color: #2f6d9e;
+    border-color: rgba(47, 109, 158, 0.55);
+}
+[data-theme="pastel"] .btn-ghost:hover,
+[data-theme="pastel"] .result-actions .btn-ghost:hover {
+    background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
+    border-color: var(--color-primary);
+    color: #fff;
+}
+[data-theme="pastel"] .result-actions .btn-ghost {
+    color: #2f6d9e;
+    border-color: rgba(47, 109, 158, 0.55);
+}
+[data-theme="pastel"] .season-chip,
+[data-theme="pastel"] .auth-switch button,
+[data-theme="pastel"] .auth-switch button:hover,
+[data-theme="pastel"] .profile-toc a,
+[data-theme="pastel"] .admin-content-genre,
+[data-theme="pastel"] .friend-nickname,
+[data-theme="pastel"] .auth-prompt button,
+[data-theme="pastel"] .footer-link,
+[data-theme="pastel"] .admin-card.stat-positive .admin-card-value,
+[data-theme="pastel"] .admin-review-sent-positive,
+[data-theme="pastel"] .modal-content p strong:not(.meta-gold),
+[data-theme="pastel"] .nickname-checking {
+    color: #2f6d9e;
+}
+[data-theme="pastel"] .tab:hover,
+[data-theme="pastel"] .tab-btn:hover {
+    color: var(--color-text);
+}
+[data-theme="pastel"] .user-info strong,
+[data-theme="pastel"] .yn-btn {
+    color: var(--color-text);
+}
+[data-theme="pastel"] .chat-agent-close {
+    color: #8aa0b8;
+}
+/* Estos viven sobre superficies oscuras fijas: se quedan claros */
+[data-theme="pastel"] .admin-selected-noimg {
+    color: #8aa0b8;
+}
+/* Hovers y avisos legibles sobre claro */
+[data-theme="pastel"] .top5-available .top5-item-available:hover {
+    background: #fff;
+}
+[data-theme="pastel"] .dropdown-item:hover {
+    background: #fbe4ec;
+}
+[data-theme="pastel"] .genre-chip {
+    color: var(--color-text);
+}
+[data-theme="pastel"] .toast.error {
+    color: #be185d;
+}
+[data-theme="pastel"] .toast.success {
+    color: #15803d;
+}
+/* Cabecera clara en pastel: navegación en oscuro (la palabra CineAIros no cambia) */
+[data-theme="pastel"] .nav-link,
+[data-theme="pastel"] .nav-link:hover {
+    color: var(--color-text);
+}
+[data-theme="pastel"] .logo-text .brand-letter:nth-child(-n+4),
+[data-theme="pastel"] .footer-logo .brand-letter:nth-child(-n+4) {
+    background: none;
+    color: #000;
+}
+[data-theme="pastel"] .logo-text .brand-letter:nth-child(n+5):nth-child(-n+6),
+[data-theme="pastel"] .footer-logo .brand-letter:nth-child(n+5):nth-child(-n+6) {
+    background: none;
+    color: #0f4c81;
+}
+[data-theme="pastel"] .nav-link.active {
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.12);
+}
+[data-theme="pastel"] .user-chip,
+[data-theme="pastel"] .user-chip:hover {
+    color: #2f6d9e;
+}
+[data-theme="pastel"] .badge {
+    background: var(--color-primary);
+}
+[data-theme="pastel"] .logo-img {
+    border: 1px solid var(--color-border);
+}
+/* Cabecera clara en vibrant: navegación en granate (la palabra CineAIros no cambia) */
+[data-theme="vibrant"] .logo-text .brand-letter:nth-child(-n+4) {
+    background: none;
+    color: #000;
+}
+[data-theme="vibrant"] .logo-text .brand-letter:nth-child(n+5):nth-child(-n+6) {
+    background: none;
+    color: #0f4c81;
+}
+[data-theme="vibrant"] .nav-link,
+[data-theme="vibrant"] .nav-link:hover,
+[data-theme="vibrant"] .nav-cta,
+[data-theme="vibrant"] .menu-toggle {
+    color: #7f1d2d;
+}
+[data-theme="vibrant"] .nav-link.active {
+    color: #d62839;
+}
+[data-theme="vibrant"] .user-chip,
+[data-theme="vibrant"] .user-chip:hover {
+    color: #1d4ed8;
+}
+[data-theme="vibrant"] .badge {
+    background: var(--color-primary);
+}
+[data-theme="vibrant"] .logo-img {
+    border: 1px solid var(--color-border);
+}
+/* Botones secundarios visibles sobre el fondo granate */
+[data-theme="vibrant"] .btn-ghost {
+    color: #fda4af;
+    border-color: rgba(253, 164, 175, 0.55);
+}
+[data-theme="vibrant"] .btn-ghost:hover {
+    background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
+    border-color: var(--color-primary);
+    color: #fff;
+}
+[data-theme="vibrant"] .result-actions .btn-ghost {
+    color: #fda4af;
+    border-color: rgba(253, 164, 175, 0.55);
+}
+[data-theme="vibrant"] .result-actions .btn-ghost:hover {
+    background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+/* ---------- Neón de verdad: resplandores eléctricos ---------- */
+[data-theme="neon"] .btn-primary {
+    box-shadow: 0 0 18px rgba(230, 57, 95, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+[data-theme="neon"] .btn-primary:hover {
+    box-shadow: 0 0 28px rgba(230, 57, 95, 0.8), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+[data-theme="neon"] .hero h1,
+[data-theme="neon"] .carousel-section h2,
+[data-theme="neon"] .movies-page > h2,
+[data-theme="neon"] .modal-content h2 {
+    text-shadow: 0 0 22px rgba(255, 92, 138, 0.5);
+}
+[data-theme="neon"] .toprank-rank {
+    text-shadow: 0 0 26px rgba(230, 57, 95, 0.65), 0 4px 20px rgba(0, 0, 0, 0.55);
+}
+[data-theme="neon"] .movie-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 22px rgba(230, 57, 95, 0.45), 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+[data-theme="neon"] .tab.active,
+[data-theme="neon"] .tab-btn.active {
+    box-shadow: inset 0 -2px 0 var(--color-primary), 0 6px 18px rgba(230, 57, 95, 0.35);
+}
+[data-theme="neon"] .nav-link.active {
+    box-shadow: inset 0 -2px 0 var(--color-primary), 0 4px 14px rgba(230, 57, 95, 0.35);
+}
+[data-theme="neon"] .search-bar input:focus,
+[data-theme="neon"] .filter input:focus,
+[data-theme="neon"] .chat-agent-input:focus {
+    border-color: #22d3ee;
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.35);
+}
+[data-theme="neon"] .chat-agent-toggle {
+    box-shadow: 0 0 24px rgba(230, 57, 95, 0.65), 0 8px 24px rgba(0, 0, 0, 0.45);
+    animation-name: chat-pulse-neon;
+}
+@keyframes chat-pulse-neon {
+    0%, 100% { box-shadow: 0 0 24px rgba(230, 57, 95, 0.65), 0 0 0 1px rgba(230, 57, 95, 0.4); }
+    50% { box-shadow: 0 0 38px rgba(230, 57, 95, 0.9), 0 0 0 5px rgba(230, 57, 95, 0.25); }
+}
+[data-theme="neon"] .rating-badge {
+    box-shadow: 0 0 14px rgba(230, 194, 92, 0.35);
 }
 
 /* Apply theme colors to existing components */
@@ -1094,14 +1323,14 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     background: transparent;
 }
 [data-theme="neon"] .site-header {
-    background: rgba(26, 26, 46, 0.96);
+    background: rgba(17, 28, 48, 0.96);
     border-bottom-color: var(--color-border);
 }
 [data-theme="neon"] body {
     background: var(--color-background);
     background-image:
-        radial-gradient(1100px 550px at 50% -8%, rgba(168, 85, 247, 0.16), transparent 60%),
-        radial-gradient(900px 500px at 85% 10%, rgba(6, 182, 212, 0.08), transparent 60%);
+        radial-gradient(1100px 550px at 50% -8%, rgba(230, 57, 95, 0.14), transparent 60%),
+        radial-gradient(900px 500px at 85% 10%, rgba(34, 211, 238, 0.08), transparent 60%);
 }
 
 .btn-primary {
@@ -1543,6 +1772,15 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     stroke: #fff;
     stroke-width: 2.2;
 }
+.chat-agent-toggle {
+    padding: 3px;
+}
+.chat-agent-toggle .chat-toggle-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
 .chat-agent-toggle .close-icon { display: none; }
 .chat-agent-toggle.open .chat-icon { display: none; }
 .chat-agent-toggle.open .close-icon { display: block; }
@@ -1620,7 +1858,7 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center top;
+    object-position: center center;
     border-radius: 50%;
 }
 .chat-agent-title h3 {
@@ -1714,6 +1952,14 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     width: 14px;
     height: 14px;
     stroke: #fff;
+}
+.chat-message-avatar .chat-message-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    border-radius: 50%;
+    background: #fff;
 }
 .chat-message-bubble {
     padding: 0.7rem 1rem;
