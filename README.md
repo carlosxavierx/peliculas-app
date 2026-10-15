@@ -11,6 +11,7 @@ Aplicación web para descubrir, buscar y guardar películas. El catálogo públi
 - [Configuración](#configuración)
 - [Ejecución](#ejecución)
 - [API del backend](#api-del-backend)
+- [Maratones](#maratones)
 - [Backend de administración (admin)](docs/ADMIN_API.md)
 - [Scripts administrativos](#scripts-administrativos)
 - [Modelo de datos](#modelo-de-datos)
@@ -31,6 +32,10 @@ Express (server.js)
  	|
  	+--> Rutas de series ---------> SeriesModel -----> Firestore
  	|
+ 	+--> Rutas de maratones ------> MarathonModel ---> Firestore
+ 	|                                   +-> marathons, marathon_progress,
+ 	|                                      marathon_achievements
+ 	|
  	+--> Rutas de reseñas --------> ReviewModel -----> Firestore
  	|                                   +-> reviews, review_votes, replies
  	|
@@ -43,7 +48,7 @@ Express (server.js)
 
 El frontend no está compilado. `public/js/bundle.js` se ejecuta directamente en el navegador y utiliza React mediante CDN. El backend sirve simultáneamente la aplicación web y la API REST.
 
-La aplicación web consulta películas únicamente desde Firestore. OMDb no participa en las búsquedas del usuario ni en “Popular ahora”; solo se consulta desde `scripts/seedRandomMovies.js` para poblar el catálogo.
+La aplicación web consulta películas únicamente desde Firestore. OMDb no participa en las búsquedas del usuario ni en “Popular ahora”; solo se consulta desde los scripts de carga (`scripts/seedRandomMovies.js`, `scripts/seedRandomSeries.js` y `scripts/seedMarathons.js`) para poblar el catálogo.
 
 ## Stack tecnológico
 
@@ -87,6 +92,9 @@ La aplicación web consulta películas únicamente desde Firestore. OMDb no part
 |   |-- models/movieModel.js     # Acceso a películas y catálogo Firestore.
  |   |-- routes/movieRoutes.js    # API de catálogo y colección personal.
  |   |-- routes/seriesRoutes.js   # API de catálogo y colección personal de series.
+ |   |-- routes/marathonRoutes.js # API de maratones, progreso y logros.
+ |   |-- models/marathonModel.js  # Maratones, progreso secuencial y logros.
+ |   |-- data/marathonCatalog.js  # Catálogo curado de sagas y actores.
  |   |-- routes/reviewRoutes.js   # API de reseñas, votos y respuestas.
  |   |-- models/reviewModel.js    # Acceso a reseñas, votos y respuestas.
  |   |-- routes/authRoutes.js     # API de sincronización y sesión.
@@ -96,7 +104,8 @@ La aplicación web consulta películas únicamente desde Firestore. OMDb no part
 `-- scripts/
 		|-- migrateDatabase.js       # Migración de documentos antiguos.
 		|-- deleteAllMovies.js       # Borrado controlado de movies.
-		`-- seedRandomMovies.js      # Importación aleatoria desde OMDb.
+		|-- seedRandomMovies.js      # Importación aleatoria desde OMDb.
+		`-- seedMarathons.js         # Resuelve sagas/actores en OMDb y crea los maratones.
 ```
 
 ## Flujos principales
@@ -245,6 +254,17 @@ usuario solo se devuelve si existe una amistad aceptada (o es el propio usuario)
 | `GET` | `/api/users/me/top5` | Top 5 propio. |
 | `PUT` | `/api/users/me/top5` | Guarda el Top 5 (`{ top5: [...] }`, máx. 5 referencias). |
 
+### Perfil público
+
+Sin sesión (igual que el catálogo). Nunca devuelven datos sensibles: el perfil
+sale de `publicUser()`, sin hash de contraseña ni sesiones.
+
+| Método | Ruta | Función |
+|---|---|---|
+| `GET` | `/api/users/:id` | Perfil público de un usuario (`404` si no existe). |
+| `GET` | `/api/users/:id/movies` | Películas guardadas de un usuario. |
+| `GET` | `/api/users/:id/marathons` | Maratones empezadas/completadas, logros y última obra vista. |
+
 ### Chat
 
 Todas requieren `Authorization: Bearer <token>`. Solo amigos pueden acceder.
@@ -285,6 +305,100 @@ Anti-spam: 30 escrituras (`POST`/`PUT`/`DELETE`) por IP y minuto (`429`).
 `mediaKey` identifica la obra: `movie:tt1234567` si hay `imdbID`, o `movie:slug-titulo-yyyy` si no.
 
 El modal de reseñas del front (Películas, Series y MiCuenta) consume esta API mediante el componente compartido `ReviewsModal` de `public/js/bundle.js` (listar, publicar, votar, responder y borrar la reseña propia).
+
+## Maratones
+
+Sección de visionado guiado con gamificación. Cada maratón es una lista **ordenada** de obras, y el progreso es estrictamente secuencial:
+
+- Sólo se puede marcar como vista la **primera obra pendiente**. Mientras no marques la 1ª, el resto aparecen **con candado** (el backend responde `403 MARATHON_LOCKED` indicando qué título falta).
+- Sólo se puede desmarcar la **última** obra vista, así que `watched` es siempre un prefijo de la lista y el progreso nunca se puede “saltar”.
+- Los logros son **permanentes**: se sellan en `marathon_achievements` al conseguirlos, por lo que reiniciar un maratón no retira la insignia.
+
+Hay dos tipos de maratón, con dos órdenes distintos:
+
+| Tipo | Orden de visionado |
+|---|---|
+| `saga` | Orden argumental / de estreno de la saga. |
+| `actor` | De la película **más antigua** a la **más reciente** del actor o actriz. |
+
+El catálogo curado (6 sagas y 6 actores/actrices) vive en `src-backend/data/marathonCatalog.js`. Sólo son datos: no requiere red ni Firestore.
+
+### API de maratones
+
+| Método | Ruta | Función |
+|---|---|---|
+| `GET` | `/api/marathons` | Catálogo completo. Sin sesión no incluye progreso; con `Bearer` añade resumen por maratón, estadísticas globales y logros. |
+| `GET` | `/api/marathons/:id` | Un maratón con el estado de cada obra (`watched`, `locked`, `unlockable`, `canUnmark`). |
+| `POST` | `/api/marathons/:id/items/:itemId/watched` | Marca la primera obra pendiente. `403` si hay una anterior sin ver. |
+| `DELETE` | `/api/marathons/:id/items/:itemId/watched` | Desmarca, sólo si es la última vista. |
+| `DELETE` | `/api/marathons/:id/progress` | Reinicia el maratón y devuelve el detalle ya a cero. |
+
+### Colecciones de Maratones
+
+```text
+marathons/{marathonId}            # id = slug (ej. "saga-matrix")
+title
+kind: "saga" | "actor"
+order
+description
+poster
+itemCount
+totalMinutes
+items[]                           # dentro del propio documento: leer un maratón es 1 lectura
+  itemId                          # imdbID en minúsculas, o "slug-titulo-aaaa"
+  order
+  title
+  year
+  mediaType: "movie" | "series"
+  imdbID
+  poster
+  genre
+  rating
+  runtime
+  plot
+  director
+  actors
+updatedAt
+```
+
+El doc del maratón sólo aporta orden, agrupación y contexto: la ficha completa de cada obra (sinopsis, reparto, dirección) sale del catálogo `movies`/`series`, que es la misma fuente que usan las secciones de Películas y Series.
+
+```text
+marathon_progress/{userId__marathonId}
+userId
+marathonId
+watched[]                         # ids en orden de visionado (siempre un prefijo)
+watchedAt{}                       # itemId -> ISO date
+startedAt
+completedAt
+updatedAt
+```
+
+```text
+marathon_achievements/{userId}
+userId
+unlocked{}                        # achievementId -> ISO date (permanente)
+completed{}                       # marathonId -> ISO date (histórico, nunca se borra)
+updatedAt
+```
+
+Logros disponibles: `primer-paso`, `doble-sesion`, `maratonista`, `triple-sesion`, `fan-de-actor` y `leyenda-del-cine`.
+
+### En el perfil público (social)
+
+El perfil de un usuario muestra un bloque **Maratones** con las que ha empezado o
+completado, ordenadas por última actividad, indicando su **última obra vista**, la
+siguiente pendiente, la barra de progreso y las insignias conseguidas. Las
+tarjetas no son interactivas: el progreso de otro se mira, no se toca (si el
+perfil es el tuyo, aparece un botón «Ir a mis maratones»).
+
+Lo alimenta `GET /api/users/:id/marathons`, que devuelve
+`{ stats, achievements, marathons[] }` con el mismo criterio de visibilidad que
+las películas guardadas. Las maratones sin empezar no se listan, así que un
+usuario sin progreso comparte un perfil vacío en lugar de 12 tarjetas a cero.
+Los logros son permanentes, así que siguen visibles aunque se reinicie la maratón.
+La misma información viaja en `GET /api/friends/:friendId/profile` y
+`GET /api/friends/:friendId/full-profile`.
 
 ## Scripts administrativos
 
@@ -371,6 +485,29 @@ SEASON_ENRICH_DELAY=300
 ```
 
 Con `SEASON_ENRICH_ENABLED=false` se desactiva por completo.
+
+### Poblar los maratones
+
+```powershell
+node scripts/seedMarathons.js
+```
+
+O con el atajo de npm:
+
+```powershell
+npm run seed:marathons
+```
+
+Recorre el catálogo curado y, para cada obra: la resuelve en OMDb (por `imdbID` y, si no cuadra, por título+año), se asegura de que existe en el catálogo `movies`/`series` de Firestore y escribe el documento del maratón en `marathons` con las obras ya ordenadas. Es idempotente (reejecutarlo no duplica nada) y no borra contenido del catálogo. Opciones:
+
+```powershell
+node scripts/seedMarathons.js --dry-run          # comprueba OMDb sin escribir nada
+node scripts/seedMarathons.js --only=saga-matrix # un único maratón
+node scripts/seedMarathons.js --sync-plots       # re-copia las sinopsis ya traducidas
+node scripts/seedMarathons.js --cleanup          # borra los maratones cargados
+```
+
+Usa `--dry-run` la primera vez: valida que cada `imdbID` del catálogo curado resuelve al título correcto antes de tocar la base de datos. Requiere `OMDB_API_KEY` y las credenciales de Firebase Admin del `.env`.
 
 ## Modelo de datos
 

@@ -452,12 +452,13 @@ const authService = {
 
     getById: async (id) => storedUserById(id),
 
-<<<<<<< HEAD
-=======
+    // Perfil público (página /perfil). Devuelve los mismos campos que
+    // `publicUser`, así que no expone ni el hash de contraseña ni las sesiones.
+    // Lo usan las rutas de perfil, que antes llamaban a un método inexistente y
+    // respondían 500: por eso el perfil público no cargaba.
     getPublicProfile: async (id) => {
-        const user = await storedUserById(id);
-        if (!user) return null;
-        return publicUser(user);
+        const user = await authService.getById(id);
+        return user ? publicUser(user) : null;
     },
 
     setTop5strict: async (userId, items) => {
@@ -477,7 +478,6 @@ const authService = {
     // Sesión técnica a partir del token (la usan las rutas de auth/nickname).
     readSession: async (token) => readSession(token),
 
->>>>>>> Rama-Pablo
     // Busca usuarios por nombre o email (para añadir amigos).
     searchUsers: async (query, { excludeId, limit } = {}) => {
         const q = String(query || "").trim().toLowerCase();

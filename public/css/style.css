@@ -2175,3 +2175,196 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
 .admin-review-sent-positive { color: #7bd88f; border-color: rgba(123, 216, 143, 0.45); }
 .admin-review-sent-negative { color: #ff7a8f; border-color: rgba(255, 122, 143, 0.45); }
 .admin-review-sent-neutral { color: var(--bronze-bright); border-color: rgba(230, 194, 92, 0.45); }
+
+/* ---------- Maratones: sagas y actores (progreso con candado) ---------- */
+.marathon-toast {
+    position: sticky; top: 0.5rem; z-index: 20;
+    margin: 0 0 1rem; padding: 0.7rem 1rem;
+    background: linear-gradient(90deg, rgba(179, 18, 46, 0.9), rgba(63, 123, 166, 0.85));
+    border: 1px solid var(--line); border-radius: var(--radius);
+    color: #fff; font-weight: 600;
+}
+.marathon-guest {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+    justify-content: space-between;
+    margin-bottom: 1rem; padding: 0.85rem 1rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    color: var(--muted);
+}
+.marathon-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem; margin-bottom: 1.25rem;
+}
+.marathon-stat {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    padding: 0.85rem 1rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.marathon-stat strong { font-size: 1.25rem; color: #fff; }
+.marathon-stat span { font-size: 0.82rem; }
+.marathon-tabs { margin-bottom: 1.25rem; }
+
+.marathon-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+    gap: 1rem; margin-bottom: 2rem;
+}
+.marathon-card {
+    display: flex; flex-direction: column; text-align: left;
+    padding: 0; overflow: hidden; cursor: pointer;
+    font-family: inherit; font-size: 1rem; color: inherit;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.marathon-card:hover { transform: translateY(-3px); border-color: var(--accent); background: var(--card-hover); }
+.marathon-card.completed { border-color: var(--bronze); }
+.marathon-card-poster { position: relative; display: block; }
+.marathon-card-poster img {
+    display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover;
+    background: var(--surface-2);
+}
+.marathon-flag {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    padding: 0.25rem 0.6rem; border-radius: 999px;
+    background: var(--bronze); color: #23180a; font-size: 0.72rem; font-weight: 700;
+}
+.marathon-card-body { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.85rem; }
+.marathon-card-body h3 { font-size: 1rem; line-height: 1.3; margin: 0; }
+.marathon-card-meta { font-size: 0.8rem; margin: 0; }
+.marathon-card-status { font-size: 0.78rem; color: var(--muted); }
+.marathon-kind {
+    align-self: flex-start;
+    padding: 0.2rem 0.55rem; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.marathon-kind.saga { background: rgba(179, 18, 46, 0.22); color: var(--accent-soft); border: 1px solid rgba(179, 18, 46, 0.5); }
+.marathon-kind.actor { background: rgba(63, 123, 166, 0.22); color: var(--sky-bright); border: 1px solid rgba(127, 176, 216, 0.5); }
+
+.marathon-bar {
+    height: 0.55rem; border-radius: 999px; overflow: hidden;
+    background: var(--surface-2); border: 1px solid var(--line);
+}
+.marathon-bar-fill {
+    display: block; height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--sky));
+    transition: width 0.35s ease;
+}
+.marathon-bar-fill.done { background: linear-gradient(90deg, var(--bronze), var(--bronze-bright)); }
+
+.marathon-back { margin-bottom: 1rem; }
+.marathon-detail-head {
+    display: flex; gap: 1.25rem; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 1.25rem;
+}
+.marathon-detail-head h2 { margin: 0.4rem 0 0.35rem; }
+.marathon-detail-head p { margin: 0; max-width: 62ch; }
+.marathon-detail-poster {
+    width: 140px; flex: 0 0 auto; border-radius: var(--radius);
+    border: 1px solid var(--line); object-fit: cover;
+}
+.marathon-detail-progress {
+    display: flex; flex-direction: column; gap: 0.6rem;
+    padding: 1rem; margin-bottom: 1.25rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.marathon-detail-progress-top { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; }
+.marathon-completed {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    padding-top: 0.35rem; color: var(--bronze-bright); font-weight: 600;
+}
+
+.marathon-items { display: flex; flex-direction: column; gap: 0.75rem; }
+.marathon-item {
+    display: grid; grid-template-columns: 2.2rem 70px 1fr auto;
+    gap: 0.9rem; align-items: start;
+    padding: 0.85rem;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.marathon-item.watched { border-color: rgba(123, 216, 143, 0.45); }
+.marathon-item.unlockable { border-color: rgba(179, 18, 46, 0.55); }
+.marathon-item.locked { opacity: 0.55; background: var(--surface-2); }
+.marathon-item-num {
+    display: flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    color: var(--muted); font-weight: 700; font-size: 0.85rem;
+}
+.marathon-item.watched .marathon-item-num { background: rgba(123, 216, 143, 0.18); color: #7bd88f; border-color: rgba(123, 216, 143, 0.45); }
+.marathon-item-poster { padding: 0; border: 0; background: none; cursor: pointer; }
+.marathon-item-poster img {
+    display: block; width: 70px; aspect-ratio: 2 / 3; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--line);
+}
+.marathon-item-info { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.marathon-item-title {
+    padding: 0; border: 0; background: none; cursor: pointer;
+    font-family: inherit; font-size: 1rem; font-weight: 600; color: var(--text); text-align: left;
+}
+.marathon-item-title:hover { color: var(--accent-soft); }
+.marathon-item-meta { font-size: 0.8rem; margin: 0; }
+.marathon-lock-hint { margin: 0; font-size: 0.82rem; color: var(--bronze-bright); }
+.marathon-item-plot { margin-top: 0.35rem; padding-top: 0.5rem; border-top: 1px dashed var(--line); font-size: 0.9rem; }
+.marathon-item-plot p { margin: 0 0 0.35rem; }
+.marathon-item-actions { display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-end; }
+.marathon-item-done { color: #7bd88f; font-weight: 700; font-size: 0.85rem; }
+
+.marathon-section-title { margin: 2rem 0 1rem; font-size: 1.15rem; }
+.achievements-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.85rem;
+}
+.achievement {
+    display: flex; gap: 0.75rem; align-items: flex-start;
+    padding: 0.85rem; opacity: 0.6;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.achievement.unlocked { opacity: 1; border-color: var(--bronze); background: var(--surface); }
+.achievement-icon { font-size: 1.4rem; line-height: 1; }
+.achievement-body { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.achievement-body strong { font-size: 0.95rem; }
+.achievement-body span { font-size: 0.8rem; }
+.achievement-body small { font-variant-numeric: tabular-nums; }
+.achievement-bar {
+    height: 0.4rem; border-radius: 999px; overflow: hidden;
+    background: var(--bg); border: 1px solid var(--line);
+}
+.achievement-bar-fill {
+    display: block; height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--sky));
+    transition: width 0.35s ease;
+}
+
+@media (max-width: 700px) {
+    .marathon-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .marathon-item { grid-template-columns: 2rem 56px 1fr; }
+    .marathon-item-poster img { width: 56px; }
+    .marathon-item-actions { grid-column: 2 / -1; flex-direction: row; align-items: center; justify-content: flex-start; }
+    .marathon-detail-head { flex-direction: column-reverse; }
+    .marathon-detail-poster { width: 110px; }
+}
+
+/* Perfil público — maratones del usuario (bloque social).
+   Se reutilizan las tarjetas de la sección Maratones, pero aquí el progreso es
+   de otra persona: no se puede tocar, así que se anulan el cursor y el hover. */
+.profile-marathons { margin: 1.75rem 0 2rem; }
+.profile-marathons-head {
+    display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.profile-marathons-head h2 { margin: 0; }
+.profile-marathons-head .btn-primary { margin-left: auto; }
+.profile-marathon-card { cursor: default; }
+.profile-marathon-card:hover {
+    transform: none;
+    border-color: var(--line);
+    background: var(--card);
+}
+.profile-marathon-card.completed:hover { border-color: var(--bronze); }
+.profile-achievements { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.profile-achievement {
+    padding: 0.3rem 0.7rem; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--bronze);
+    color: var(--bronze-bright); font-size: 0.8rem; font-weight: 600;
+}
+@media (max-width: 560px) {
+    .profile-marathons-head .btn-primary { margin-left: 0; }
+}
+
