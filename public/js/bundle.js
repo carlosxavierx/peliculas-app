@@ -2133,6 +2133,63 @@ function MediaPage(props) {
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
+    // Géneros para los carruseles (los 15 pedidos, en orden)
+    const GENRE_CAROUSELS = [
+        ["Action", "Acción"],
+        ["Adventure", "Aventura"],
+        ["Animation", "Animación"],
+        ["Comedy", "Comedia"],
+        ["Crime", "Crimen"],
+        ["Documentary", "Documental"],
+        ["Drama", "Drama"],
+        ["Fantasy", "Fantasía"],
+        ["Horror", "Terror"],
+        ["Mystery", "Misterio"],
+        ["Romance", "Romance"],
+        ["Sci-Fi", "Ciencia ficción"],
+        ["Thriller", "Suspense"],
+        ["War", "Bélica"],
+        ["Western", "Western"]
+    ];
+
+    // Estado para películas por género
+    const genreMoviesState = React.useState({});
+    const genreMovies = genreMoviesState[0];
+    const setGenreMovies = genreMoviesState[1];
+    const genreLoadingState = React.useState({});
+    const genreLoading = genreLoadingState[0];
+    const setGenreLoading = genreLoadingState[1];
+
+    // Cargar películas para un género específico
+    const loadGenreMovies = async (genreKey, genreLabel) => {
+        setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
+        try {
+            const res = await fetch("/api/movies/genre/" + encodeURIComponent(genreKey) + "?limit=500");
+            if (res.status === 429) throw rateLimitExceeded();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
+            setGenreMovies(prev => ({ ...prev, [genreKey]: Array.isArray(data.results) ? data.results : [] }));
+        } catch (e) {
+            if (e && e.code === "RATE_LIMIT") throw e;
+            setGenreMovies(prev => ({ ...prev, [genreKey]: [] }));
+        } finally {
+            setGenreLoading(prev => ({ ...prev, [genreKey]: false }));
+        }
+    };
+
+    // Cargar todos los géneros al montar
+    React.useEffect(() => {
+        let alive = true;
+        const loadAll = async () => {
+            for (const [key, label] of GENRE_CAROUSELS) {
+                if (!alive) break;
+                await loadGenreMovies(key, label);
+            }
+        };
+        loadAll();
+        return () => { alive = false; };
+    }, []);
+
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
             h("h1", null, "Películas"),
@@ -2236,6 +2293,17 @@ function MediaPage(props) {
                 showDelete: false,
                 emptyText: "Haz una búsqueda para ver aquí más resultados."
             }),
+        GENRE_CAROUSELS.map(([genreKey, genreLabel]) =>
+            h(MovieCarousel, {
+                key: genreKey,
+                title: genreLabel,
+                subtitle: "Películas de " + genreLabel.toLowerCase(),
+                movies: genreMovies[genreKey] || [],
+                onDetail: openDetail,
+                showDelete: false,
+                emptyText: genreLoading[genreKey] ? "Cargando..." : "No hay películas de " + genreLabel.toLowerCase() + " disponibles."
+            })
+        ),
         h("p", { className: "muted hint" }, user ? "Lo que guardes lo encontrarás en tu página personal." : "Entra en tu cuenta para tener tu página personal con tu colección"),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
             h("div", { className: "modal", onClick: (e) => e.stopPropagation() },
@@ -2650,6 +2718,63 @@ function SeriesPage(props) {
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
+    // Géneros para los carruseles (los 15 pedidos, en orden)
+    const GENRE_CAROUSELS = [
+        ["Action", "Acción"],
+        ["Adventure", "Aventura"],
+        ["Animation", "Animación"],
+        ["Comedy", "Comedia"],
+        ["Crime", "Crimen"],
+        ["Documentary", "Documental"],
+        ["Drama", "Drama"],
+        ["Fantasy", "Fantasía"],
+        ["Horror", "Terror"],
+        ["Mystery", "Misterio"],
+        ["Romance", "Romance"],
+        ["Sci-Fi", "Ciencia ficción"],
+        ["Thriller", "Suspense"],
+        ["War", "Bélica"],
+        ["Western", "Western"]
+    ];
+
+    // Estado para series por género
+    const genreSeriesState = React.useState({});
+    const genreSeries = genreSeriesState[0];
+    const setGenreSeries = genreSeriesState[1];
+    const genreLoadingState = React.useState({});
+    const genreLoading = genreLoadingState[0];
+    const setGenreLoading = genreLoadingState[1];
+
+    // Cargar series para un género específico
+    const loadGenreSeries = async (genreKey, genreLabel) => {
+        setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
+        try {
+            const res = await fetch("/api/series/genre/" + encodeURIComponent(genreKey) + "?limit=500");
+            if (res.status === 429) throw rateLimitExceeded();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
+            setGenreSeries(prev => ({ ...prev, [genreKey]: Array.isArray(data.results) ? data.results : [] }));
+        } catch (e) {
+            if (e && e.code === "RATE_LIMIT") throw e;
+            setGenreSeries(prev => ({ ...prev, [genreKey]: [] }));
+        } finally {
+            setGenreLoading(prev => ({ ...prev, [genreKey]: false }));
+        }
+    };
+
+    // Cargar todos los géneros al montar
+    React.useEffect(() => {
+        let alive = true;
+        const loadAll = async () => {
+            for (const [key, label] of GENRE_CAROUSELS) {
+                if (!alive) break;
+                await loadGenreSeries(key, label);
+            }
+        };
+        loadAll();
+        return () => { alive = false; };
+    }, []);
+
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
             h("h1", null, "Series"),
@@ -2752,6 +2877,17 @@ function SeriesPage(props) {
                 showDelete: false,
                 emptyText: "Haz una búsqueda para ver aquí más resultados."
             }),
+        GENRE_CAROUSELS.map(([genreKey, genreLabel]) =>
+            h(MovieCarousel, {
+                key: genreKey,
+                title: genreLabel,
+                subtitle: "Series de " + genreLabel.toLowerCase(),
+                movies: genreSeries[genreKey] || [],
+                onDetail: openDetail,
+                showDelete: false,
+                emptyText: genreLoading[genreKey] ? "Cargando..." : "No hay series de " + genreLabel.toLowerCase() + " disponibles."
+            })
+        ),
         h("p", { className: "muted hint" }, user ? "Lo que guardes lo encontrarás en tu página personal." : "Entra en tu cuenta para tener tu página personal con tu colección."),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
             h("div", { className: "modal", onClick: (e) => e.stopPropagation() },
@@ -3525,275 +3661,6 @@ function UserProfile(props) {
                 )
             )
         ) : null
-    );
-}
-
-/* ---------- AmistadesPage: sistema unificado de amistades (amigos, solicitudes, buscar) ---------- */
-function AmistadesPage(props) {
-    const currentUser = props.currentUser;
-    const onNavigate = props.onNavigate;
-
-    const friendsTabState = React.useState("friends");
-    const friendsTab = friendsTabState[0];
-    const setFriendsTab = friendsTabState[1];
-
-    const friendsState = React.useState([]);
-    const friends = friendsState[0];
-    const setFriends = friendsState[1];
-
-    const requestsState = React.useState([]);
-    const requests = requestsState[0];
-    const setRequests = requestsState[1];
-
-    const searchQueryState = React.useState("");
-    const searchQuery = searchQueryState[0];
-    const setSearchQuery = searchQueryState[1];
-
-    const searchResultsState = React.useState([]);
-    const searchResults = searchResultsState[0];
-    const setSearchResults = searchResultsState[1];
-
-    const searchingState = React.useState(false);
-    const searching = searchingState[0];
-    const setSearching = searchingState[1];
-
-    const searchErrorState = React.useState(null);
-    const searchError = searchErrorState[0];
-    const setSearchError = searchErrorState[1];
-
-    const loadingFriendsState = React.useState(true);
-    const loadingFriends = loadingFriendsState[0];
-    const setLoadingFriends = loadingFriendsState[1];
-
-    const loadFriends = async () => {
-        setLoadingFriends(true);
-        try {
-            const res = await fetch("/api/auth/friends", { headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al cargar amigos");
-            setFriends(data.friends || []);
-        } catch (err) {
-            console.error("Error loading friends:", err);
-        } finally {
-            setLoadingFriends(false);
-        }
-    };
-
-    const loadRequests = async () => {
-        try {
-            const res = await fetch("/api/auth/friends/requests", { headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al cargar solicitudes");
-            setRequests(data.requests || []);
-        } catch (err) {
-            console.error("Error loading requests:", err);
-        }
-    };
-
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        const q = searchQuery.trim().toLowerCase();
-        if (!q) { setSearchError("Escribe un nickname"); return; }
-        if (q === (currentUser.nickname || "").toLowerCase()) { setSearchError("No te puedes buscar a ti mismo"); return; }
-        setSearching(true);
-        setSearchError(null);
-        setSearchResults([]);
-        try {
-            const res = await fetch("/api/auth/user/" + encodeURIComponent(q), { headers: authHeaders() });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Usuario no encontrado");
-            setSearchResults([data.user]);
-        } catch (err) {
-            setSearchError(err.message);
-        } finally {
-            setSearching(false);
-        }
-    };
-
-    const sendRequest = async (targetId) => {
-        try {
-            const target = searchResults.find(u => u.id === targetId);
-            if (!target) return;
-            if (!target.nickname) {
-                alert("Ese usuario no tiene nickname configurado");
-                return;
-            }
-            const res = await fetch("/api/auth/friends/request", {
-                method: "POST",
-                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ toNickname: target.nickname })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al enviar solicitud");
-            alert("Solicitud enviada");
-            setSearchResults([]);
-            setSearchQuery("");
-        } catch (err) {
-            alert(err.message);
-        }
-    };
-
-    const acceptRequest = async (requestId) => {
-        try {
-            const res = await fetch("/api/auth/friends/request/accept", {
-                method: "POST",
-                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ requestId })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al aceptar");
-            loadRequests();
-            loadFriends();
-        } catch (err) {
-            alert(err.message);
-        }
-    };
-
-    const declineRequest = async (requestId) => {
-        try {
-            const res = await fetch("/api/auth/friends/request/decline", {
-                method: "POST",
-                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ requestId })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al rechazar");
-            loadRequests();
-        } catch (err) {
-            alert(err.message);
-        }
-    };
-
-    const removeFriend = async (friendId) => {
-        if (!window.confirm("¿Eliminar a este amigo?")) return;
-        try {
-            const res = await fetch("/api/auth/friends/" + encodeURIComponent(friendId), {
-                method: "DELETE",
-                headers: authHeaders()
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al eliminar");
-            loadFriends();
-        } catch (err) {
-            alert(err.message);
-        }
-    };
-
-    React.useEffect(() => {
-        loadFriends();
-        loadRequests();
-    }, []);
-
-    React.useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const friendParam = params.get("friend");
-        if (friendParam && friendParam !== (currentUser.nickname || "").toLowerCase()) {
-            setFriendsTab("search");
-            setSearchQuery(friendParam);
-            handleSearch({ preventDefault: () => {} });
-        }
-    }, [currentUser]);
-
-    const renderFriendsTab = () => {
-        if (loadingFriends) return h("p", { className: "muted" }, "Cargando amigos...");
-        if (friends.length === 0) return h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "Aún no tienes amigos. Busca usuarios para añadir.");
-        return h("div", { className: "user-list" },
-            friends.map((f) =>
-                h("div", { key: f.id, className: "user-item" },
-                    h("div", { className: "user-avatar" },
-                        f.photoURL ? h("img", { src: f.photoURL, alt: f.nickname || f.name }) : h("span", null, (f.nickname || f.name || "U")[0].toUpperCase())
-                    ),
-                    h("div", { className: "user-info" },
-                        h("strong", null, f.nickname || f.name),
-                        h("span", { className: "muted" }, f.since ? "Amigo desde " + new Date(f.since).toLocaleDateString("es-ES") : "@" + (f.id.split("@")[0] || f.id))
-                    ),
-                    h("button", {
-                        className: "btn-ghost btn-small danger",
-                        onClick: () => removeFriend(f.id)
-                    }, "Eliminar")
-                )
-            )
-        );
-    };
-
-    const renderRequestsTab = () => {
-        if (requests.length === 0) return h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No tienes solicitudes pendientes.");
-        return h("div", { className: "user-list" },
-            requests.map((r) => {
-                const fromUser = r.fromUser;
-                return h("div", { key: r.request.id, className: "user-item" },
-                    h("div", { className: "user-avatar" },
-                        fromUser?.photoURL ? h("img", { src: fromUser.photoURL, alt: fromUser.nickname || fromUser.name }) : h("span", null, (fromUser?.nickname || fromUser?.name || "U")[0].toUpperCase())
-                    ),
-                    h("div", { className: "user-info" },
-                        h("strong", null, fromUser?.nickname || fromUser?.name),
-                        h("span", { className: "muted" }, "@" + (fromUser?.id?.split("@")[0] || fromUser?.id))
-                    ),
-                    h("div", { style: { display: "flex", gap: "0.5rem" } },
-                        h("button", {
-                            className: "btn-primary btn-small",
-                            onClick: () => acceptRequest(r.request.id)
-                        }, "Aceptar"),
-                        h("button", {
-                            className: "btn-ghost btn-small",
-                            onClick: () => declineRequest(r.request.id)
-                        }, "Rechazar")
-                    )
-                );
-            })
-        );
-    };
-
-    const renderSearchTab = () => (
-        h("div", null,
-            h("form", { className: "search-form", onSubmit: handleSearch, style: { marginBottom: "1rem", display: "flex", gap: "0.5rem" } },
-                h("input", {
-                    type: "text",
-                    placeholder: "Buscar por nickname...",
-                    value: searchQuery,
-                    onChange: (e) => setSearchQuery(e.target.value),
-                    autoFocus: true,
-                    style: { flex: 1, padding: "0.75rem", fontSize: "1rem", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--text)" }
-                }),
-                h("button", { type: "submit", className: "btn-primary", disabled: searching, style: { padding: "0.75rem 1.5rem" } },
-                    searching ? "Buscando..." : "Buscar"
-                )
-            ),
-            searchError && h("p", { className: "error", style: { textAlign: "center" } }, searchError),
-            !searching && searchQuery && searchResults.length === 0 && !searchError && h("p", { className: "muted", style: { textAlign: "center", padding: "1rem" } }, "Usuario no encontrado"),
-            searchResults.length > 0 && h("div", { className: "user-list" },
-                searchResults.map((u) =>
-                    h("div", { key: u.id, className: "user-item" },
-                        h("div", { className: "user-avatar" },
-                            u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
-                        ),
-                        h("div", { className: "user-info" },
-                            h("strong", null, u.nickname || u.name),
-                            h("span", { className: "muted" }, "@" + (u.id.split("@")[0] || u.id))
-                        ),
-                        u.id !== currentUser.id && h("button", {
-                            className: "btn-primary btn-small",
-                            onClick: () => sendRequest(u.id)
-                        }, "Añadir amigo")
-                    )
-                )
-            )
-        )
-    );
-
-    return h("div", { className: "movies-page" },
-        h("div", { className: "page-head" },
-            h("h1", null, "Amistades"),
-            h("p", { className: "muted" }, "Gestiona tus amigos, solicitudes y busca nuevos contactos")
-        ),
-        h("div", { className: "tabs", style: { marginBottom: "1.5rem" } },
-            h("button", { className: "tab" + (friendsTab === "friends" ? " active" : ""), onClick: () => setFriendsTab("friends") }, "Amigos (" + friends.length + ")"),
-            h("button", { className: "tab" + (friendsTab === "requests" ? " active" : ""), onClick: () => setFriendsTab("requests") }, "Solicitudes (" + requests.length + ")"),
-            h("button", { className: "tab" + (friendsTab === "search" ? " active" : ""), onClick: () => setFriendsTab("search") }, "Buscar")
-        ),
-        friendsTab === "friends" && renderFriendsTab(),
-        friendsTab === "requests" && renderRequestsTab(),
-        friendsTab === "search" && renderSearchTab()
     );
 }
 
@@ -5558,9 +5425,13 @@ function App() {
                 ? (user
                     ? h(UserProfile, { userId: new URLSearchParams(window.location.search).get("id") || user.id, currentUser: user, onNavigate: navigate, onDetail: (m) => { /* handled by parent */ } })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
-                : page === "amistades"
+                : page === "buscar-usuarios"
                 ? (user
-                    ? h(AmistadesPage, { currentUser: user, onNavigate: navigate })
+                    ? h(UserSearch, { currentUser: user, onNavigate: navigate })
+                    : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
+                : page === "amigos"
+                ? (user
+                    ? h(FriendsPage, { currentUser: user, onNavigate: navigate })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "configuracion"
                 ? (user

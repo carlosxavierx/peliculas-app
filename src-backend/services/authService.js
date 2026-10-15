@@ -127,6 +127,7 @@ function cleanTop5Item(item) {
     };
 }
 
+<<<<<<< HEAD
 function isAdmin(user) {
     if (!user) return false;
     // 1. Rol canónico: campo "role" del documento (lo que escribe el panel admin)
@@ -143,6 +144,8 @@ function isAdmin(user) {
     return false;
 }
 
+=======
+>>>>>>> Rama-Pablo
 // Hasta 5 favoritas por usuario: { movieId?, imdbID?, title, year?, poster?, type? }.
 function validateTop5(items) {
     if (!Array.isArray(items)) throw new Error("'top5' debe ser un array");
@@ -219,6 +222,27 @@ async function storedUserById(userId) {
     return Object.assign({ id: doc.id }, doc.data());
 }
 
+// ---- Nickname público y color de tema (los usa el front del equipo) ----
+// El nickname se guarda en el campo propio `nickname` y también dentro de
+// `prefs`, porque el front lee los dos sitios.
+function nicknameOf(user) {
+    if (!user) return "";
+    return String(user.nickname || (user.prefs && user.prefs.nickname) || "").trim().toLowerCase();
+}
+
+function nicknameError(message, code) {
+    const err = new Error(message);
+    err.code = code;
+    return err;
+}
+
+async function findUserByNickname(nickname) {
+    const wanted = String(nickname || "").trim().toLowerCase();
+    if (!wanted) return null;
+    const users = await listStoredUsers();
+    return users.find((user) => nicknameOf(user) === wanted) || null;
+}
+
 // Devuelve un usuario por su id (el doc id de la colección users, normalmente su email).
 async function getUserById(userId) {
     if (!db) {
@@ -234,27 +258,14 @@ async function getUserById(userId) {
 
 async function setUserNickname(userId, nickname) {
     const clean = String(nickname || "").trim().toLowerCase();
-    if (clean.length < 3) {
-        const err = new Error("El apodo debe tener al menos 3 caracteres");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
-    if (clean.length > 30) {
-        const err = new Error("El apodo no puede superar 30 caracteres");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
-    if (!/^[a-z0-9_]+$/.test(clean)) {
-        const err = new Error("El apodo solo puede contener letras, números y guión bajo");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
+    if (clean.length < 3) throw nicknameError("El apodo debe tener al menos 3 caracteres", "INVALID_NICKNAME");
+    if (clean.length > 30) throw nicknameError("El apodo no puede superar 30 caracteres", "INVALID_NICKNAME");
+    if (!/^[a-z0-9_]+$/.test(clean)) throw nicknameError("El apodo solo puede contener letras, números y guión bajo", "INVALID_NICKNAME");
+
     const owner = String(userId || "").trim().toLowerCase();
     const existing = await findUserByNickname(clean);
     if (existing && String(existing.id || "").toLowerCase() !== owner) {
-        const err = new Error("Ese apodo ya está en uso");
-        err.code = "NICKNAME_TAKEN";
-        throw err;
+        throw nicknameError("Ese apodo ya está en uso", "NICKNAME_TAKEN");
     }
 
     const user = await storedUserById(userId);
@@ -441,6 +452,32 @@ const authService = {
 
     getById: async (id) => storedUserById(id),
 
+<<<<<<< HEAD
+=======
+    getPublicProfile: async (id) => {
+        const user = await storedUserById(id);
+        if (!user) return null;
+        return publicUser(user);
+    },
+
+    setTop5strict: async (userId, items) => {
+        if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
+        const top5 = items.slice(0, 5).map(cleanTop5Item);
+        if (!db) {
+            const user = localUsers.get(userId);
+            if (user) {
+                user.top5 = top5;
+                localUsers.set(userId, user);
+            }
+            return top5;
+        }
+        await db.collection("users").doc(userId).set({ top5 }, { merge: true });
+        return top5;
+    },
+    // Sesión técnica a partir del token (la usan las rutas de auth/nickname).
+    readSession: async (token) => readSession(token),
+
+>>>>>>> Rama-Pablo
     // Busca usuarios por nombre o email (para añadir amigos).
     searchUsers: async (query, { excludeId, limit } = {}) => {
         const q = String(query || "").trim().toLowerCase();
