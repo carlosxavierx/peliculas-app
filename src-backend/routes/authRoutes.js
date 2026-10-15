@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { authService, findUserByNickname, setUserNickname, isAdmin, cardUser } = require("../services/authService");
 const { FriendshipModel } = require("../models/friendshipModel");
+const { MarathonModel } = require("../models/marathonModel");
+const { MovieModel } = require("../models/movieModel");
 const firebaseConn = require("../models/firebase");
 const ActivityModel = require("../models/activityModel");
 const db = firebaseConn.getDb();
@@ -106,6 +108,26 @@ router.put("/auth/profile", async (req, res) => {
     }
 });
 
+// GET /api/users/search?q=texto — Buscar usuarios
+// IMPORTANTE: va ANTES de "/users/:id". Express resuelve en orden de registro
+// y "/users/:id" también encaja con "/users/search", así que declararlo después
+// dejaba la búsqueda tapada (respondía con el perfil de "search").
+router.get("/users/search", async (req, res) => {
+    try {
+        const token = tokenFromHeader(req);
+        let currentUserId = null;
+        if (token) {
+            const me = await authService.me(token);
+            if (me) currentUserId = me.id;
+        }
+        const q = req.query.q || "";
+        const users = await authService.searchUsers(q, { excludeId: currentUserId });
+        res.json({ users });
+    } catch (error) {
+        res.status(500).json({ error: "No se pudo buscar usuarios" });
+    }
+});
+
 // GET /api/users/:id — Perfil público de un usuario
 router.get("/users/:id", async (req, res) => {
     try {
@@ -120,29 +142,26 @@ router.get("/users/:id", async (req, res) => {
 });
 
 // GET /api/users/:id/movies — Películas guardadas de un usuario (público)
+// Se lee del catálogo igual que en las rutas de amistades: la colección del
+// usuario se identifica por su id (su email), nunca por algo que mande el cliente.
 router.get("/users/:id/movies", async (req, res) => {
     try {
-        const movies = await authService.getUserMovies(req.params.id);
+        const movies = await MovieModel.getAllMovies(String(req.params.id || "").trim().toLowerCase());
         res.json({ movies: Array.isArray(movies) ? movies : [] });
     } catch (error) {
         res.status(500).json({ error: "No se pudo obtener las películas" });
     }
 });
 
-// GET /api/users/search?q=texto — Buscar usuarios
-router.get("/users/search", async (req, res) => {
+// GET /api/users/:id/marathons — Maratones empezadas/completadas de un usuario
+// (público, igual que sus películas guardadas). Alimenta el bloque "Maratones"
+// del perfil, para que sus amigos vean por dónde va.
+router.get("/users/:id/marathons", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        let currentUserId = null;
-        if (token) {
-            const me = await authService.me(token);
-            if (me) currentUserId = me.id;
-        }
-        const q = req.query.q || "";
-        const users = await authService.searchUsers(q, currentUserId);
-        res.json({ users });
+        const summary = await MarathonModel.getUserSummary(req.params.id);
+        res.json(summary);
     } catch (error) {
-        res.status(500).json({ error: "No se pudo buscar usuarios" });
+        res.status(500).json({ error: "No se pudieron obtener los maratones" });
     }
 });
 

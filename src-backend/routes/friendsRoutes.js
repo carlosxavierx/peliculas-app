@@ -9,6 +9,7 @@ const { FriendshipModel } = require("../models/friendshipModel");
 const { authService, cardUser } = require("../services/authService");
 const { MovieModel } = require("../models/movieModel");
 const { SeriesModel } = require("../models/seriesModel");
+const { MarathonModel } = require("../models/marathonModel");
 
 async function authUser(req) {
     const header = req.headers.authorization || "";
@@ -235,6 +236,16 @@ router.put("/users/me/top5", async (req, res) => {
     }
 });
 
+// Maratones (con estadísticas y logros) de un usuario para su perfil social.
+// Sólo las que ha empezado o completado, para que un amigo vea por dónde va.
+async function marathonsOrEmpty(userId) {
+    try {
+        return await MarathonModel.getUserSummary(userId);
+    } catch (e) {
+        return { stats: null, achievements: [], marathons: [] };
+    }
+}
+
 // GET /api/friends/:friendId/profile — perfil visible para amigos (con Top 5).
 router.get("/friends/:friendId/profile", async (req, res) => {
     try {
@@ -260,6 +271,7 @@ router.get("/friends/:friendId/profile", async (req, res) => {
         } catch (e) {
             seriesCount = null;
         }
+        const marathons = await marathonsOrEmpty(target.id);
         res.json({
             id: target.id,
             name: target.name,
@@ -267,7 +279,8 @@ router.get("/friends/:friendId/profile", async (req, res) => {
             photoURL: target.photoURL || null,
             provider: target.provider || null,
             top5,
-            stats: { movies: moviesCount, series: seriesCount }
+            stats: { movies: moviesCount, series: seriesCount },
+            marathons
         });
     } catch (error) {
         sendError(res, error);
@@ -338,10 +351,11 @@ router.get("/friends/:friendId/full-profile", async (req, res) => {
         if (!target) {
             return res.status(404).json({ error: "El usuario no existe" });
         }
-        const [top5, movies, series] = await Promise.all([
+        const [top5, movies, series, marathons] = await Promise.all([
             authService.getTop5(target.id).catch(() => []),
             MovieModel.getAllMovies(target.id).catch(() => []),
-            SeriesModel.getAllSeries(target.id).catch(() => [])
+            SeriesModel.getAllSeries(target.id).catch(() => []),
+            marathonsOrEmpty(target.id)
         ]);
         res.json({
             usuario: {
@@ -355,7 +369,8 @@ router.get("/friends/:friendId/full-profile", async (req, res) => {
             contenidoGuardado: {
                 movies: Array.isArray(movies) ? movies : [],
                 series: Array.isArray(series) ? series : []
-            }
+            },
+            marathons
         });
     } catch (error) {
         sendError(res, error);

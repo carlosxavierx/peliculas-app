@@ -636,6 +636,10 @@ function SiteHeader(props) {
                     { className: "nav-link" + (page === "series" ? " active" : ""), onClick: () => go("series") },
                     "Series"
                 ),
+                h("button",
+                    { className: "nav-link" + (page === "maratones" ? " active" : ""), onClick: () => go("maratones") },
+                    "Maratones"
+                ),
                 user
                     ? h("div", { className: "user-menu" },
                         h("button", { className: "user-chip", title: "Mi cuenta", onClick: () => setUserMenuOpen(!userMenuOpen) }, user.nickname || user.name),
@@ -1185,7 +1189,9 @@ function LoginPage(props) {
             const data = await firebaseSessionWithBackend(cred.user, "");
             onAuth(data.token, data.user);
         } catch (err) {
-            setError(err.message);
+            // Mensajes en castellano; el caso "Firebase no configurado" conserva su texto,
+            // que ya explica qué variable falta en el .env.
+            setError(friendlyFirebaseError(err));
         } finally {
             setLoading(false);
         }
@@ -3353,6 +3359,81 @@ function MiCuenta(props) {
     );
 }
 
+/* ---------- ProfileMarathons: maratones de un usuario, en su perfil ----------
+   Bloque social: muestra sólo las maratones que ha empezado o completado, con
+   la ÚLTIMA obra que ha visto y las insignias conseguidas. Las tarjetas no son
+   interactivas a propósito: el progreso de aquí es de otra persona, así que se
+   mira, no se toca. */
+function ProfileMarathons(props) {
+    const data = props.data;
+    if (!data) return null;
+    const list = Array.isArray(data.marathons) ? data.marathons : [];
+    const stats = data.stats || {};
+    const unlocked = (Array.isArray(data.achievements) ? data.achievements : []).filter((a) => a.unlocked);
+    const isOwn = !!props.isOwnProfile;
+    const who = props.name || "Este usuario";
+
+    return h("section", { className: "profile-marathons" },
+        h("div", { className: "profile-marathons-head" },
+            h("h2", null, "Maratones"),
+            list.length > 0
+                ? h("span", { className: "muted" },
+                    (stats.completed || 0) + " completadas · " + (stats.totalWatched || 0) + " obras vistas")
+                : null,
+            isOwn
+                ? h("button", {
+                    className: "btn-primary",
+                    onClick: () => props.onNavigate("maratones")
+                }, "Ir a mis maratones")
+                : null
+        ),
+        list.length === 0
+            ? h("p", { className: "muted" },
+                isOwn
+                    ? "Todavía no has empezado ninguna maratón."
+                    : who + " todavía no ha empezado ninguna maratón.")
+            : h("div", { className: "marathon-grid" },
+                list.map((marathon) => h("div", {
+                    key: marathon.id,
+                    className: "marathon-card profile-marathon-card" + (marathon.completed ? " completed" : "")
+                },
+                    h("div", { className: "marathon-card-poster" },
+                        h("img", {
+                            src: marathon.poster || POSTER_FALLBACK,
+                            alt: "",
+                            onError: (e) => { e.target.src = POSTER_FALLBACK; }
+                        }),
+                        marathon.completed ? h("span", { className: "marathon-flag" }, "Completada") : null
+                    ),
+                    h("div", { className: "marathon-card-body" },
+                        h("span", { className: "marathon-kind " + marathon.kind }, marathonKindLabel(marathon.kind)),
+                        h("h3", null, marathon.title),
+                        h("p", { className: "muted marathon-card-meta" },
+                            marathon.lastWatched
+                                ? "Última vista: " + marathon.lastWatched.title +
+                                    (marathon.lastWatched.year ? " (" + marathon.lastWatched.year + ")" : "")
+                                : marathon.itemCount + (marathon.itemCount === 1 ? " título" : " títulos")),
+                        h(MarathonBar, { percent: marathon.percent, done: marathon.completed }),
+                        h("span", { className: "marathon-card-status" },
+                            marathon.completed
+                                ? (marathon.completedAt
+                                    ? "Completada el " + new Date(marathon.completedAt).toLocaleDateString("es-ES")
+                                    : "Completada")
+                                : marathon.watchedCount + " de " + marathon.total + " vistas")
+                    )
+                ))
+            ),
+        unlocked.length > 0
+            ? h("div", { className: "profile-achievements" },
+                unlocked.map((achievement) => h("span", {
+                    key: achievement.id,
+                    className: "profile-achievement",
+                    title: achievement.description
+                }, "🏅 " + achievement.title)))
+            : null
+    );
+}
+
 /* ---------- UserProfile: perfil público de otro usuario ---------- */
 function UserProfile(props) {
     const userId = props.userId;
@@ -3379,6 +3460,9 @@ function UserProfile(props) {
     const detailLoadingState = React.useState(false);
     const detailLoading = detailLoadingState[0];
     const setDetailLoading = detailLoadingState[1];
+    const marathonsState = React.useState(null);
+    const marathonsData = marathonsState[0];
+    const setMarathonsData = marathonsState[1];
 
     const loadProfile = async () => {
         try {
@@ -3410,9 +3494,22 @@ function UserProfile(props) {
         }
     };
 
+    // Maratones del usuario: el mismo resumen público que sirve la API de
+    // usuarios, para que amigos y seguidores vean por dónde va.
+    const loadMarathons = async () => {
+        try {
+            const res = await fetch("/api/users/" + encodeURIComponent(userId) + "/marathons");
+            const data = await res.json();
+            setMarathonsData(res.ok ? data : null);
+        } catch (e) {
+            setMarathonsData(null);
+        }
+    };
+
     React.useEffect(() => {
         loadProfile();
         loadMovies();
+        loadMarathons();
     }, [userId]);
 
     const handleFollow = async () => {
@@ -3490,6 +3587,12 @@ function UserProfile(props) {
             h("div", null, h("strong", null, profile.prefs?.followers?.length || 0), h("span", null, "seguidores")),
             h("div", null, h("strong", null, profile.prefs?.following?.length || 0), h("span", null, "siguiendo"))
         ),
+        h(ProfileMarathons, {
+            data: marathonsData,
+            name: profile.nickname || profile.name,
+            isOwnProfile: isOwnProfile,
+            onNavigate: onNavigate
+        }),
         detailLoading ? h("p", { className: "muted" }, "Cargando detalle...") : null,
         h(MovieCarousel, {
             title: "Guardadas Recientemente",
@@ -3533,7 +3636,7 @@ function AmistadesPage(props) {
     const currentUser = props.currentUser;
     const onNavigate = props.onNavigate;
 
-    const friendsTabState = React.useState("friends");
+    const friendsTabState = React.useState(props.initialTab || "friends");
     const friendsTab = friendsTabState[0];
     const setFriendsTab = friendsTabState[1];
 
@@ -4133,6 +4236,436 @@ function ProfileSettings(props) {
                 loading ? "Guardando..." : "Guardar cambios"
             )
         )
+    );
+}
+
+/* ---------- Maratones: sagas y actores con desbloqueo secuencial ----------
+   La gracia de la sección es el candado: sólo se puede marcar como vista la
+   primera obra pendiente. El backend ya resuelve eso y devuelve en cada item
+   { watched, locked, unlockable, canUnmark }, así que el front sólo pinta.
+   Props: user, onNavigate(page) */
+
+function marathonKindLabel(kind) {
+    return kind === "actor" ? "Actor" : "Saga";
+}
+
+function marathonPercent(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function MarathonBar(props) {
+    return h("div", { className: "marathon-bar", title: props.title || "" },
+        h("div", {
+            className: "marathon-bar-fill" + (props.done ? " done" : ""),
+            style: { width: marathonPercent(props.percent) + "%" }
+        })
+    );
+}
+
+function MarathonStats(props) {
+    const stats = props.stats;
+    const cell = (label, value) => h("div", { className: "marathon-stat" },
+        h("strong", null, value),
+        h("span", { className: "muted" }, label)
+    );
+    return h("div", { className: "marathon-stats" },
+        cell("Obras vistas", stats.totalWatched + " / " + stats.totalItems),
+        cell("Progreso global", stats.percent + "%"),
+        cell("Maratones completadas", stats.completed + " / " + stats.marathonsTotal),
+        cell("En curso", stats.started)
+    );
+}
+
+function AchievementsGrid(props) {
+    const achievements = props.achievements || [];
+    if (achievements.length === 0) return null;
+    return h("section", { className: "achievements" },
+        h("h2", { className: "marathon-section-title" }, "Logros"),
+        h("div", { className: "achievements-grid" },
+            achievements.map((achievement) => h("div", {
+                key: achievement.id,
+                className: "achievement" + (achievement.unlocked ? " unlocked" : "")
+            },
+                h("span", { className: "achievement-icon", "aria-hidden": "true" }, achievement.unlocked ? "🏅" : "🔒"),
+                h("div", { className: "achievement-body" },
+                    h("strong", null, achievement.title),
+                    h("span", { className: "muted" }, achievement.description),
+                    h("div", { className: "achievement-bar" },
+                        h("div", {
+                            className: "achievement-bar-fill",
+                            style: { width: (achievement.target ? Math.round((achievement.current / achievement.target) * 100) : 0) + "%" }
+                        })
+                    ),
+                    h("small", { className: "muted" }, achievement.current + " / " + achievement.target)
+                )
+            ))
+        )
+    );
+}
+
+function MarathonCard(props) {
+    const marathon = props.marathon;
+    const progress = marathon.progress;
+    const completed = !!(progress && progress.completed);
+    const statusText = !progress || progress.watchedCount === 0
+        ? "Sin empezar"
+        : completed
+            ? "Completada"
+            : progress.watchedCount + " de " + progress.total + " vistas";
+
+    return h("button", {
+        className: "marathon-card" + (completed ? " completed" : ""),
+        onClick: () => props.onOpen(marathon.id)
+    },
+        h("div", { className: "marathon-card-poster" },
+            h("img", {
+                src: marathon.poster || POSTER_FALLBACK,
+                alt: "",
+                onError: (e) => { e.target.src = POSTER_FALLBACK; }
+            }),
+            completed ? h("span", { className: "marathon-flag" }, "Completada") : null
+        ),
+        h("div", { className: "marathon-card-body" },
+            h("span", { className: "marathon-kind " + marathon.kind }, marathonKindLabel(marathon.kind)),
+            h("h3", null, marathon.title),
+            h("p", { className: "muted marathon-card-meta" },
+                marathon.itemCount + (marathon.itemCount === 1 ? " título" : " títulos") +
+                (marathon.runtimeLabel ? " · " + marathon.runtimeLabel : "")
+            ),
+            h(MarathonBar, { percent: progress ? progress.percent : 0, done: completed }),
+            h("span", { className: "marathon-card-status" }, statusText)
+        )
+    );
+}
+
+function MarathonItem(props) {
+    const item = props.item;
+    const previous = props.previous;
+    const state = item.watched ? "watched" : item.locked ? "locked" : "unlockable";
+    const meta = [
+        item.mediaType === "series" ? "Serie" : "Película",
+        item.runtime,
+        item.genre,
+        item.rating ? "★ " + item.rating : null
+    ].filter(Boolean).join(" · ");
+
+    return h("div", { className: "marathon-item " + state },
+        h("span", { className: "marathon-item-num" }, item.watched ? "✓" : item.order),
+        h("button", {
+            className: "marathon-item-poster",
+            onClick: props.onToggle,
+            title: props.expanded ? "Ocultar ficha" : "Ver ficha"
+        },
+            h("img", {
+                src: item.poster || POSTER_FALLBACK,
+                alt: "",
+                onError: (e) => { e.target.src = POSTER_FALLBACK; }
+            })
+        ),
+        h("div", { className: "marathon-item-info" },
+            h("button", { className: "marathon-item-title", onClick: props.onToggle },
+                item.title + (item.year ? " (" + item.year + ")" : "")
+            ),
+            h("p", { className: "muted marathon-item-meta" }, meta),
+            item.locked && previous
+                ? h("p", { className: "marathon-lock-hint" }, "🔒 Termina «" + previous.title + "» para desbloquear esta")
+                : null,
+            props.expanded
+                ? h("div", { className: "marathon-item-plot" },
+                    h("p", null, item.plot || "Sin sinopsis disponible."),
+                    item.director && item.director !== "Desconocido"
+                        ? h("p", { className: "muted" }, "Dirección: " + item.director)
+                        : null,
+                    item.actors ? h("p", { className: "muted" }, "Reparto: " + item.actors) : null
+                )
+                : null
+        ),
+        h("div", { className: "marathon-item-actions" },
+            item.watched ? h("span", { className: "marathon-item-done" }, "Vista") : null,
+            item.unlockable
+                ? h("button", {
+                    className: "btn-primary btn-small",
+                    onClick: props.onWatch,
+                    disabled: props.busy || props.guest
+                }, props.busy ? "Guardando..." : "Marcar como vista")
+                : null,
+            item.canUnmark
+                ? h("button", {
+                    className: "btn-ghost btn-small",
+                    onClick: props.onUnwatch,
+                    disabled: props.busy
+                }, "Desmarcar")
+                : null
+        )
+    );
+}
+
+function MarathonDetail(props) {
+    const marathon = props.marathon;
+    const progress = props.progress || {};
+    const watchedById = {};
+    (progress.watched || []).forEach((id) => { watchedById[id] = true; });
+
+    return h("div", { className: "marathon-detail" },
+        h("button", { className: "btn-ghost btn-small marathon-back", onClick: props.onBack }, "← Volver a Maratones"),
+        h("div", { className: "marathon-detail-head" },
+            h("div", null,
+                h("span", { className: "marathon-kind " + marathon.kind }, marathonKindLabel(marathon.kind)),
+                h("h2", null, marathon.title),
+                h("p", { className: "muted" }, marathon.description)
+            ),
+            marathon.poster
+                ? h("img", { className: "marathon-detail-poster", src: marathon.poster, alt: "", onError: (e) => { e.target.src = POSTER_FALLBACK; } })
+                : null
+        ),
+        h("div", { className: "marathon-detail-progress" },
+            h("div", { className: "marathon-detail-progress-top" },
+                h("strong", null, progress.watchedCount + " de " + progress.total + " vistas"),
+                h("span", { className: "muted" }, marathon.runtimeLabel ? "Duración total: " + marathon.runtimeLabel : "")
+            ),
+            h(MarathonBar, { percent: progress.percent, done: progress.completed, title: progress.percent + "%" }),
+            progress.completed
+                ? h("div", { className: "marathon-completed" },
+                    h("span", null, "🏅 ¡Maratón completada!"),
+                    h("button", { className: "btn-ghost btn-small", onClick: props.onReset, disabled: props.busy }, "Reiniciar maratón")
+                )
+                : null
+        ),
+        props.error ? h("p", { className: "error" }, props.error) : null,
+        h("div", { className: "marathon-items" },
+            marathon.items.map((item, index) => h(MarathonItem, {
+                key: item.itemId,
+                item: item,
+                previous: index > 0 ? marathon.items[index - 1] : null,
+                expanded: props.expandedItemId === item.itemId,
+                busy: props.busyItemId === item.itemId,
+                guest: props.guest,
+                onToggle: () => props.onToggleItem(item.itemId),
+                onWatch: () => props.onWatch(item.itemId),
+                onUnwatch: () => props.onUnwatch(item.itemId)
+            }))
+        )
+    );
+}
+
+function MaratonesPage(props) {
+    const user = props.user || null;
+    const onNavigate = props.onNavigate;
+    const guest = !user;
+
+    const dataState = React.useState(null);
+    const data = dataState[0];
+    const setData = dataState[1];
+    const loadingState = React.useState(true);
+    const loading = loadingState[0];
+    const setLoading = loadingState[1];
+    const errorState = React.useState(null);
+    const error = errorState[0];
+    const setError = errorState[1];
+    const filterState = React.useState("todas");
+    const filter = filterState[0];
+    const setFilter = filterState[1];
+    const selectedIdState = React.useState(null);
+    const selectedId = selectedIdState[0];
+    const setSelectedId = selectedIdState[1];
+    const detailState = React.useState(null);
+    const detail = detailState[0];
+    const setDetail = detailState[1];
+    const detailLoadingState = React.useState(false);
+    const detailLoading = detailLoadingState[0];
+    const setDetailLoading = detailLoadingState[1];
+    const expandedState = React.useState(null);
+    const expandedItemId = expandedState[0];
+    const setExpandedItemId = expandedState[1];
+    const busyItemState = React.useState(null);
+    const busyItemId = busyItemState[0];
+    const setBusyItemId = busyItemState[1];
+    const actionErrorState = React.useState(null);
+    const actionError = actionErrorState[0];
+    const setActionError = actionErrorState[1];
+    const celebrationState = React.useState(null);
+    const celebration = celebrationState[0];
+    const setCelebration = celebrationState[1];
+    const achievementsRef = React.useRef(null);
+
+    const loadMarathons = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch("/api/marathons", { headers: authHeaders() });
+            const payload = await res.json();
+            if (!res.ok) throw new Error(payload.error || "No se pudieron cargar los maratones");
+            setData(payload);
+            if (payload.me) {
+                const unlockedNow = payload.me.achievements.filter((a) => a.unlocked).map((a) => a.id);
+                const before = achievementsRef.current;
+                if (before) {
+                    const fresh = unlockedNow.filter((id) => before.indexOf(id) === -1);
+                    if (fresh.length > 0) {
+                        const titles = payload.me.achievements
+                            .filter((a) => fresh.indexOf(a.id) !== -1)
+                            .map((a) => a.title)
+                            .join(", ");
+                        setCelebration("🏅 Nuevo logro: " + titles);
+                    }
+                }
+                achievementsRef.current = unlockedNow;
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const openDetail = async (id) => {
+        setSelectedId(id);
+        setExpandedItemId(null);
+        setActionError(null);
+        setDetailLoading(true);
+        try {
+            const res = await fetch("/api/marathons/" + encodeURIComponent(id), { headers: authHeaders() });
+            const payload = await res.json();
+            if (!res.ok) throw new Error(payload.error || "No se pudo cargar el maratón");
+            setDetail(payload);
+        } catch (err) {
+            setActionError(err.message);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    const closeDetail = () => {
+        setSelectedId(null);
+        setDetail(null);
+        setExpandedItemId(null);
+        setActionError(null);
+    };
+
+    React.useEffect(() => {
+        loadMarathons();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Marca / desmarca / reinicia. Todas las mutaciones devuelven el maratón
+    // completo actualizado, así que sólo hay que refrescar el listado (progreso
+    // y logros) además de pintar la respuesta.
+    const mutate = async (itemId, method, url, successMessage) => {
+        if (guest) {
+            onNavigate("login");
+            return;
+        }
+        setBusyItemId(itemId || "reset");
+        setActionError(null);
+        try {
+            const res = await fetch(url, { method: method, headers: authHeaders() });
+            const payload = await res.json();
+            if (!res.ok) throw new Error(payload.error || "No se pudo actualizar el progreso");
+            setDetail(payload);
+            if (successMessage) setCelebration(successMessage);
+            await loadMarathons();
+        } catch (err) {
+            setActionError(err.message);
+        } finally {
+            setBusyItemId(null);
+        }
+    };
+
+    const handleWatch = (itemId) => {
+        const before = detail && detail.progress ? detail.progress.completed : false;
+        const wasLast = detail && detail.progress && detail.progress.watchedCount + 1 === detail.progress.total;
+        mutate(
+            itemId,
+            "POST",
+            "/api/marathons/" + encodeURIComponent(selectedId) + "/items/" + encodeURIComponent(itemId) + "/watched",
+            !before && wasLast ? "🎬 ¡Maratón completada al 100%!" : null
+        );
+    };
+
+    const handleUnwatch = (itemId) => mutate(
+        itemId,
+        "DELETE",
+        "/api/marathons/" + encodeURIComponent(selectedId) + "/items/" + encodeURIComponent(itemId) + "/watched",
+        null
+    );
+
+    const handleReset = () => mutate(
+        "reset",
+        "DELETE",
+        "/api/marathons/" + encodeURIComponent(selectedId) + "/progress",
+        "Maratón reiniciada"
+    );
+
+    React.useEffect(() => {
+        if (!celebration) return undefined;
+        const timer = setTimeout(() => setCelebration(null), 6000);
+        return () => clearTimeout(timer);
+    }, [celebration]);
+
+    if (detail || (selectedId && detailLoading)) {
+        if (detailLoading && !detail) {
+            return h("div", { className: "movies-page" }, h("p", { className: "muted" }, "Cargando maratón..."));
+        }
+        return h("div", { className: "movies-page" },
+            celebration ? h("div", { className: "marathon-toast" }, celebration) : null,
+            h(MarathonDetail, {
+                marathon: detail.marathon,
+                progress: detail.progress,
+                error: actionError,
+                guest: guest,
+                busy: busyItemId === "reset",
+                busyItemId: busyItemId,
+                expandedItemId: expandedItemId,
+                onBack: closeDetail,
+                onToggleItem: (itemId) => setExpandedItemId(expandedItemId === itemId ? null : itemId),
+                onWatch: handleWatch,
+                onUnwatch: handleUnwatch,
+                onReset: handleReset
+            })
+        );
+    }
+
+    const marathons = (data && data.marathons) || [];
+    const visible = marathons.filter((m) => filter === "todas" || m.kind === filter);
+    const counts = {
+        todas: marathons.length,
+        saga: marathons.filter((m) => m.kind === "saga").length,
+        actor: marathons.filter((m) => m.kind === "actor").length
+    };
+
+    return h("div", { className: "movies-page" },
+        celebration ? h("div", { className: "marathon-toast" }, celebration) : null,
+        h("div", { className: "page-head" },
+            h("h1", null, "Maratones"),
+            h("p", { className: "muted" }, "Sagas y filmografías de actores en orden. Marca cada obra como vista para desbloquear la siguiente.")
+        ),
+        guest
+            ? h("div", { className: "marathon-guest" },
+                h("span", null, "Inicia sesión para guardar tu progreso, desbloquear obras y conseguir logros."),
+                h("button", { className: "btn-primary btn-small", onClick: () => onNavigate("login") }, "Entrar")
+            )
+            : null,
+        data && data.me ? h(MarathonStats, { stats: data.me.stats }) : null,
+        h("div", { className: "tabs marathon-tabs" },
+            h("button", { className: "tab" + (filter === "todas" ? " active" : ""), onClick: () => setFilter("todas") }, "Todas (" + counts.todas + ")"),
+            h("button", { className: "tab" + (filter === "saga" ? " active" : ""), onClick: () => setFilter("saga") }, "Sagas (" + counts.saga + ")"),
+            h("button", { className: "tab" + (filter === "actor" ? " active" : ""), onClick: () => setFilter("actor") }, "Actores (" + counts.actor + ")")
+        ),
+        error ? h("p", { className: "error" }, error) : null,
+        loading
+            ? h("p", { className: "muted" }, "Cargando maratones...")
+            : visible.length === 0
+                ? h("p", { className: "muted" }, "Todavía no hay maratones cargados. Ejecuta `npm run seed:marathons`.")
+                : h("div", { className: "marathon-grid" },
+                    visible.map((marathon) => h(MarathonCard, {
+                        key: marathon.id,
+                        marathon: marathon,
+                        onOpen: openDetail
+                    }))
+                ),
+        data && data.me ? h(AchievementsGrid, { achievements: data.me.achievements }) : null
     );
 }
 
@@ -5558,9 +6091,9 @@ function App() {
                 ? (user
                     ? h(UserProfile, { userId: new URLSearchParams(window.location.search).get("id") || user.id, currentUser: user, onNavigate: navigate, onDetail: (m) => { /* handled by parent */ } })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
-                : page === "amistades"
+                : (page === "amistades" || page === "amigos" || page === "buscar-usuarios")
                 ? (user
-                    ? h(AmistadesPage, { currentUser: user, onNavigate: navigate })
+                    ? h(AmistadesPage, { key: page, currentUser: user, onNavigate: navigate, initialTab: page === "buscar-usuarios" ? "search" : "friends" })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "configuracion"
                 ? (user
@@ -5568,6 +6101,12 @@ function App() {
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "admin"
                 ? h(AdminRoute, { user: user, onNavigate: navigate }, h(AdminDashboard, { user: user, onNavigate: navigate }))
+                : page === "maratones"
+                ? h(MaratonesPage, {
+                    key: page,
+                    user: user,
+                    onNavigate: navigate
+                })
                 : page === "series"
                 ? h(SeriesPage, {
                     key: page,

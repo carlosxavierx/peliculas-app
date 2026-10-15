@@ -37,6 +37,10 @@ const cors = require("cors");
 const movieRoutes = require("./src-backend/routes/movieRoutes");
 const seriesRoutes = require("./src-backend/routes/seriesRoutes");
 const reviewRoutes = require("./src-backend/routes/reviewRoutes");
+const friendsRoutes = require("./src-backend/routes/friendsRoutes");
+const chatRoutes = require("./src-backend/routes/chatRoutes");
+const chatAgentRoutes = require("./src-backend/routes/chatAgentRoutes");
+const marathonRoutes = require("./src-backend/routes/marathonRoutes");
 const adminRoutes = require("./src-backend/routes/adminRoutes");
 const { startDailyEnrichment } = require("./src-backend/services/seasonEnrichmentService");
 
@@ -123,8 +127,19 @@ app.use("/api/auth", (req, res, next) => {
 
 // Config pública de Firebase para el front (solo claves públicas, sin secretos).
 // El front la usa para iniciar Firebase Auth (email+password y Google).
+// Si FIREBASE_PROJECT_ID falta en el .env se deduce de la config web, para que
+// un .env incompleto no deje el login sin arrancar.
+function firebaseProjectId() {
+    const explicit = (process.env.FIREBASE_PROJECT_ID || "").trim();
+    if (explicit) return explicit;
+    const fromAuthDomain = (process.env.FIREBASE_AUTH_DOMAIN || "").trim().replace(/\.firebaseapp\.com$/i, "");
+    if (fromAuthDomain) return fromAuthDomain;
+    const fromEmail = (process.env.FIREBASE_CLIENT_EMAIL || "").trim().match(/@([^.]+)\.iam\.gserviceaccount\.com$/i);
+    return fromEmail ? fromEmail[1] : "";
+}
+
 app.get("/api/firebase-config", (req, res) => {
-    const projectId = (process.env.FIREBASE_PROJECT_ID || "").trim();
+    const projectId = firebaseProjectId();
     const apiKey = (process.env.FIREBASE_API_KEY || "").trim();
     if (!apiKey || !projectId) {
         return res.json({ configured: false });
@@ -140,6 +155,7 @@ app.get("/api/firebase-config", (req, res) => {
     });
 });
 
+// Auth requerido por friends, chat, reviews y perfiles.
 const authRoutes = require("./src-backend/routes/authRoutes");
 app.use("/api", authRoutes);
 
@@ -165,11 +181,22 @@ app.use("/api/reviews", (req, res, next) => {
     next();
 });
 
-app.use("/api", reviewRoutes);
-const friendsRoutes = require("./src-backend/routes/friendsRoutes");
+// Amistades, solicitudes y búsqueda de usuarios.
 app.use("/api", friendsRoutes);
 
-// Vista de administrador: todas las rutas exigen rol admin (ver adminRoutes).
+// Chat entre amigos.
+app.use("/api", chatRoutes);
+
+// Chat con agente (CineBot).
+app.use("/api", chatAgentRoutes);
+
+// Maratones (sagas y actores) con progreso gamificado.
+app.use("/api", marathonRoutes);
+
+// Reseñas.
+app.use("/api", reviewRoutes);
+
+// Panel de administración.
 app.use("/api", adminRoutes);
 
 // 404 solo para la API (devuelve JSON, no HTML)
