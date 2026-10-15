@@ -9,31 +9,32 @@ const { useState, useEffect } = React;
 const h = React.createElement;
 
 const BRAND = "CineAIros";
+const brandLetters = BRAND.split("");
 const SLOGAN = "Descubre, explora y guarda tus películas favoritas";
 
 // Temas de color disponibles
 const COLOR_THEMES = {
     default: {
         name: "Predeterminado",
-        primary: "#b3122e",
-        primaryHover: "#8c0e24",
-        primaryLight: "#fddde5",
-        accent: "#c9a227",
-        background: "#0d1219",
-        surface: "#151c27",
-        text: "#f4f6f9",
-        textMuted: "#a7b1c0",
-        border: "#2a3444",
+        primary: "#9C0D38",
+        primaryHover: "#b81a42",
+        primaryLight: "#d44a6a",
+        accent: "#b9d2e8",
+        background: "#0d151f",
+        surface: "#1C3144",
+        text: "#FFFFFF",
+        textMuted: "#b0c4d8",
+        border: "#2a4a6a",
         success: "#10b981",
         error: "#ef4444",
-        primaryRgb: "179, 18, 46"
+        primaryRgb: "156, 13, 56"
     },
     vibrant: {
         name: "Colores vivos",
-        primary: "#d62839",
-        primaryHover: "#b3122e",
-        primaryLight: "#ffe1ea",
-        accent: "#f59e0b",
+        primary: "#e11d48",
+        primaryHover: "#be123c",
+        primaryLight: "#ffe4e6",
+        accent: "#fb7185",
         background: "#1a0f15",
         surface: "#25161d",
         text: "#fdf2f8",
@@ -41,37 +42,37 @@ const COLOR_THEMES = {
         border: "#6b1d2b",
         success: "#10b981",
         error: "#ef4444",
-        primaryRgb: "214, 40, 57"
+        primaryRgb: "225, 29, 72"
     },
     neon: {
         name: "Neón",
-        primary: "#a855f7",
-        primaryHover: "#9333ea",
-        primaryLight: "#f3e8ff",
-        accent: "#06b6d4",
-        background: "#0f0f1a",
-        surface: "#1a1a2e",
-        text: "#fafafa",
-        textMuted: "#a1a1aa",
-        border: "#3f3f5c",
+        primary: "#e6395f",
+        primaryHover: "#c81e4e",
+        primaryLight: "#ffdde5",
+        accent: "#ff5c8a",
+        background: "#0a0f1c",
+        surface: "#111c30",
+        text: "#f4f8ff",
+        textMuted: "#93a9c9",
+        border: "#24344d",
         success: "#22d3ee",
         error: "#f87171",
-        primaryRgb: "168, 85, 247"
+        primaryRgb: "230, 57, 95"
     },
     pastel: {
         name: "Pastel",
-        primary: "#8b5cf6",
-        primaryHover: "#7c3aed",
-        primaryLight: "#ede9fe",
-        accent: "#f472b6",
-        background: "#fafafa",
+        primary: "#b83a6a",
+        primaryHover: "#962c55",
+        primaryLight: "#fbe4ec",
+        accent: "#be185d",
+        background: "#faf7f9",
         surface: "#ffffff",
-        text: "#4c1d95",
-        textMuted: "#7e69a3",
-        border: "#ddd6fe",
+        text: "#413252",
+        textMuted: "#6f5f86",
+        border: "#e5d5e0",
         success: "#4ade80",
         error: "#fca5a5",
-        primaryRgb: "139, 92, 246"
+        primaryRgb: "184, 58, 106"
     }
 };
 
@@ -538,7 +539,7 @@ function ReviewsModal(props) {
                                 h("strong", null, review.user),
                                 h("span", { className: "review-date" }, new Date(review.createdAt).toLocaleDateString("es-ES"))
                             ),
-                            review.rating ? h("p", { className: "muted" }, "★ " + review.rating + "/10") : null,
+                            review.rating ? h("p", { className: "muted" }, h("span", { className: "stars" }, "★ " + review.rating + "/10")) : null,
                             h("p", { className: "review-text" }, review.text),
                             h("div", { className: "review-actions" },
                                 h("button", {
@@ -607,6 +608,9 @@ function SiteHeader(props) {
     const userMenuState = React.useState(false);
     const userMenuOpen = userMenuState[0];
     const setUserMenuOpen = userMenuState[1];
+    const userMenuTimer = React.useRef(null);
+    const cancelUserMenuClose = () => { if (userMenuTimer.current) { clearTimeout(userMenuTimer.current); userMenuTimer.current = null; } };
+    const scheduleUserMenuClose = () => { cancelUserMenuClose(); userMenuTimer.current = setTimeout(() => { setUserMenuOpen(false); userMenuTimer.current = null; }, 300); };
 
     const go = (target) => {
         setOpen(false);
@@ -618,10 +622,14 @@ function SiteHeader(props) {
         h("div", { className: "header-inner" },
             h("button", { className: "logo", onClick: () => go("home"), "aria-label": "Ir al inicio" },
                 h("img", {
-                    className: "logo-img", src: "/img/logo-icon.png", alt: "", "data-img-fallback": "off",
+                    className: "logo-img", src: "/img/logo.png?v=3", alt: "CineAIros", "data-img-fallback": "off",
                     onError: (e) => { e.target.style.display = "none"; }
                 }),
-                h("span", { className: "logo-text" }, BRAND)
+                h("span", { className: "logo-text" },
+                    brandLetters.map((ch, i) =>
+                        h("span", { className: "brand-letter", "data-idx": i }, ch)
+                    )
+                )
             ),
             h("nav", { className: "main-nav" + (open ? " open" : "") },
                 h("button",
@@ -641,7 +649,7 @@ function SiteHeader(props) {
                     "Maratones"
                 ),
                 user
-                    ? h("div", { className: "user-menu" },
+                    ? h("div", { className: "user-menu", onMouseEnter: cancelUserMenuClose, onMouseLeave: scheduleUserMenuClose },
                         h("button", { className: "user-chip", title: "Mi cuenta", onClick: () => setUserMenuOpen(!userMenuOpen) }, user.nickname || user.name),
                         userMenuOpen && h("div", { className: "user-dropdown" },
                             h("button", { className: "dropdown-item", onClick: () => go("cuenta") }, "Mi cuenta"),
@@ -681,7 +689,11 @@ function SiteFooter(props) {
     return h("footer", { className: "site-footer" },
         h("div", { className: "footer-inner" },
             h("div", { className: "footer-col" },
-                h("p", { className: "footer-logo" }, BRAND),
+                h("p", { className: "footer-logo" },
+                    brandLetters.map((ch, i) =>
+                        h("span", { className: "brand-letter", "data-idx": i }, ch)
+                    )
+                ),
                 h("p", { className: "muted" }, SLOGAN)
             ),
             h("div", { className: "footer-col" },
@@ -829,6 +841,37 @@ function MovieCarousel(props) {
             movies.map((movie) =>
                 h("div", { className: "carousel-item", key: movie.id || movie.imdbID || movie.title },
                     h(MovieCard, { movie: movie, onDelete: onDelete, onDetail: onDetail, showDelete: showDelete })
+                )
+            )
+        )
+    );
+}
+
+/* ---------- TopRankCarousel: Top 5 horizontal (número izq + póster der) ---------- */
+function TopRankCarousel(props) {
+    const title = props.title;
+    const subtitle = props.subtitle;
+    const items = props.items;
+    const onDetail = props.onDetail;
+
+    if (!items || items.length === 0) return null;
+
+    return h("section", { className: "carousel-section toprank-section" },
+        h("div", { className: "toprank-head" },
+            h("h2", null, title),
+            h("p", { className: "muted" }, props.title.includes("Películas") ? "Las películas más guardadas" : "Las series más guardadas")
+        ),
+        h("div", { className: "toprank-track" },
+            items.map((item, i) =>
+                h("div", { className: "toprank-item", key: item.id || item.imdbID || item.title },
+                    h("span", { className: "toprank-rank", "aria-hidden": "true" }, String(i + 1)),
+                    h("img", {
+                        className: "toprank-poster",
+                        src: item.poster || POSTER_FALLBACK,
+                        alt: item.title,
+                        loading: "lazy",
+                        onClick: () => { if (onDetail) onDetail(item); }
+                    })
                 )
             )
         )
@@ -1771,6 +1814,7 @@ function MediaPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" })); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -1780,6 +1824,17 @@ function MediaPage(props) {
     const exploreTitleState = React.useState("Descubre");
     const exploreTitle = exploreTitleState[0];
     const setExploreTitle = exploreTitleState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
+    const loadTop5 = async () => {
+        try {
+            const base = omdbType === "series" ? "/api/series/top5" : "/api/movies/top5";
+            const res = await fetch(base);
+            const data = await res.json();
+            if (res.ok) setTop5(Array.isArray(data.results) ? data.results.slice(0, 5) : []);
+        } catch (e) { setTop5([]); }
+    };
     const loadingState = React.useState(false);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -1964,6 +2019,7 @@ function MediaPage(props) {
     // Al entrar o cambiar de apartado se carga su contenido por defecto.
     useEffect(() => {
         loadDefaults();
+        loadTop5();
     }, []);
 
     // Ticker de la cuenta atrás del límite (nunca sube, solo baja).
@@ -2037,6 +2093,32 @@ function MediaPage(props) {
                 }
                 setResult(exactRes.data);
                 setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+            } else if (listRes.ok) {
+                // Fallback: usar el primer resultado de la lista si no hay coincidencia exacta
+                let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
+                if (items.length > 0) {
+                    let first = items[0];
+                    // Si necesita enriquecer (filtros de nota/género), pedimos detalle
+                    if (min > 0 || genre !== "") {
+                        setLoadingDetails(true);
+                        try {
+                            const enriched = await enrichWithDetails([first]);
+                            first = enriched[0] || first;
+                        } finally {
+                            setLoadingDetails(false);
+                        }
+                    }
+                    const warnings = [];
+                    const firstRating = ratingOf(first);
+                    if (min > 0 && (firstRating === null || firstRating < min)) {
+                        warnings.push("Su nota (" + (first.rating || "sin nota") + ") está por debajo de tu filtro de " + min + ".");
+                    }
+                    if (genre && String(first.genre || "").toLowerCase().indexOf(genre.toLowerCase()) === -1) {
+                        warnings.push("Su género no coincide con tu filtro.");
+                    }
+                    setResult(first);
+                    setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                }
             }
             if (listRes.ok) {
                 let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
@@ -2133,7 +2215,9 @@ function MediaPage(props) {
 
     React.useEffect(() => {
         if (result && resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => {
+                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
         }
     }, [result]);
 
@@ -2208,7 +2292,7 @@ function MediaPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: resultRefCallback },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
@@ -2218,20 +2302,28 @@ function MediaPage(props) {
                 }),
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
-                    h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
-                    result.runtime ? h("p", null, h("strong", null, "Duración:"), " " + result.runtime) : null,
-                    result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
+                    h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + result.director),
+                    h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(result.genre)),
+                    result.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + result.runtime) : null,
+                    result.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + result.actors) : null,
+                    result.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + result.rating)) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
-                        h("button", { onClick: handleSave, disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
+                        h("button", { onClick: () => handleSave(result), disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
                         h("button", { className: "btn-ghost", type: "button", onClick: () => { setResult(null); setResultWarning(null); } }, "Descartar")
                     )
                 )
             )
         ) : null,
+        (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
+            ? h(TopRankCarousel, {
+                title: "Top 5 Películas",
+                subtitle: "Las más guardadas por la comunidad",
+                items: top5,
+                onDetail: openDetail
+            })
+            : null,
         loadingDefaults
             ? h("p", { className: "muted" }, "Cargando películas...")
             : h(MovieCarousel, {
@@ -2253,11 +2345,11 @@ function MediaPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + detail.runtime) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2305,6 +2397,7 @@ function SeriesPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" })); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -2314,6 +2407,17 @@ function SeriesPage(props) {
     const exploreTitleState = React.useState("Descubre");
     const exploreTitle = exploreTitleState[0];
     const setExploreTitle = exploreTitleState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
+    const loadTop5 = async () => {
+        try {
+            const base = omdbType === "series" ? "/api/series/top5" : "/api/movies/top5";
+            const res = await fetch(base);
+            const data = await res.json();
+            if (res.ok) setTop5(Array.isArray(data.results) ? data.results.slice(0, 5) : []);
+        } catch (e) { setTop5([]); }
+    };
     const loadingState = React.useState(false);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -2485,6 +2589,7 @@ function SeriesPage(props) {
 
     useEffect(() => {
         loadDefaults();
+        loadTop5();
     }, []);
 
     useEffect(() => {
@@ -2556,6 +2661,32 @@ function SeriesPage(props) {
                 }
                 setResult(exactRes.data);
                 setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+            } else if (listRes.ok) {
+                // Fallback: usar el primer resultado de la lista si no hay coincidencia exacta
+                let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
+                if (items.length > 0) {
+                    let first = items[0];
+                    // Si necesita enriquecer (filtros de nota/género), pedimos detalle
+                    if (min > 0 || genre !== "") {
+                        setLoadingDetails(true);
+                        try {
+                            const enriched = await enrichWithDetails([first]);
+                            first = enriched[0] || first;
+                        } finally {
+                            setLoadingDetails(false);
+                        }
+                    }
+                    const warnings = [];
+                    const firstRating = ratingOf(first);
+                    if (min > 0 && (firstRating === null || firstRating < min)) {
+                        warnings.push("Su nota (" + (first.rating || "sin nota") + ") está por debajo de tu filtro de " + min + ".");
+                    }
+                    if (genre && String(first.genre || "").toLowerCase().indexOf(genre.toLowerCase()) === -1) {
+                        warnings.push("Su género no coincide con tu filtro.");
+                    }
+                    setResult(first);
+                    setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                }
             }
             if (listRes.ok) {
                 let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
@@ -2650,7 +2781,9 @@ function SeriesPage(props) {
 
     React.useEffect(() => {
         if (result && resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => {
+                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
         }
     }, [result]);
 
@@ -2725,7 +2858,7 @@ function SeriesPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: resultRefCallback },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
@@ -2735,19 +2868,27 @@ function SeriesPage(props) {
                 }),
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
-                    h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
-                    result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
+                    h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + result.director),
+                    h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(result.genre)),
+                    result.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + result.actors) : null,
+                    result.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + result.rating)) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
-                        h("button", { onClick: handleSave, disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
+                        h("button", { onClick: () => handleSave(result), disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
                         h("button", { className: "btn-ghost", type: "button", onClick: () => { setResult(null); setResultWarning(null); } }, "Descartar")
                     )
                 )
             )
         ) : null,
+        (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
+            ? h(TopRankCarousel, {
+                title: "Top 5 Series",
+                subtitle: "Las más guardadas por la comunidad",
+                items: top5,
+                onDetail: openDetail
+            })
+            : null,
         loadingDefaults
             ? h("p", { className: "muted" }, "Cargando series...")
             : h(MovieCarousel, {
@@ -2769,10 +2910,10 @@ function SeriesPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -3245,8 +3386,9 @@ function MiCuenta(props) {
                             }
                         },
                             h("span", {
+                                className: "top5-rank",
                                 style: {
-                                    fontSize: "2rem", fontWeight: 900, color: "var(--bronze)",
+                                    fontSize: "2rem", fontWeight: 900, color: "var(--accent)",
                                     minWidth: "50px", textAlign: "center",
                                     display: "flex", alignItems: "center", justifyContent: "center"
                                 }
@@ -3341,11 +3483,11 @@ function MiCuenta(props) {
                     h("div", null,
                         h("h2", null, detail.title + " (" + (detail.year || "----") + ")"),
                         h("p", { className: "muted" }, detailType === "series" ? "📺 Serie" : "🎬 Película"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + detail.runtime) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", { className: "btn-ghost", type: "button", onClick: () => openReviews(detail, detailType) }, "Reseñas"),
@@ -3445,6 +3587,9 @@ function UserProfile(props) {
     const moviesState = React.useState([]);
     const movies = moviesState[0];
     const setMovies = moviesState[1];
+    const seriesState = React.useState([]);
+    const series = seriesState[0];
+    const setSeries = seriesState[1];
     const loadingState = React.useState(true);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -3505,10 +3650,20 @@ function UserProfile(props) {
             setMarathonsData(null);
         }
     };
+    const loadSeries = async () => {
+        try {
+            const res = await fetch("/api/users/" + encodeURIComponent(userId) + "/series");
+            const data = await res.json();
+            setSeries(Array.isArray(data.series) ? data.series : []);
+        } catch (e) {
+            setSeries([]);
+        }
+    };
 
     React.useEffect(() => {
         loadProfile();
         loadMovies();
+        loadSeries();
         loadMarathons();
     }, [userId]);
 
@@ -3546,9 +3701,11 @@ function UserProfile(props) {
         }
         setDetailLoading(true);
         try {
+            const isSerie = String(movie.type || "").toLowerCase() === "series";
+            const base = isSerie ? "/api/series/search" : "/api/movies/search";
             const url = movie.imdbID
-                ? "/api/movies/search?i=" + encodeURIComponent(movie.imdbID)
-                : "/api/movies/search?t=" + encodeURIComponent(movie.title);
+                ? base + "?i=" + encodeURIComponent(movie.imdbID)
+                : base + "?t=" + encodeURIComponent(movie.title);
             const res = await fetch(url);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el detalle");
@@ -3565,7 +3722,9 @@ function UserProfile(props) {
 
     const isOwnProfile = currentUser && currentUser.id === profile.id;
     const shown = movies || [];
-    const recent = shown.slice(0, 10);
+    const shownSeries = series || [];
+    const allItems = [...shown, ...shownSeries].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    const recent = allItems.slice(0, 10);
 
     return h("div", { className: "movies-page" },
         h("div", { className: "profile-header" },
@@ -3584,6 +3743,7 @@ function UserProfile(props) {
         ),
         h("div", { className: "hero-stats account-stats" },
             h("div", null, h("strong", null, String(shown.length)), h("span", null, "películas")),
+            h("div", null, h("strong", null, String(shownSeries.length)), h("span", null, "series")),
             h("div", null, h("strong", null, profile.prefs?.followers?.length || 0), h("span", null, "seguidores")),
             h("div", null, h("strong", null, profile.prefs?.following?.length || 0), h("span", null, "siguiendo"))
         ),
@@ -3595,18 +3755,24 @@ function UserProfile(props) {
         }),
         detailLoading ? h("p", { className: "muted" }, "Cargando detalle...") : null,
         h(MovieCarousel, {
-            title: "Guardadas Recientemente",
-            subtitle: "Películas de " + (profile.nickname || profile.name),
+            title: "Recientemente guardadas",
+            subtitle: "Actividad de " + (profile.nickname || profile.name),
             movies: recent,
             onDelete: null,
             onDetail: openDetail,
             showDelete: false,
-            emptyText: "Aún no ha guardado películas"
+            emptyText: "Aún no ha guardado nada"
         }),
         h("h2", null, "Todas las Películas"),
         h("div", { className: "movies-grid" },
             shown.map((movie) =>
                 h(MovieCard, { key: movie.id, movie: movie, onDelete: null, onDetail: openDetail, showDelete: false })
+            )
+        ),
+        h("h2", null, "Todas las Series"),
+        h("div", { className: "movies-grid" },
+            shownSeries.map((serie) =>
+                h(MovieCard, { key: serie.id, movie: serie, onDelete: null, onDetail: openDetail, showDelete: false })
             )
         ),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
@@ -3619,10 +3785,10 @@ function UserProfile(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null
                     )
                 )
@@ -4749,14 +4915,7 @@ function ChatAgent() {
                 "aria-label": "Abrir conversación con CineBot",
                 "aria-expanded": "false"
             },
-                h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                    h("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }),
-                    h("path", { d: "M8 10h8", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }),
-                    h("path", { d: "M8 14h5", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-                ),
-                h("svg", { className: "close-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                    h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
-                )
+                h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-toggle-logo" })
             )
         );
     }
@@ -4768,24 +4927,11 @@ function ChatAgent() {
             "aria-label": "Cerrar conversación",
             "aria-expanded": "true"
         },
-            h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                h("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }),
-                h("path", { d: "M8 10h8", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }),
-                h("path", { d: "M8 14h5", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-            ),
-            h("svg", { className: "close-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
-            )
+            h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-toggle-logo" })
         ),
         h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Conversación con CineBot" },
             h("header", { className: "chat-agent-header" },
                 h("div", { className: "chat-agent-title" },
-                    h("div", { className: "chat-agent-avatar" },
-                        h("svg", { viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                            h("path", { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z", stroke: "currentColor", strokeWidth: "2" }),
-                            h("path", { d: "M12 6v6l4 2", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-                        )
-                    ),
                     h("div", null,
                         h("h3", null, "CineBot"),
                         h("span", null, "Asistente CineAIros")
@@ -4806,10 +4952,7 @@ function ChatAgent() {
                                     h("path", { d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", stroke: "currentColor", strokeWidth: "2" }),
                                     h("circle", { cx: "12", cy: "7", r: "4", stroke: "currentColor", strokeWidth: "2" })
                                 )
-                                : h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" },
-                                    h("path", { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" }),
-                                    h("path", { d: "M12 6v6l4 2" })
-                                )
+                                : h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-message-logo" })
                         ),
                         h("div", { className: "chat-message-bubble" }, msg.content),
                         h("div", { className: "chat-message-time" }, msg.time)
@@ -5371,10 +5514,15 @@ function AdminDashboard(props) {
                         h("strong", { className: "admin-card-value" }, String(stats.users)),
                         h("span", { className: "admin-card-note" }, "Cuentas registradas")
                     ),
-                    h("div", { key: "r", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Reseñas totales"),
-                        h("strong", { className: "admin-card-value" }, String(stats.reviews)),
-                        h("span", { className: "admin-card-note" }, "Reseñas publicadas")
+                    h("div", { key: "m", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Películas en catálogo"),
+                        h("strong", { className: "admin-card-value" }, String(stats.movies || 0)),
+                        h("span", { className: "admin-card-note" }, "Títulos disponibles")
+                    ),
+                    h("div", { key: "s", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Series en catálogo"),
+                        h("strong", { className: "admin-card-value" }, String(stats.series || 0)),
+                        h("span", { className: "admin-card-note" }, "Títulos disponibles")
                     ),
                     h("div", { key: "p", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Reseñas positivas"),
@@ -5562,7 +5710,7 @@ function AdminDashboard(props) {
                                     ? h("span", { className: "chip" }, "Año: " + selectedContent.year)
                                     : null,
                                 selectedContent.rating
-                                    ? h("span", { className: "chip" }, "★ " + selectedContent.rating)
+                                    ? h("span", { className: "chip chip--rating" }, "★ " + selectedContent.rating)
                                     : null,
                                 selectedContent.runtime
                                     ? h("span", { className: "chip" }, selectedContent.runtime)

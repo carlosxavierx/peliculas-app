@@ -165,6 +165,19 @@ router.get("/users/:id/marathons", async (req, res) => {
     }
 });
 
+// GET /api/users/:id/series — Series guardadas de un usuario (público)
+router.get("/users/:id/series", async (req, res) => {
+    try {
+        const series = await authService.getUserSeries(req.params.id);
+        res.json({ series: Array.isArray(series) ? series : [] });
+    } catch (error) {
+        res.status(500).json({ error: "No se pudo obtener las series" });
+    }
+});
+
+// NOTA: la ruta /users/search ya existe más arriba (línea ~115, con excludeId);
+// no se duplica aquí.
+
 // POST /api/users/:id/follow — Seguir a un usuario
 router.post("/users/:id/follow", async (req, res) => {
     try {
