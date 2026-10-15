@@ -430,6 +430,12 @@ const authService = {
 
     getById: async (id) => storedUserById(id),
 
+    getPublicProfile: async (id) => {
+        const user = await storedUserById(id);
+        if (!user) return null;
+        return publicUser(user);
+    },
+
     setTop5strict: async (userId, items) => {
         if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
         const top5 = items.slice(0, 5).map(cleanTop5Item);
@@ -587,5 +593,6 @@ module.exports = {
     findUserByNickname,
     setUserNickname,
     getUserById,
+    getPublicProfile: authService.getPublicProfile,
     nicknameOf
 };
