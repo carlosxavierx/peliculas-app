@@ -836,35 +836,21 @@ function MovieCarousel(props) {
     );
 }
 
-/* ---------- TopRankCarousel: Top estilo Netflix (número gigante + póster) ---------- */
+/* ---------- TopRankCarousel: Top 5 horizontal (número izq + póster der) ---------- */
 function TopRankCarousel(props) {
     const title = props.title;
     const subtitle = props.subtitle;
     const items = props.items;
     const onDetail = props.onDetail;
-    const trackRef = React.useRef(null);
-
-    const scrollBy = (dir) => {
-        const el = trackRef.current;
-        if (!el) return;
-        const amount = Math.round(el.clientWidth * 0.8) * dir;
-        el.scrollBy({ left: amount, behavior: "smooth" });
-    };
 
     if (!items || items.length === 0) return null;
 
     return h("section", { className: "carousel-section toprank-section" },
-        h("div", { className: "carousel-head" },
-            h("div", null,
-                h("h2", null, title),
-                subtitle ? h("p", { className: "muted" }, subtitle) : null
-            ),
-            h("div", { className: "carousel-controls" },
-                h("button", { onClick: () => scrollBy(-1), "aria-label": "Anterior" }, "‹"),
-                h("button", { onClick: () => scrollBy(1), "aria-label": "Siguiente" }, "›")
-            )
+        h("div", { className: "toprank-head" },
+            h("h2", null, title),
+            h("p", { className: "muted" }, props.title.includes("Películas") ? "Las películas más guardadas" : "Las series más guardadas")
         ),
-        h("div", { className: "toprank-track", ref: trackRef },
+        h("div", { className: "toprank-track" },
             items.map((item, i) =>
                 h("div", { className: "toprank-item", key: item.id || item.imdbID || item.title },
                     h("span", { className: "toprank-rank", "aria-hidden": "true" }, String(i + 1)),
@@ -874,10 +860,7 @@ function TopRankCarousel(props) {
                         alt: item.title,
                         loading: "lazy",
                         onClick: () => { if (onDetail) onDetail(item); }
-                    }),
-                    (item.saves
-                        ? h("span", { className: "toprank-rating" }, "♥ " + item.saves + (item.saves === 1 ? " guardado" : " guardados"))
-                        : (item.rating ? h("span", { className: "toprank-rating" }, "★ " + item.rating) : null))
+                    })
                 )
             )
         )
@@ -2323,7 +2306,7 @@ function MediaPage(props) {
         (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
             ? h(TopRankCarousel, {
                 title: "Top 5 Películas",
-                subtitle: "Las mejor valoradas del catálogo",
+                subtitle: "Las más guardadas por la comunidad",
                 items: top5,
                 onDetail: openDetail
             })
@@ -2888,7 +2871,7 @@ function SeriesPage(props) {
         (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
             ? h(TopRankCarousel, {
                 title: "Top 5 Series",
-                subtitle: "Las mejor valoradas del catálogo",
+                subtitle: "Las más guardadas por la comunidad",
                 items: top5,
                 onDetail: openDetail
             })
