@@ -2128,16 +2128,6 @@ function MediaPage(props) {
         } finally {
             setDetailLoading(false);
         }
-    };
-
-    React.useEffect(() => {
-        if (result && resultRef.current) {
-            requestAnimationFrame(() => {
-                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-            });
-        }
-    }, [result]);
-
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
     return h("div", { className: "movies-page" },
@@ -2209,7 +2199,7 @@ function MediaPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: (el) => { resultRef.current = el; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); } },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
@@ -2647,16 +2637,6 @@ function SeriesPage(props) {
         } finally {
             setDetailLoading(false);
         }
-    };
-
-    React.useEffect(() => {
-        if (result && resultRef.current) {
-            requestAnimationFrame(() => {
-                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-            });
-        }
-    }, [result]);
-
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
 
     return h("div", { className: "movies-page" },
@@ -2728,7 +2708,7 @@ function SeriesPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: (el) => { resultRef.current = el; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); } },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
