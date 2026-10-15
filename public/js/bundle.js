@@ -875,7 +875,9 @@ function TopRankCarousel(props) {
                         loading: "lazy",
                         onClick: () => { if (onDetail) onDetail(item); }
                     }),
-                    item.rating ? h("span", { className: "toprank-rating" }, "★ " + item.rating) : null
+                    (item.saves
+                        ? h("span", { className: "toprank-rating" }, "♥ " + item.saves + (item.saves === 1 ? " guardado" : " guardados"))
+                        : (item.rating ? h("span", { className: "toprank-rating" }, "★ " + item.rating) : null))
                 )
             )
         )
