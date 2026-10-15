@@ -1091,6 +1091,22 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     overflow-y: auto;
 }
 
+.modal-reviews .modal-content h2 {
+    margin-top: 0.75rem;
+}
+
+.modal-reviews .reviews-header {
+    justify-content: flex-start;
+    gap: 1rem;
+}
+.modal-reviews .reviews-header h3 {
+    flex: 1;
+}
+.modal-reviews .reviews-header .btn-ghost.btn-small {
+    margin-left: auto;
+    margin-right: 2.5rem;
+}
+
 /* ---------- Amistades (Friends) ---------- */
 .friends-section {
     background: var(--surface);
