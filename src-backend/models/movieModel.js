@@ -359,6 +359,62 @@ const MovieModel = {
         const pool = withPoster.length >= want ? withPoster : unique;
 
         return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
+    },
+
+    // Top por nota desde Firestore: las mejor valoradas del catálogo (con póster y nota válida).
+    getTopRatedFromDb: async ({ limit }) => {
+        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 5, 1), 10);
+
+        let docs = [];
+        if (!db) {
+            return [];
+        } else {
+            try {
+                const snapshot = await db
+                    .collection("movies")
+                    .where("type", "==", "movie")
+                    .limit(500)
+                    .get();
+                snapshot.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (error) {
+                console.error("Error al leer top por nota desde Firestore:", error.message || error);
+                return [];
+            }
+        }
+
+        if (docs.length === 0 && db) {
+            try {
+                const fallback = await db.collection("movies").limit(500).get();
+                fallback.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // Deduplicar: la colección es personal (mismo título guardado por N usuarios).
+        const seen = new Set();
+        const unique = [];
+        for (const m of docs) {
+            const t = String(m.type || "").toLowerCase();
+            if (t && t !== "movie") continue;
+            if (!m.title || !m.poster) continue;
+            const r = Number.parseFloat(m.rating);
+            if (Number.isNaN(r)) continue;
+            const imdb = String(m.imdbID || "").trim().toLowerCase();
+            const key = imdb || ((String(m.title || "").toLowerCase().trim()) + "__" + String(m.year || "").trim());
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(m);
+        }
+
+        // Ordenar por nota descendente y coger las N primeras.
+        unique.sort((a, b) => Number.parseFloat(b.rating) - Number.parseFloat(a.rating));
+
+        return unique.slice(0, want).map(toPopularItem);
     }
 };
 

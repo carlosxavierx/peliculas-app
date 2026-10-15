@@ -836,6 +836,52 @@ function MovieCarousel(props) {
     );
 }
 
+/* ---------- TopRankCarousel: Top estilo Netflix (número gigante + póster) ---------- */
+function TopRankCarousel(props) {
+    const title = props.title;
+    const subtitle = props.subtitle;
+    const items = props.items;
+    const onDetail = props.onDetail;
+    const trackRef = React.useRef(null);
+
+    const scrollBy = (dir) => {
+        const el = trackRef.current;
+        if (!el) return;
+        const amount = Math.round(el.clientWidth * 0.8) * dir;
+        el.scrollBy({ left: amount, behavior: "smooth" });
+    };
+
+    if (!items || items.length === 0) return null;
+
+    return h("section", { className: "carousel-section toprank-section" },
+        h("div", { className: "carousel-head" },
+            h("div", null,
+                h("h2", null, title),
+                subtitle ? h("p", { className: "muted" }, subtitle) : null
+            ),
+            h("div", { className: "carousel-controls" },
+                h("button", { onClick: () => scrollBy(-1), "aria-label": "Anterior" }, "‹"),
+                h("button", { onClick: () => scrollBy(1), "aria-label": "Siguiente" }, "›")
+            )
+        ),
+        h("div", { className: "toprank-track", ref: trackRef },
+            items.map((item, i) =>
+                h("div", { className: "toprank-item", key: item.id || item.imdbID || item.title },
+                    h("span", { className: "toprank-rank", "aria-hidden": "true" }, String(i + 1)),
+                    h("img", {
+                        className: "toprank-poster",
+                        src: item.poster || POSTER_FALLBACK,
+                        alt: item.title,
+                        loading: "lazy",
+                        onClick: () => { if (onDetail) onDetail(item); }
+                    }),
+                    item.rating ? h("span", { className: "toprank-rating" }, "★ " + item.rating) : null
+                )
+            )
+        )
+    );
+}
+
 /* ---------- LandingPage ---------- */
 function LandingPage(props) {
     const onExplore = props.onExplore;
@@ -1780,6 +1826,17 @@ function MediaPage(props) {
     const exploreTitleState = React.useState("Descubre");
     const exploreTitle = exploreTitleState[0];
     const setExploreTitle = exploreTitleState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
+    const loadTop5 = async () => {
+        try {
+            const base = omdbType === "series" ? "/api/series/top5" : "/api/movies/top5";
+            const res = await fetch(base);
+            const data = await res.json();
+            if (res.ok) setTop5(Array.isArray(data.results) ? data.results.slice(0, 5) : []);
+        } catch (e) { setTop5([]); }
+    };
     const loadingState = React.useState(false);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -1964,6 +2021,7 @@ function MediaPage(props) {
     // Al entrar o cambiar de apartado se carga su contenido por defecto.
     useEffect(() => {
         loadDefaults();
+        loadTop5();
     }, []);
 
     // Ticker de la cuenta atrás del límite (nunca sube, solo baja).
@@ -2260,6 +2318,14 @@ function MediaPage(props) {
                 )
             )
         ) : null,
+        (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
+            ? h(TopRankCarousel, {
+                title: "Top 5 Películas",
+                subtitle: "Las mejor valoradas del catálogo",
+                items: top5,
+                onDetail: openDetail
+            })
+            : null,
         loadingDefaults
             ? h("p", { className: "muted" }, "Cargando películas...")
             : h(MovieCarousel, {
@@ -2343,6 +2409,17 @@ function SeriesPage(props) {
     const exploreTitleState = React.useState("Descubre");
     const exploreTitle = exploreTitleState[0];
     const setExploreTitle = exploreTitleState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
+    const loadTop5 = async () => {
+        try {
+            const base = omdbType === "series" ? "/api/series/top5" : "/api/movies/top5";
+            const res = await fetch(base);
+            const data = await res.json();
+            if (res.ok) setTop5(Array.isArray(data.results) ? data.results.slice(0, 5) : []);
+        } catch (e) { setTop5([]); }
+    };
     const loadingState = React.useState(false);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -2514,6 +2591,7 @@ function SeriesPage(props) {
 
     useEffect(() => {
         loadDefaults();
+        loadTop5();
     }, []);
 
     useEffect(() => {
@@ -2805,6 +2883,14 @@ function SeriesPage(props) {
                 )
             )
         ) : null,
+        (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
+            ? h(TopRankCarousel, {
+                title: "Top 5 Series",
+                subtitle: "Las mejor valoradas del catálogo",
+                items: top5,
+                onDetail: openDetail
+            })
+            : null,
         loadingDefaults
             ? h("p", { className: "muted" }, "Cargando series...")
             : h(MovieCarousel, {
