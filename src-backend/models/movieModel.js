@@ -449,7 +449,7 @@ const MovieModel = {
     // Películas por género desde Firestore.
     // Filtra por género (coincidencia parcial en el string de géneros separado por comas).
     getByGenreFromDb: async ({ genre, limit }) => {
-        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 12, 1), 30);
+        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 200);
         const genreLower = String(genre || "").trim().toLowerCase();
 
         let docs = [];
