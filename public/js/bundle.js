@@ -9,31 +9,32 @@ const { useState, useEffect } = React;
 const h = React.createElement;
 
 const BRAND = "CineAIros";
+const brandLetters = BRAND.split("");
 const SLOGAN = "Descubre, explora y guarda tus películas favoritas";
 
 // Temas de color disponibles
 const COLOR_THEMES = {
     default: {
         name: "Predeterminado",
-        primary: "#b3122e",
-        primaryHover: "#8c0e24",
-        primaryLight: "#fddde5",
-        accent: "#c9a227",
-        background: "#0d1219",
-        surface: "#151c27",
-        text: "#f4f6f9",
-        textMuted: "#a7b1c0",
-        border: "#2a3444",
+        primary: "#9C0D38",
+        primaryHover: "#b81a42",
+        primaryLight: "#d44a6a",
+        accent: "#b9d2e8",
+        background: "#0d151f",
+        surface: "#1C3144",
+        text: "#FFFFFF",
+        textMuted: "#b0c4d8",
+        border: "#2a4a6a",
         success: "#10b981",
         error: "#ef4444",
-        primaryRgb: "179, 18, 46"
+        primaryRgb: "156, 13, 56"
     },
     vibrant: {
         name: "Colores vivos",
-        primary: "#d62839",
-        primaryHover: "#b3122e",
-        primaryLight: "#ffe1ea",
-        accent: "#f59e0b",
+        primary: "#e11d48",
+        primaryHover: "#be123c",
+        primaryLight: "#ffe4e6",
+        accent: "#fb7185",
         background: "#1a0f15",
         surface: "#25161d",
         text: "#fdf2f8",
@@ -41,37 +42,37 @@ const COLOR_THEMES = {
         border: "#6b1d2b",
         success: "#10b981",
         error: "#ef4444",
-        primaryRgb: "214, 40, 57"
+        primaryRgb: "225, 29, 72"
     },
     neon: {
         name: "Neón",
-        primary: "#a855f7",
-        primaryHover: "#9333ea",
-        primaryLight: "#f3e8ff",
-        accent: "#06b6d4",
-        background: "#0f0f1a",
-        surface: "#1a1a2e",
-        text: "#fafafa",
-        textMuted: "#a1a1aa",
-        border: "#3f3f5c",
+        primary: "#e6395f",
+        primaryHover: "#c81e4e",
+        primaryLight: "#ffdde5",
+        accent: "#ff5c8a",
+        background: "#0a0f1c",
+        surface: "#111c30",
+        text: "#f4f8ff",
+        textMuted: "#93a9c9",
+        border: "#24344d",
         success: "#22d3ee",
         error: "#f87171",
-        primaryRgb: "168, 85, 247"
+        primaryRgb: "230, 57, 95"
     },
     pastel: {
         name: "Pastel",
-        primary: "#8b5cf6",
-        primaryHover: "#7c3aed",
-        primaryLight: "#ede9fe",
-        accent: "#f472b6",
-        background: "#fafafa",
+        primary: "#b83a6a",
+        primaryHover: "#962c55",
+        primaryLight: "#fbe4ec",
+        accent: "#be185d",
+        background: "#faf7f9",
         surface: "#ffffff",
-        text: "#4c1d95",
-        textMuted: "#7e69a3",
-        border: "#ddd6fe",
+        text: "#413252",
+        textMuted: "#6f5f86",
+        border: "#e5d5e0",
         success: "#4ade80",
         error: "#fca5a5",
-        primaryRgb: "139, 92, 246"
+        primaryRgb: "184, 58, 106"
     }
 };
 
@@ -538,7 +539,7 @@ function ReviewsModal(props) {
                                 h("strong", null, review.user),
                                 h("span", { className: "review-date" }, new Date(review.createdAt).toLocaleDateString("es-ES"))
                             ),
-                            review.rating ? h("p", { className: "muted" }, "★ " + review.rating + "/10") : null,
+                            review.rating ? h("p", { className: "muted" }, h("span", { className: "stars" }, "★ " + review.rating + "/10")) : null,
                             h("p", { className: "review-text" }, review.text),
                             h("div", { className: "review-actions" },
                                 h("button", {
@@ -607,6 +608,9 @@ function SiteHeader(props) {
     const userMenuState = React.useState(false);
     const userMenuOpen = userMenuState[0];
     const setUserMenuOpen = userMenuState[1];
+    const userMenuTimer = React.useRef(null);
+    const cancelUserMenuClose = () => { if (userMenuTimer.current) { clearTimeout(userMenuTimer.current); userMenuTimer.current = null; } };
+    const scheduleUserMenuClose = () => { cancelUserMenuClose(); userMenuTimer.current = setTimeout(() => { setUserMenuOpen(false); userMenuTimer.current = null; }, 300); };
 
     const go = (target) => {
         setOpen(false);
@@ -618,10 +622,14 @@ function SiteHeader(props) {
         h("div", { className: "header-inner" },
             h("button", { className: "logo", onClick: () => go("home"), "aria-label": "Ir al inicio" },
                 h("img", {
-                    className: "logo-img", src: "/img/logo-icon.png", alt: "", "data-img-fallback": "off",
+                    className: "logo-img", src: "/img/logo.png?v=3", alt: "CineAIros", "data-img-fallback": "off",
                     onError: (e) => { e.target.style.display = "none"; }
                 }),
-                h("span", { className: "logo-text" }, BRAND)
+                h("span", { className: "logo-text" },
+                    brandLetters.map((ch, i) =>
+                        h("span", { className: "brand-letter", "data-idx": i }, ch)
+                    )
+                )
             ),
             h("nav", { className: "main-nav" + (open ? " open" : "") },
                 h("button",
@@ -641,12 +649,11 @@ function SiteHeader(props) {
                     "Maratones"
                 ),
                 user
-                    ? h("div", { className: "user-menu" },
+                    ? h("div", { className: "user-menu", onMouseEnter: cancelUserMenuClose, onMouseLeave: scheduleUserMenuClose },
                         h("button", { className: "user-chip", title: "Mi cuenta", onClick: () => setUserMenuOpen(!userMenuOpen) }, user.nickname || user.name),
                         userMenuOpen && h("div", { className: "user-dropdown" },
                             h("button", { className: "dropdown-item", onClick: () => go("cuenta") }, "Mi cuenta"),
                             h("button", { className: "dropdown-item", onClick: () => go("perfil") }, "Mi perfil público"),
-                            h("button", { className: "dropdown-item", onClick: () => go("buscar-usuarios") }, "Buscar Usuarios"),
                             h("button", { className: "dropdown-item", onClick: () => go("amigos") }, "Amigos"),
                             h("button", { className: "dropdown-item", onClick: () => go("configuracion") }, "Configuración"),
                             isAdmin(user) && h("hr", { className: "dropdown-divider" }),
@@ -681,7 +688,11 @@ function SiteFooter(props) {
     return h("footer", { className: "site-footer" },
         h("div", { className: "footer-inner" },
             h("div", { className: "footer-col" },
-                h("p", { className: "footer-logo" }, BRAND),
+                h("p", { className: "footer-logo" },
+                    brandLetters.map((ch, i) =>
+                        h("span", { className: "brand-letter", "data-idx": i }, ch)
+                    )
+                ),
                 h("p", { className: "muted" }, SLOGAN)
             ),
             h("div", { className: "footer-col" },
@@ -829,6 +840,37 @@ function MovieCarousel(props) {
             movies.map((movie) =>
                 h("div", { className: "carousel-item", key: movie.id || movie.imdbID || movie.title },
                     h(MovieCard, { movie: movie, onDelete: onDelete, onDetail: onDetail, showDelete: showDelete })
+                )
+            )
+        )
+    );
+}
+
+/* ---------- TopRankCarousel: Top 5 horizontal (número izq + póster der) ---------- */
+function TopRankCarousel(props) {
+    const title = props.title;
+    const subtitle = props.subtitle;
+    const items = props.items;
+    const onDetail = props.onDetail;
+
+    if (!items || items.length === 0) return null;
+
+    return h("section", { className: "carousel-section toprank-section" },
+        h("div", { className: "toprank-head" },
+            h("h2", null, title),
+            h("p", { className: "muted" }, props.title.includes("Películas") ? "Las películas más guardadas" : "Las series más guardadas")
+        ),
+        h("div", { className: "toprank-track" },
+            items.map((item, i) =>
+                h("div", { className: "toprank-item", key: item.id || item.imdbID || item.title },
+                    h("span", { className: "toprank-rank", "aria-hidden": "true" }, String(i + 1)),
+                    h("img", {
+                        className: "toprank-poster",
+                        src: item.poster || POSTER_FALLBACK,
+                        alt: item.title,
+                        loading: "lazy",
+                        onClick: () => { if (onDetail) onDetail(item); }
+                    })
                 )
             )
         )
@@ -1368,8 +1410,8 @@ function RegisterPage(props) {
             setNicknameError("El apodo no puede superar 30 caracteres");
             return;
         }
-        if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
-            setNicknameError("Solo letras, números y guión bajo");
+        if (!/^[a-zA-Z0-9_.-]+$/.test(clean)) {
+            setNicknameError("Solo letras, números, guión bajo (_), guion (-) y punto (.)");
             return;
         }
         setCheckingNickname(true);
@@ -1444,6 +1486,19 @@ function RegisterPage(props) {
                 throw new Error("El correo todavía no aparece como verificado. Abre el enlace recibido y vuelve a intentarlo.");
             }
             const data = await firebaseSessionWithBackend(currentUser, currentUser.displayName || name.trim());
+            // Guardar nickname después de tener token de sesión
+            const cleanNickname = nickname.trim().toLowerCase();
+            if (cleanNickname.length >= 3) {
+                const nicknameRes = await fetch("/api/auth/nickname", {
+                    method: "POST",
+                    headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                    body: JSON.stringify({ nickname: cleanNickname })
+                });
+                if (!nicknameRes.ok) {
+                    const errData = await nicknameRes.json();
+                    throw new Error(errData.error || "No se pudo guardar el apodo");
+                }
+            }
             setVerificationSent(false);
             afterFirebaseSession(data, false);
         } catch (err) {
@@ -1464,7 +1519,7 @@ function RegisterPage(props) {
         if (password !== password2) { setError("Las contraseñas no coinciden."); return; }
         if (cleanNickname.length < 3) { setError("El apodo debe tener al menos 3 caracteres."); return; }
         if (cleanNickname.length > 30) { setError("El apodo no puede superar 30 caracteres."); return; }
-        if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) { setError("El apodo solo puede contener letras, números y guión bajo."); return; }
+        if (!/^[a-zA-Z0-9_.-]+$/.test(cleanNickname)) { setError("El apodo solo puede contener letras, números, guión bajo (_), guion (-) y punto (.)."); return; }
 
         setLoading(true);
         setError(null);
@@ -1475,21 +1530,6 @@ function RegisterPage(props) {
                 await cred.user.updateProfile({ displayName: cleanName });
             } catch (updErr) { /* nombre opcional */ }
             await cred.user.sendEmailVerification(firebaseActionSettings("verifyEmail"));
-            // Set nickname after verification
-            const token = getStoredToken();
-            if (token) {
-                const nicknameRes = await fetch("/api/auth/nickname", {
-                    method: "POST",
-                    headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                    body: JSON.stringify({ nickname: cleanNickname })
-                });
-                if (!nicknameRes.ok) {
-                    const data = await nicknameRes.json();
-                    setError(data.error || "No se pudo guardar el apodo");
-                    setLoading(false);
-                    return;
-                }
-            }
             setVerificationSent(true);
             setStep(2);
         } catch (err) {
@@ -1609,16 +1649,17 @@ function RegisterPage(props) {
                     h("input", {
                         type: "text", value: nickname,
                         onChange: (e) => {
-                            const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                            const v = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '');
                             setNickname(v);
                             if (v.length >= 3) checkNickname(v);
                             else setNicknameError(null);
                         },
-                        placeholder: "min. 3 chars, letras, números, _", autoComplete: "username", maxLength: 30
+                        placeholder: "Apodo", autoComplete: "username", maxLength: 30
                     }),
                     checkingNickname ? h("span", { className: "nickname-checking" }, "⟳") : null
                 ),
                 nicknameError ? h("p", { className: "error hint" }, nicknameError) : null,
+                h("p", { className: "hint", style: { fontSize: "1rem", color: "var(--muted)", marginTop: "0.35rem" } }, "min. 3 chars, letras, números, _, -, ."),
                 h("p", { className: "hint" }, "Tu identidad única para que te encuentren tus amigos")
             ),
             h("button", { className: "btn-primary", type: "submit", disabled: loading || googleLoading },
@@ -1771,6 +1812,7 @@ function MediaPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" })); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -1780,6 +1822,17 @@ function MediaPage(props) {
     const exploreTitleState = React.useState("Descubre");
     const exploreTitle = exploreTitleState[0];
     const setExploreTitle = exploreTitleState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
+    const loadTop5 = async () => {
+        try {
+            const base = omdbType === "series" ? "/api/series/top5" : "/api/movies/top5";
+            const res = await fetch(base);
+            const data = await res.json();
+            if (res.ok) setTop5(Array.isArray(data.results) ? data.results.slice(0, 5) : []);
+        } catch (e) { setTop5([]); }
+    };
     const loadingState = React.useState(false);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -1964,6 +2017,7 @@ function MediaPage(props) {
     // Al entrar o cambiar de apartado se carga su contenido por defecto.
     useEffect(() => {
         loadDefaults();
+        loadTop5();
     }, []);
 
     // Ticker de la cuenta atrás del límite (nunca sube, solo baja).
@@ -2037,6 +2091,32 @@ function MediaPage(props) {
                 }
                 setResult(exactRes.data);
                 setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+            } else if (listRes.ok) {
+                // Fallback: usar el primer resultado de la lista si no hay coincidencia exacta
+                let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
+                if (items.length > 0) {
+                    let first = items[0];
+                    // Si necesita enriquecer (filtros de nota/género), pedimos detalle
+                    if (min > 0 || genre !== "") {
+                        setLoadingDetails(true);
+                        try {
+                            const enriched = await enrichWithDetails([first]);
+                            first = enriched[0] || first;
+                        } finally {
+                            setLoadingDetails(false);
+                        }
+                    }
+                    const warnings = [];
+                    const firstRating = ratingOf(first);
+                    if (min > 0 && (firstRating === null || firstRating < min)) {
+                        warnings.push("Su nota (" + (first.rating || "sin nota") + ") está por debajo de tu filtro de " + min + ".");
+                    }
+                    if (genre && String(first.genre || "").toLowerCase().indexOf(genre.toLowerCase()) === -1) {
+                        warnings.push("Su género no coincide con tu filtro.");
+                    }
+                    setResult(first);
+                    setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                }
             }
             if (listRes.ok) {
                 let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
@@ -2133,11 +2213,70 @@ function MediaPage(props) {
 
     React.useEffect(() => {
         if (result && resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => {
+                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
         }
     }, [result]);
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
+
+    // Géneros para los carruseles (los 15 pedidos, en orden)
+    const GENRE_CAROUSELS = [
+        ["Action", "Acción"],
+        ["Adventure", "Aventura"],
+        ["Animation", "Animación"],
+        ["Comedy", "Comedia"],
+        ["Crime", "Crimen"],
+        ["Documentary", "Documental"],
+        ["Drama", "Drama"],
+        ["Fantasy", "Fantasía"],
+        ["Horror", "Terror"],
+        ["Mystery", "Misterio"],
+        ["Romance", "Romance"],
+        ["Sci-Fi", "Ciencia ficción"],
+        ["Thriller", "Suspense"],
+        ["War", "Bélica"],
+        ["Western", "Western"]
+    ];
+
+    // Estado para películas por género
+    const genreMoviesState = React.useState({});
+    const genreMovies = genreMoviesState[0];
+    const setGenreMovies = genreMoviesState[1];
+    const genreLoadingState = React.useState({});
+    const genreLoading = genreLoadingState[0];
+    const setGenreLoading = genreLoadingState[1];
+
+    // Cargar películas para un género específico
+    const loadGenreMovies = async (genreKey, genreLabel) => {
+        setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
+        try {
+            const res = await fetch("/api/movies/genre/" + encodeURIComponent(genreKey) + "?limit=500");
+            if (res.status === 429) throw rateLimitExceeded();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
+            setGenreMovies(prev => ({ ...prev, [genreKey]: Array.isArray(data.results) ? data.results : [] }));
+        } catch (e) {
+            if (e && e.code === "RATE_LIMIT") throw e;
+            setGenreMovies(prev => ({ ...prev, [genreKey]: [] }));
+        } finally {
+            setGenreLoading(prev => ({ ...prev, [genreKey]: false }));
+        }
+    };
+
+    // Cargar todos los géneros al montar
+    React.useEffect(() => {
+        let alive = true;
+        const loadAll = async () => {
+            for (const [key, label] of GENRE_CAROUSELS) {
+                if (!alive) break;
+                await loadGenreMovies(key, label);
+            }
+        };
+        loadAll();
+        return () => { alive = false; };
+    }, []);
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
@@ -2208,7 +2347,7 @@ function MediaPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: resultRefCallback },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
@@ -2218,20 +2357,28 @@ function MediaPage(props) {
                 }),
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
-                    h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
-                    result.runtime ? h("p", null, h("strong", null, "Duración:"), " " + result.runtime) : null,
-                    result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
+                    h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + result.director),
+                    h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(result.genre)),
+                    result.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + result.runtime) : null,
+                    result.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + result.actors) : null,
+                    result.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + result.rating)) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
-                        h("button", { onClick: handleSave, disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
+                        h("button", { onClick: () => handleSave(result), disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
                         h("button", { className: "btn-ghost", type: "button", onClick: () => { setResult(null); setResultWarning(null); } }, "Descartar")
                     )
                 )
             )
         ) : null,
+        (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
+            ? h(TopRankCarousel, {
+                title: "Top 5 Películas",
+                subtitle: "Las más guardadas por la comunidad",
+                items: top5,
+                onDetail: openDetail
+            })
+            : null,
         loadingDefaults
             ? h("p", { className: "muted" }, "Cargando películas...")
             : h(MovieCarousel, {
@@ -2242,6 +2389,17 @@ function MediaPage(props) {
                 showDelete: false,
                 emptyText: "Haz una búsqueda para ver aquí más resultados."
             }),
+        GENRE_CAROUSELS.map(([genreKey, genreLabel]) =>
+            h(MovieCarousel, {
+                key: genreKey,
+                title: genreLabel,
+                subtitle: "Películas de " + genreLabel.toLowerCase(),
+                movies: genreMovies[genreKey] || [],
+                onDetail: openDetail,
+                showDelete: false,
+                emptyText: genreLoading[genreKey] ? "Cargando..." : "No hay películas de " + genreLabel.toLowerCase() + " disponibles."
+            })
+        ),
         h("p", { className: "muted hint" }, user ? "Lo que guardes lo encontrarás en tu página personal." : "Entra en tu cuenta para tener tu página personal con tu colección"),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
             h("div", { className: "modal", onClick: (e) => e.stopPropagation() },
@@ -2253,11 +2411,11 @@ function MediaPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + detail.runtime) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2305,6 +2463,7 @@ function SeriesPage(props) {
     const result = resultState[0];
     const setResult = resultState[1];
     const resultRef = React.useRef(null);
+    const resultRefCallback = React.useCallback((el) => { resultRef.current = el; if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "center" })); }, []);
     const resultWarningState = React.useState(null);
     const resultWarning = resultWarningState[0];
     const setResultWarning = resultWarningState[1];
@@ -2314,6 +2473,17 @@ function SeriesPage(props) {
     const exploreTitleState = React.useState("Descubre");
     const exploreTitle = exploreTitleState[0];
     const setExploreTitle = exploreTitleState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
+    const loadTop5 = async () => {
+        try {
+            const base = omdbType === "series" ? "/api/series/top5" : "/api/movies/top5";
+            const res = await fetch(base);
+            const data = await res.json();
+            if (res.ok) setTop5(Array.isArray(data.results) ? data.results.slice(0, 5) : []);
+        } catch (e) { setTop5([]); }
+    };
     const loadingState = React.useState(false);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
@@ -2485,6 +2655,7 @@ function SeriesPage(props) {
 
     useEffect(() => {
         loadDefaults();
+        loadTop5();
     }, []);
 
     useEffect(() => {
@@ -2556,6 +2727,32 @@ function SeriesPage(props) {
                 }
                 setResult(exactRes.data);
                 setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+            } else if (listRes.ok) {
+                // Fallback: usar el primer resultado de la lista si no hay coincidencia exacta
+                let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
+                if (items.length > 0) {
+                    let first = items[0];
+                    // Si necesita enriquecer (filtros de nota/género), pedimos detalle
+                    if (min > 0 || genre !== "") {
+                        setLoadingDetails(true);
+                        try {
+                            const enriched = await enrichWithDetails([first]);
+                            first = enriched[0] || first;
+                        } finally {
+                            setLoadingDetails(false);
+                        }
+                    }
+                    const warnings = [];
+                    const firstRating = ratingOf(first);
+                    if (min > 0 && (firstRating === null || firstRating < min)) {
+                        warnings.push("Su nota (" + (first.rating || "sin nota") + ") está por debajo de tu filtro de " + min + ".");
+                    }
+                    if (genre && String(first.genre || "").toLowerCase().indexOf(genre.toLowerCase()) === -1) {
+                        warnings.push("Su género no coincide con tu filtro.");
+                    }
+                    setResult(first);
+                    setResultWarning(warnings.length > 0 ? warnings.join(" ") : null);
+                }
             }
             if (listRes.ok) {
                 let items = Array.isArray(listRes.data.results) ? listRes.data.results : [];
@@ -2650,11 +2847,70 @@ function SeriesPage(props) {
 
     React.useEffect(() => {
         if (result && resultRef.current) {
-            resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            requestAnimationFrame(() => {
+                resultRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
         }
     }, [result]);
 
     const filtersActive = String(yearFilter).trim() !== "" || Number(minRating) > 0 || genreFilter !== "";
+
+    // Géneros para los carruseles (los 15 pedidos, en orden)
+    const GENRE_CAROUSELS = [
+        ["Action", "Acción"],
+        ["Adventure", "Aventura"],
+        ["Animation", "Animación"],
+        ["Comedy", "Comedia"],
+        ["Crime", "Crimen"],
+        ["Documentary", "Documental"],
+        ["Drama", "Drama"],
+        ["Fantasy", "Fantasía"],
+        ["Horror", "Terror"],
+        ["Mystery", "Misterio"],
+        ["Romance", "Romance"],
+        ["Sci-Fi", "Ciencia ficción"],
+        ["Thriller", "Suspense"],
+        ["War", "Bélica"],
+        ["Western", "Western"]
+    ];
+
+    // Estado para series por género
+    const genreSeriesState = React.useState({});
+    const genreSeries = genreSeriesState[0];
+    const setGenreSeries = genreSeriesState[1];
+    const genreLoadingState = React.useState({});
+    const genreLoading = genreLoadingState[0];
+    const setGenreLoading = genreLoadingState[1];
+
+    // Cargar series para un género específico
+    const loadGenreSeries = async (genreKey, genreLabel) => {
+        setGenreLoading(prev => ({ ...prev, [genreKey]: true }));
+        try {
+            const res = await fetch("/api/series/genre/" + encodeURIComponent(genreKey) + "?limit=500");
+            if (res.status === 429) throw rateLimitExceeded();
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error cargando " + genreLabel);
+            setGenreSeries(prev => ({ ...prev, [genreKey]: Array.isArray(data.results) ? data.results : [] }));
+        } catch (e) {
+            if (e && e.code === "RATE_LIMIT") throw e;
+            setGenreSeries(prev => ({ ...prev, [genreKey]: [] }));
+        } finally {
+            setGenreLoading(prev => ({ ...prev, [genreKey]: false }));
+        }
+    };
+
+    // Cargar todos los géneros al montar
+    React.useEffect(() => {
+        let alive = true;
+        const loadAll = async () => {
+            for (const [key, label] of GENRE_CAROUSELS) {
+                if (!alive) break;
+                await loadGenreSeries(key, label);
+            }
+        };
+        loadAll();
+        return () => { alive = false; };
+    }, []);
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
@@ -2725,7 +2981,7 @@ function SeriesPage(props) {
         error ? h("p", { className: "error" }, error) : null,
         success ? h("p", { className: "success" }, success) : null,
         (detailLoading || loadingDetails) ? h("p", { className: "muted" }, "Cargando detalles...") : null,
-        result ? h("div", { className: "result", ref: resultRef },
+        result ? h("div", { className: "result", ref: resultRefCallback },
             h("div", { className: "result-content" },
                 h("img", {
                     src: result.poster || POSTER_FALLBACK,
@@ -2735,19 +2991,27 @@ function SeriesPage(props) {
                 }),
                 h("div", { className: "result-info" },
                     h("h2", null, result.title + " (" + result.year + ")"),
-                    h("p", null, h("strong", null, "Director:"), " " + result.director),
-                    h("p", null, h("strong", null, "Género:"), " " + genresLabel(result.genre)),
-                    result.actors ? h("p", null, h("strong", null, "Actores:"), " " + result.actors) : null,
-                    result.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + result.rating) : null,
+                    h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + result.director),
+                    h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(result.genre)),
+                    result.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + result.actors) : null,
+                    result.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + result.rating)) : null,
                     h("p", null, h("strong", null, "Sinopsis:"), " " + result.plot),
                     resultWarning ? h("p", { className: "muted" }, "ℹ " + resultWarning) : null,
                     h("div", { className: "result-actions" },
-                        h("button", { onClick: handleSave, disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
+                        h("button", { onClick: () => handleSave(result), disabled: saving }, saving ? "Guardando..." : "Guardar en mi colección"),
                         h("button", { className: "btn-ghost", type: "button", onClick: () => { setResult(null); setResultWarning(null); } }, "Descartar")
                     )
                 )
             )
         ) : null,
+        (!result && exploreTitle === "Popular Ahora" && top5.length > 0)
+            ? h(TopRankCarousel, {
+                title: "Top 5 Series",
+                subtitle: "Las más guardadas por la comunidad",
+                items: top5,
+                onDetail: openDetail
+            })
+            : null,
         loadingDefaults
             ? h("p", { className: "muted" }, "Cargando series...")
             : h(MovieCarousel, {
@@ -2758,6 +3022,17 @@ function SeriesPage(props) {
                 showDelete: false,
                 emptyText: "Haz una búsqueda para ver aquí más resultados."
             }),
+        GENRE_CAROUSELS.map(([genreKey, genreLabel]) =>
+            h(MovieCarousel, {
+                key: genreKey,
+                title: genreLabel,
+                subtitle: "Series de " + genreLabel.toLowerCase(),
+                movies: genreSeries[genreKey] || [],
+                onDetail: openDetail,
+                showDelete: false,
+                emptyText: genreLoading[genreKey] ? "Cargando..." : "No hay series de " + genreLabel.toLowerCase() + " disponibles."
+            })
+        ),
         h("p", { className: "muted hint" }, user ? "Lo que guardes lo encontrarás en tu página personal." : "Entra en tu cuenta para tener tu página personal con tu colección."),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
             h("div", { className: "modal", onClick: (e) => e.stopPropagation() },
@@ -2769,10 +3044,10 @@ function SeriesPage(props) {
                     }),
                     h("div", null,
                         h("h2", null, detail.title + " (" + detail.year + ")"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", {
@@ -2800,6 +3075,7 @@ function MiCuenta(props) {
     const loadingSeries = props.loadingSeries;
     const onDelete = props.onDelete;
     const onDeleteSeries = props.onDeleteSeries || null;
+    const onNavigate = props.onNavigate || null;
     const detailState = React.useState(null);
     const detail = detailState[0];
     const setDetail = detailState[1];
@@ -3141,7 +3417,14 @@ function MiCuenta(props) {
         h("div", { className: "page-head" },
             h("h1", null, "Hola, " + user.name),
             h("p", { className: "muted" }, user.email),
-            user.nickname ? h("p", { className: "muted" }, "Apodo: @" + user.nickname) : null
+            user.nickname
+                ? h("p", { className: "muted" }, "Apodo: @" + user.nickname)
+                : h("p", { className: "muted" },
+                    "Apodo: sin definir ",
+                    onNavigate
+                        ? h("button", { className: "btn-ghost btn-small", type: "button", onClick: () => onNavigate("configuracion") }, "Elegir apodo")
+                        : null
+                )
         ),
 
         /* ----- Índice / Tabla de contenidos ----- */
@@ -3246,8 +3529,9 @@ function MiCuenta(props) {
                             }
                         },
                             h("span", {
+                                className: "top5-rank",
                                 style: {
-                                    fontSize: "2rem", fontWeight: 900, color: "var(--bronze)",
+                                    fontSize: "2rem", fontWeight: 900, color: "var(--accent)",
                                     minWidth: "50px", textAlign: "center",
                                     display: "flex", alignItems: "center", justifyContent: "center"
                                 }
@@ -3342,11 +3626,11 @@ function MiCuenta(props) {
                     h("div", null,
                         h("h2", null, detail.title + " (" + (detail.year || "----") + ")"),
                         h("p", { className: "muted" }, detailType === "series" ? "📺 Serie" : "🎬 Película"),
-                        detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
-                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
-                        detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
-                        detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
-                        detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
+                        detail.genre ? h("p", null, h("strong", { className: "meta-gold" }, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", { className: "meta-gold" }, "Duración:"), " " + detail.runtime) : null,
+                        detail.director ? h("p", null, h("strong", { className: "meta-gold" }, "Director:"), " " + detail.director) : null,
+                        detail.actors ? h("p", null, h("strong", { className: "meta-gold" }, "Actores:"), " " + detail.actors) : null,
+                        detail.rating ? h("p", null, h("strong", { className: "meta-gold" }, "Puntuación:"), h("span", { className: "stars" }, " ★ " + detail.rating)) : null,
                         detail.plot ? h("p", null, detail.plot) : null,
                         h("div", { className: "result-actions" },
                             h("button", { className: "btn-ghost", type: "button", onClick: () => openReviews(detail, detailType) }, "Reseñas"),
@@ -3563,7 +3847,6 @@ function UserProfile(props) {
             setRelationship({ status: "none", requestId: null });
         }
     };
-
     React.useEffect(() => {
         loadProfile();
         loadCollections();
@@ -4338,7 +4621,9 @@ function AmistadesPage(props) {
 function ProfileSettings(props) {
     const currentUser = props.currentUser;
     const onNavigate = props.onNavigate;
-    const nicknameState = React.useState(currentUser?.nickname || currentUser?.name || "");
+    // El campo es el apodo, no el nombre: si aún no hay apodo se deja vacío para
+    // no precargar el nombre completo (que no es un apodo válido).
+    const nicknameState = React.useState(currentUser?.nickname || "");
     const nickname = nicknameState[0];
     const setNickname = nicknameState[1];
     const themeState = React.useState(currentUser?.colorTheme || "default");
@@ -4356,7 +4641,7 @@ function ProfileSettings(props) {
 
     React.useEffect(() => {
         if (currentUser) {
-            setNickname(currentUser.nickname || currentUser.name || "");
+            setNickname(currentUser.nickname || "");
             setTheme(currentUser.colorTheme || "default");
         }
     }, [currentUser]);
@@ -4369,8 +4654,7 @@ function ProfileSettings(props) {
         e.preventDefault();
         setError(null);
         setSuccess(null);
-        const cleanNickname = nickname.trim().toLowerCase();
-        // Las mismas reglas que valida el backend, para dar el aviso al momento.
+        const cleanNickname = nickname.trim();
         if (cleanNickname.length < 3) {
             setError("El apodo debe tener al menos 3 caracteres");
             return;
@@ -4379,8 +4663,8 @@ function ProfileSettings(props) {
             setError("El apodo no puede exceder 30 caracteres");
             return;
         }
-        if (!/^[a-z0-9_]+$/.test(cleanNickname)) {
-            setError("El apodo solo puede contener letras, números y guión bajo");
+        if (!/^[a-zA-Z0-9_.-]+$/.test(cleanNickname)) {
+            setError("El apodo solo puede contener letras, números, guión bajo (_), guion (-) y punto (.).");
             return;
         }
         setLoading(true);
@@ -4388,14 +4672,18 @@ function ProfileSettings(props) {
             const res = await fetch("/api/auth/profile", {
                 method: "PUT",
                 headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ nickname: cleanNickname, colorTheme: theme })
+                body: JSON.stringify({ nickname: cleanNickname.toLowerCase(), colorTheme: theme })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo actualizar");
+            // El backend normaliza el apodo (minúsculas); usamos ese valor.
+            const savedNickname = cleanNickname.toLowerCase();
+            setNickname(savedNickname);
             setSuccess("Perfil actualizado correctamente");
-            // Actualizar usuario en estado global
+            // Actualizar usuario en estado global. El apodo es un campo único
+            // (user.nickname) y no se guarda dentro de prefs.
             if (props.onUpdateUser) {
-                props.onUpdateUser({ ...currentUser, nickname: cleanNickname, colorTheme: theme, prefs: { ...currentUser.prefs, nickname: cleanNickname, colorTheme: theme } });
+                props.onUpdateUser({ ...currentUser, nickname: savedNickname, colorTheme: theme, prefs: { ...currentUser.prefs, colorTheme: theme } });
             }
         } catch (e) {
             setError(e.message);
@@ -4424,7 +4712,7 @@ function ProfileSettings(props) {
                         maxLength: 30,
                         autoComplete: "nickname"
                     }),
-                    h("small", { className: "muted" }, "Es tu nombre público: aparece en tu perfil y en las búsquedas. Entre 3 y 30 caracteres (letras, números y guión bajo).")
+                    h("small", { className: "muted" }, "Este nombre será visible para otros usuarios. Mínimo 3, máximo 30 caracteres (letras, números, _, - y .).")
                 )
             ),
             h("div", { className: "settings-section" },
@@ -4969,14 +5257,7 @@ function ChatAgent() {
                 "aria-label": "Abrir conversación con CineBot",
                 "aria-expanded": "false"
             },
-                h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                    h("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }),
-                    h("path", { d: "M8 10h8", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }),
-                    h("path", { d: "M8 14h5", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-                ),
-                h("svg", { className: "close-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                    h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
-                )
+                h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-toggle-logo" })
             )
         );
     }
@@ -4988,24 +5269,11 @@ function ChatAgent() {
             "aria-label": "Cerrar conversación",
             "aria-expanded": "true"
         },
-            h("svg", { className: "chat-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                h("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }),
-                h("path", { d: "M8 10h8", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" }),
-                h("path", { d: "M8 14h5", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-            ),
-            h("svg", { className: "close-icon", viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                h("path", { d: "M18 6L6 18M6 6l12 12", stroke: "currentColor", strokeWidth: "2.5", strokeLinecap: "round" })
-            )
+            h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-toggle-logo" })
         ),
         h("div", { className: "chat-agent-window open", role: "dialog", "aria-label": "Conversación con CineBot" },
             h("header", { className: "chat-agent-header" },
                 h("div", { className: "chat-agent-title" },
-                    h("div", { className: "chat-agent-avatar" },
-                        h("svg", { viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" },
-                            h("path", { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z", stroke: "currentColor", strokeWidth: "2" }),
-                            h("path", { d: "M12 6v6l4 2", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round" })
-                        )
-                    ),
                     h("div", null,
                         h("h3", null, "CineBot"),
                         h("span", null, "Asistente CineAIros")
@@ -5026,10 +5294,7 @@ function ChatAgent() {
                                     h("path", { d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2", stroke: "currentColor", strokeWidth: "2" }),
                                     h("circle", { cx: "12", cy: "7", r: "4", stroke: "currentColor", strokeWidth: "2" })
                                 )
-                                : h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" },
-                                    h("path", { d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" }),
-                                    h("path", { d: "M12 6v6l4 2" })
-                                )
+                                : h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-message-logo" })
                         ),
                         h("div", { className: "chat-message-bubble" }, msg.content),
                         h("div", { className: "chat-message-time" }, msg.time)
@@ -5063,10 +5328,6 @@ function ChatAgent() {
                             h("path", { d: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" })
                         )
                     )
-                ),
-                h("p", { className: "chat-agent-hint" },
-                    h("kbd", null, "Enter"), " para enviar · ",
-                    h("kbd", null, "Shift+Enter"), " para nueva línea"
                 )
             )
         )
@@ -5591,10 +5852,15 @@ function AdminDashboard(props) {
                         h("strong", { className: "admin-card-value" }, String(stats.users)),
                         h("span", { className: "admin-card-note" }, "Cuentas registradas")
                     ),
-                    h("div", { key: "r", className: "admin-card" },
-                        h("span", { className: "admin-card-label" }, "Reseñas totales"),
-                        h("strong", { className: "admin-card-value" }, String(stats.reviews)),
-                        h("span", { className: "admin-card-note" }, "Reseñas publicadas")
+                    h("div", { key: "m", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Películas en catálogo"),
+                        h("strong", { className: "admin-card-value" }, String(stats.movies || 0)),
+                        h("span", { className: "admin-card-note" }, "Títulos disponibles")
+                    ),
+                    h("div", { key: "s", className: "admin-card" },
+                        h("span", { className: "admin-card-label" }, "Series en catálogo"),
+                        h("strong", { className: "admin-card-value" }, String(stats.series || 0)),
+                        h("span", { className: "admin-card-note" }, "Títulos disponibles")
                     ),
                     h("div", { key: "p", className: "admin-card" },
                         h("span", { className: "admin-card-label" }, "Reseñas positivas"),
@@ -5782,7 +6048,7 @@ function AdminDashboard(props) {
                                     ? h("span", { className: "chip" }, "Año: " + selectedContent.year)
                                     : null,
                                 selectedContent.rating
-                                    ? h("span", { className: "chip" }, "★ " + selectedContent.rating)
+                                    ? h("span", { className: "chip chip--rating" }, "★ " + selectedContent.rating)
                                     : null,
                                 selectedContent.runtime
                                     ? h("span", { className: "chip" }, selectedContent.runtime)
@@ -6332,7 +6598,7 @@ function App() {
                 ? h(RegisterPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), questionnaireOnly: true })
                 : page === "cuenta"
                 ? (user
-                    ? h(MiCuenta, { user: user, movies: movies, series: series, loadingList: loadingList, loadingSeries: loadingSeries, onDelete: handleDelete, onDeleteSeries: handleDeleteSeries })
+                    ? h(MiCuenta, { user: user, movies: movies, series: series, loadingList: loadingList, loadingSeries: loadingSeries, onDelete: handleDelete, onDeleteSeries: handleDeleteSeries, onNavigate: navigate })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "perfil"
                 ? h(UserProfile, {

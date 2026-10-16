@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { ReviewModel } = require("../models/reviewModel");
-const { authService } = require("../services/authService");
+const { authService, isAdminUser } = require("../services/authService");
 const geminiService = require("../services/geminiService");
 const ActivityModel = require("../models/activityModel");
 

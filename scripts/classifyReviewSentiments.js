@@ -52,7 +52,7 @@ const maxProcess = limitArg ? Number.parseInt(limitArg.split("=")[1], 10) || 0 :
         console.error("Firestore no está conectado.");
         process.exit(1);
     }
-    console.log(`Modelo Gemini: ${process.env.GEMINI_MODEL || process.env.CHAT_MODEL || "gemini-3.8-flash"}`);
+    console.log(`Modelo Gemini: ${process.env.GEMINI_MODEL || process.env.CHAT_MODEL || "gemini-3.5-flash"}`);
 
     const snap = await db.collection("reviews").limit(20000).get();
     const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));

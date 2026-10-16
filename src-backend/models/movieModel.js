@@ -388,6 +388,207 @@ const MovieModel = {
         const pool = withPoster.length >= want ? withPoster : enriched;
 
         return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
+    },
+
+    // Top por nota desde Firestore: las mejor valoradas del catálogo (con póster y nota válida).
+    getTopRatedFromDb: async ({ limit }) => {
+        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 5, 1), 10);
+
+        let docs = [];
+        if (!db) {
+            return [];
+        } else {
+            try {
+                const snapshot = await db
+                    .collection("movies")
+                    .where("type", "==", "movie")
+                    .limit(500)
+                    .get();
+                snapshot.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (error) {
+                console.error("Error al leer top por nota desde Firestore:", error.message || error);
+                return [];
+            }
+        }
+
+        if (docs.length === 0 && db) {
+            try {
+                const fallback = await db.collection("movies").limit(500).get();
+                fallback.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // Deduplicar: la colección es personal (mismo título guardado por N usuarios).
+        const seen = new Set();
+        const unique = [];
+        for (const m of docs) {
+            const t = String(m.type || "").toLowerCase();
+            if (t && t !== "movie") continue;
+            if (!m.title || !m.poster) continue;
+            const r = Number.parseFloat(m.rating);
+            if (Number.isNaN(r)) continue;
+            const imdb = String(m.imdbID || "").trim().toLowerCase();
+            const key = imdb || ((String(m.title || "").toLowerCase().trim()) + "__" + String(m.year || "").trim());
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(m);
+        }
+
+        // Ordenar por nota descendente y coger las N primeras.
+        unique.sort((a, b) => Number.parseFloat(b.rating) - Number.parseFloat(a.rating));
+
+        return unique.slice(0, want).map(toPopularItem);
+    },
+
+    // Películas por género desde Firestore.
+    // Filtra por género (coincidencia parcial en el string de géneros separado por comas).
+    getByGenreFromDb: async ({ genre, limit }) => {
+        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 200);
+        const genreLower = String(genre || "").trim().toLowerCase();
+
+        let docs = [];
+        if (!db) {
+            return [];
+        } else {
+            try {
+                // Lectura acotada para no disparar los costes de Firestore.
+                const snapshot = await db
+                    .collection("movies")
+                    .where("type", "==", "movie")
+                    .limit(500)
+                    .get();
+                snapshot.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (error) {
+                console.error("Error al leer por género desde Firestore:", error.message || error);
+                return [];
+            }
+        }
+
+        // Filtrar por género en memoria (coincidencia parcial, case-insensitive)
+        let filtered = docs.filter((m) => {
+            const t = String(m.type || "").toLowerCase();
+            if (t && t !== "movie") return false;
+            if (!m.title) return false;
+            const movieGenre = String(m.genre || "").toLowerCase();
+            return movieGenre.includes(genreLower);
+        });
+
+        // Sin tipo en docs antiguos: si el where() no trajo nada, probar sin filtro
+        if (filtered.length === 0 && db) {
+            try {
+                const fallback = await db.collection("movies").limit(500).get();
+                const all = [];
+                fallback.forEach((d) => {
+                    all.push({ id: d.id, ...d.data() });
+                });
+                filtered = all.filter((m) => {
+                    const t = String(m.type || "").toLowerCase();
+                    if (!t) return !!m.title;
+                    if (t !== "movie") return false;
+                    if (!m.title) return false;
+                    const movieGenre = String(m.genre || "").toLowerCase();
+                    return movieGenre.includes(genreLower);
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // Deduplicar: la colección es personal (mismo título guardado por N usuarios).
+        const seen = new Set();
+        const unique = [];
+        for (const m of filtered) {
+            const imdb = String(m.imdbID || "").trim().toLowerCase();
+            const key = imdb || ((String(m.title || "").toLowerCase().trim()) + "__" + String(m.year || "").trim());
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(m);
+        }
+
+        if (unique.length === 0) return [];
+
+        // Enriquecer los items seleccionados con scraping si faltan datos críticos
+        const enriched = await Promise.all(
+            unique.slice(0, want * 2).map(async (m) => {
+                if (!m.poster || !m.genre || m.genre === "Sin género") {
+                    return await MovieModel.enrichMovieData(m);
+                }
+                return m;
+            })
+        );
+
+        // Preferir fichas con póster
+        const withPoster = enriched.filter((m) => !!m.poster);
+        const pool = withPoster.length >= want ? withPoster : enriched;
+
+        return shuffleInPlace([...pool]).slice(0, want).map(toPopularItem);
+    },
+
+    // Top por guardados: las más guardadas por los usuarios (1 guardado por usuario
+    // cuenta una vez por imdbID; cambia solo según lo que guarda la gente).
+    getMostSavedFromDb: async ({ limit }) => {
+        const want = Math.min(Math.max(Number.parseInt(limit, 10) || 5, 1), 10);
+
+        let docs = [];
+        if (!db) {
+            return [];
+        } else {
+            try {
+                const snapshot = await db
+                    .collection("movies")
+                    .where("type", "==", "movie")
+                    .limit(500)
+                    .get();
+                snapshot.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (error) {
+                console.error("Error al leer top por guardados desde Firestore:", error.message || error);
+                return [];
+            }
+        }
+
+        if (docs.length === 0 && db) {
+            try {
+                const fallback = await db.collection("movies").limit(500).get();
+                fallback.forEach((d) => {
+                    docs.push({ id: d.id, ...d.data() });
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // Agrupar por obra (imdbID o título+año) y contar guardados.
+        const groups = new Map();
+        for (const m of docs) {
+            const t = String(m.type || "").toLowerCase();
+            if (t && t !== "movie") continue;
+            if (!m.title) continue;
+            const imdb = String(m.imdbID || "").trim().toLowerCase();
+            const key = imdb || ((String(m.title || "").toLowerCase().trim()) + "__" + String(m.year || "").trim());
+            if (!groups.has(key)) groups.set(key, { saves: 0, best: null });
+            const g = groups.get(key);
+            g.saves += 1;
+            // Representante: preferir ficha con póster (y mejor nota en empate).
+            const cur = g.best;
+            const score = (x) => (x && x.poster ? 1000 : 0) + (Number.parseFloat(x && x.rating) || 0);
+            if (!cur || score(m) > score(cur)) g.best = m;
+        }
+
+        const ranked = [...groups.values()]
+            .filter((g) => g.best && g.best.poster)
+            .sort((a, b) => b.saves - a.saves || (Number.parseFloat(b.best.rating) || 0) - (Number.parseFloat(a.best.rating) || 0));
+
+        return ranked.slice(0, want).map((g) => Object.assign(toPopularItem(g.best), { saves: g.saves }));
     }
 };
 

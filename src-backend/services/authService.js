@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 // Conexión centralizada a Firestore (ver ../models/firebase.js).
 const firebaseConn = require("../models/firebase");
+const { FieldValue } = require("firebase-admin/firestore");
 const db = firebaseConn.getDb();
 if (!firebaseConn.isFirestoreConnected()) {
     console.warn("[auth] Sin Firestore. La autenticación Firebase no estará disponible.");
@@ -21,14 +22,26 @@ function sessionExpiry() {
     return Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
 }
 
+// Preferencias del cuestionario/perfil.
+// OJO: el apodo NO va aquí. Vive en un único campo `users/{email}.nickname`
+// (ver setUserNickname). Antes se duplicaba también en `prefs.nickname`, y como
+// el cuestionario reescribe `prefs` con estos valores por defecto, dejaba el
+// campo de prefs a null y el documento acababa con DOS campos de apodo.
 function defaultPrefs() {
     return {
         favoriteGenres: [],      // máx 3, strings (ej: ["Action", "Drama", "Sci-Fi"])
         likesMovies: null,       // true | false | null
         onboardingDone: false,   // true cuando completó el cuestionario
-        nickname: null,          // apodo visible público
         colorTheme: "default"    // default, vibrant, neon, pastel
     };
+}
+
+// Mismos temas que el front (COLOR_THEMES de public/js/bundle.js).
+const COLOR_THEMES = ["default", "vibrant", "neon", "pastel"];
+
+function cleanColorTheme(raw) {
+    const clean = String(raw || "").trim().toLowerCase();
+    return COLOR_THEMES.includes(clean) ? clean : null;
 }
 
 // ---- Roles (tarea 1: sistema de roles Admin/User) ----
@@ -84,8 +97,17 @@ function hasRole(user, role) {
     return roleOfUser(user) === normalizeRole(role);
 }
 
+// El apodo es la identidad pública y es OPCIONAL: no debe confundirse con el
+// nombre completo. Antes se devolvía `user.name` como apodo cuando no existía,
+// y el front lo pintaba como "@Nombre Apellido" (apodo falso). Ahora, sin apodo
+// se devuelve null y cada pantalla decide su texto de reserva.
 function publicUser(user) {
     const role = roleOfUser(user);
+    const prefs = { ...defaultPrefs(), ...(user.prefs || {}) };
+    // Campo único: `users/{email}.nickname`. Se sigue leyendo `prefs.nickname`
+    // de documentos antiguos, pero nunca se devuelve dentro de prefs.
+    const nickname = String(user.nickname || prefs.nickname || "").trim() || null;
+    delete prefs.nickname;
     return {
         id: user.id,
         name: user.name,
@@ -94,8 +116,9 @@ function publicUser(user) {
         provider: user.provider || (user.passHash ? "password" : "firebase"),
         role,
         isAdmin: role === "admin",
-        nickname: (user.prefs && user.prefs.nickname) || user.nickname || user.name || null,
-        prefs: user.prefs || defaultPrefs()
+        nickname,
+        colorTheme: prefs.colorTheme || "default",
+        prefs
     };
 }
 
@@ -111,7 +134,8 @@ function cardUser(user) {
         nickname: (user.prefs && user.prefs.nickname) || user.nickname || null,
         photoURL: user.photoURL || null,
         provider: user.provider || null,
-        role: normalizeRole(user.role)
+        role: normalizeRole(user.role),
+        nickname: user.nickname || (user.prefs && user.prefs.nickname) || null
     };
 }
 
@@ -242,6 +266,27 @@ async function storedUserById(userId) {
     return Object.assign({ id: doc.id }, doc.data());
 }
 
+// ---- Nickname público y color de tema (los usa el front del equipo) ----
+// El nickname se guarda en el campo propio `nickname` y también dentro de
+// `prefs`, porque el front lee los dos sitios.
+function nicknameOf(user) {
+    if (!user) return "";
+    return String(user.nickname || (user.prefs && user.prefs.nickname) || "").trim().toLowerCase();
+}
+
+function nicknameError(message, code) {
+    const err = new Error(message);
+    err.code = code;
+    return err;
+}
+
+async function findUserByNickname(nickname) {
+    const wanted = String(nickname || "").trim().toLowerCase();
+    if (!wanted) return null;
+    const users = await listStoredUsers();
+    return users.find((user) => nicknameOf(user) === wanted) || null;
+}
+
 // Devuelve un usuario por su id (el doc id de la colección users, normalmente su email).
 async function getUserById(userId) {
     if (!db) {
@@ -257,40 +302,25 @@ async function getUserById(userId) {
 
 async function setUserNickname(userId, nickname) {
     const clean = String(nickname || "").trim().toLowerCase();
-    if (clean.length < 3) {
-        const err = new Error("El apodo debe tener al menos 3 caracteres");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
-    if (clean.length > 30) {
-        const err = new Error("El apodo no puede superar 30 caracteres");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
-    if (!/^[a-z0-9_]+$/.test(clean)) {
-        const err = new Error("El apodo solo puede contener letras, números y guión bajo");
-        err.code = "INVALID_NICKNAME";
-        throw err;
-    }
+    if (clean.length < 3) throw nicknameError("El apodo debe tener al menos 3 caracteres", "INVALID_NICKNAME");
+    if (clean.length > 30) throw nicknameError("El apodo no puede superar 30 caracteres", "INVALID_NICKNAME");
+    if (!/^[a-z0-9_.-]+$/.test(clean)) throw nicknameError("El apodo solo puede contener letras, números, guión bajo (_), guion (-) y punto (.)", "INVALID_NICKNAME");
     const owner = String(userId || "").trim().toLowerCase();
     const existing = await findUserByNickname(clean);
     if (existing && String(existing.id || "").toLowerCase() !== owner) {
-        const err = new Error("Ese apodo ya está en uso");
-        err.code = "NICKNAME_TAKEN";
-        throw err;
+        throw nicknameError("Ese apodo ya está en uso", "NICKNAME_TAKEN");
     }
 
     const user = await storedUserById(userId);
-    const prefs = { ...defaultPrefs(), ...(user && user.prefs), nickname: clean };
     if (!db) {
         if (user) {
             user.nickname = clean;
-            user.prefs = prefs;
             localUsers.set(String(user.email || owner).toLowerCase(), user);
         }
         return clean;
     }
-    await db.collection("users").doc(String(userId)).set({ nickname: clean, prefs }, { merge: true });
+    // Un único campo: `users/{email}.nickname`. `prefs` ya no guarda el apodo.
+    await db.collection("users").doc(String(userId)).set({ nickname: clean }, { merge: true });
     return clean;
 }
 
@@ -352,6 +382,9 @@ async function saveUserPrefs(userId, prefs) {
 
 async function updateUserPrefs(userId, prefs) {
     const merged = { ...defaultPrefs(), ...prefs };
+    // Defensa: el apodo nunca se guarda en prefs. Así el cuestionario (que
+    // reescribe prefs entero) no puede borrarlo ni recrear el campo duplicado.
+    delete merged.nickname;
     if (!db) {
         const u = localUsers.get(userId);
         if (u) {
@@ -360,7 +393,10 @@ async function updateUserPrefs(userId, prefs) {
         }
         return merged;
     }
-    await db.collection("users").doc(userId).set({ prefs: merged }, { merge: true });
+    await db.collection("users").doc(userId).set(
+        { prefs: merged, "prefs.nickname": FieldValue.delete() },
+        { merge: true }
+    );
     return merged;
 }
 
@@ -475,31 +511,26 @@ const authService = {
         return merged;
     },
 
-    // Actualiza el perfil público: apodo único y tema de color. Lo usa la
-    // pantalla de Configuración de perfil; antes la ruta llamaba a un método
-    // inexistente, así que ni el apodo ni el tema llegaban a guardarse.
+    // ---- Perfil público: apodo único + tema (PUT /api/auth/profile) ----
+    // El apodo se valida y se reserva con setUserNickname (único y normalizado);
+    // el tema se guarda en prefs. Devuelve las prefs resultantes.
     updateProfile: async (token, { nickname, colorTheme } = {}) => {
         const session = await readSession(token);
         if (!session) return null;
-        const cleanTheme = String(colorTheme || "").trim().toLowerCase();
-        if (cleanTheme && USER_THEMES.indexOf(cleanTheme) === -1) {
-            const err = new Error("Tema de color inválido");
-            err.code = "INVALID_THEME";
-            throw err;
-        }
-        const cleanNickname = String(nickname || "").trim();
-        // El apodo tiene su propia validación (único, minúsculas y 3-30 caracteres).
-        if (cleanNickname) await setUserNickname(session.userId, cleanNickname);
 
-        const user = await authService.getById(session.userId);
-        const prefs = { ...defaultPrefs(), ...((user && user.prefs) || {}) };
-        if (cleanNickname) prefs.nickname = nicknameOf(user) || null;
-        if (cleanTheme) prefs.colorTheme = cleanTheme;
-        await saveUserPrefs(session.userId, prefs);
-        return {
-            nickname: prefs.nickname || null,
-            colorTheme: prefs.colorTheme || "default"
-        };
+        let savedNickname = null;
+        if (nickname !== undefined && nickname !== null && String(nickname).trim() !== "") {
+            savedNickname = await setUserNickname(session.userId, nickname);
+        }
+
+        const user = await storedUserById(session.userId);
+        const prefs = { ...defaultPrefs(), ...(user && user.prefs) };
+        // El apodo solo vive en `users/{email}.nickname`: no se copia a prefs.
+        delete prefs.nickname;
+        const theme = cleanColorTheme(colorTheme);
+        if (theme) prefs.colorTheme = theme;
+
+        return updateUserPrefs(session.userId, prefs);
     },
 
     // ---- Usuarios (amistades, Top 5 y administración) ----
@@ -514,8 +545,24 @@ const authService = {
         return socialProfile(user);
     },
 
-    // Busca usuarios por nombre, apodo o email (para encontrar amigos y abrir su
-    // perfil). Devuelve la tarjeta pública (`cardUser`) con el apodo incluido.
+    setTop5strict: async (userId, items) => {
+        if (!userId || !Array.isArray(items)) throw new Error("Lista de favoritas inválida");
+        const top5 = items.slice(0, 5).map(cleanTop5Item);
+        if (!db) {
+            const user = localUsers.get(userId);
+            if (user) {
+                user.top5 = top5;
+                localUsers.set(userId, user);
+            }
+            return top5;
+        }
+        await db.collection("users").doc(userId).set({ top5 }, { merge: true });
+        return top5;
+    },
+    // Sesión técnica a partir del token (la usan las rutas de auth/nickname).
+    readSession: async (token) => readSession(token),
+
+    // Busca usuarios por nombre o email (para añadir amigos).
     searchUsers: async (query, { excludeId, limit } = {}) => {
         const q = String(query || "").trim().toLowerCase();
         const max = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 50);
@@ -529,7 +576,8 @@ const authService = {
                 return String(user.name || "").toLowerCase().includes(q)
                     || nicknameOf(user).includes(q)
                     || String(user.email || "").toLowerCase().includes(q)
-                    || String(user.id).toLowerCase().includes(q);
+                    || String(user.id).toLowerCase().includes(q)
+                    || String(user.nickname || (user.prefs && user.prefs.nickname) || "").toLowerCase().includes(q);
             })
             .slice(0, max)
             .map(cardUser);
@@ -617,6 +665,174 @@ const authService = {
         return clean;
     },
 
+    // Busca usuarios por nombre/apodo (para a├▒adir amigos)
+    // Sistema de seguimiento (follow/unfollow)
+    followUser: async (token, targetUserId) => {
+        const session = await readSession(token);
+        if (!session) return null;
+        if (session.userId === targetUserId) throw new Error("No puedes seguirte a ti mismo");
+
+        if (!db) {
+            const me = localUsers.get(session.userId);
+            const target = localUsers.get(targetUserId);
+            if (!me || !target) throw new Error("Usuario no encontrado");
+            me.following = me.following || [];
+            target.followers = target.followers || [];
+            if (!me.following.includes(targetUserId)) me.following.push(targetUserId);
+            if (!target.followers.includes(session.userId)) target.followers.push(session.userId);
+            localUsers.set(session.userId, me);
+            localUsers.set(targetUserId, target);
+            return { ok: true };
+        }
+
+        const meRef = db.collection("users").doc(session.userId);
+        const targetRef = db.collection("users").doc(targetUserId);
+
+        await db.runTransaction(async (transaction) => {
+            const meDoc = await transaction.get(meRef);
+            const targetDoc = await transaction.get(targetRef);
+            if (!meDoc.exists || !targetDoc.exists) throw new Error("Usuario no encontrado");
+
+            const meData = meDoc.data();
+            const targetData = targetDoc.data();
+
+            const following = meData.following || [];
+            const followers = targetData.followers || [];
+
+            if (!following.includes(targetUserId)) {
+                following.push(targetUserId);
+                transaction.update(meRef, { following });
+            }
+            if (!followers.includes(session.userId)) {
+                followers.push(session.userId);
+                transaction.update(targetRef, { followers });
+            }
+        });
+        return { ok: true };
+    },
+
+    unfollowUser: async (token, targetUserId) => {
+        const session = await readSession(token);
+        if (!session) return null;
+        if (session.userId === targetUserId) throw new Error("No puedes dejar de seguirte a ti mismo");
+
+        if (!db) {
+            const me = localUsers.get(session.userId);
+            const target = localUsers.get(targetUserId);
+            if (!me || !target) throw new Error("Usuario no encontrado");
+            me.following = (me.following || []).filter((id) => id !== targetUserId);
+            target.followers = (target.followers || []).filter((id) => id !== session.userId);
+            localUsers.set(session.userId, me);
+            localUsers.set(targetUserId, target);
+            return { ok: true };
+        }
+
+        const meRef = db.collection("users").doc(session.userId);
+        const targetRef = db.collection("users").doc(targetUserId);
+
+        await db.runTransaction(async (transaction) => {
+            const meDoc = await transaction.get(meRef);
+            const targetDoc = await transaction.get(targetRef);
+            if (!meDoc.exists || !targetDoc.exists) throw new Error("Usuario no encontrado");
+
+            const meData = meDoc.data();
+            const targetData = targetDoc.data();
+
+            const following = (meData.following || []).filter((id) => id !== targetUserId);
+            const followers = (targetData.followers || []).filter((id) => id !== session.userId);
+
+            transaction.update(meRef, { following });
+            transaction.update(targetRef, { followers });
+        });
+        return { ok: true };
+    },
+
+    getFollowing: async (token) => {
+        const session = await readSession(token);
+        if (!session) return null;
+        let user = null;
+        if (!db) {
+            user = localUsers.get(session.userId);
+        } else {
+            const doc = await db.collection("users").doc(session.userId).get();
+            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
+        }
+        if (!user) return [];
+
+        const followingIds = user.following || [];
+        if (followingIds.length === 0) return [];
+
+        let followingUsers = [];
+        if (!db) {
+            for (const id of followingIds) {
+                const u = localUsers.get(id);
+                if (u) followingUsers.push(publicUser(u));
+            }
+        } else {
+            const snapshot = await db.collection("users").where("__name__", "in", followingIds).get();
+            snapshot.forEach((doc) => {
+                followingUsers.push(publicUser(Object.assign({ id: doc.id }, doc.data())));
+            });
+        }
+        return followingUsers;
+    },
+
+    getFollowers: async (token) => {
+        const session = await readSession(token);
+        if (!session) return null;
+        let user = null;
+        if (!db) {
+            user = localUsers.get(session.userId);
+        } else {
+            const doc = await db.collection("users").doc(session.userId).get();
+            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
+        }
+        if (!user) return [];
+
+        const followerIds = user.followers || [];
+        if (followerIds.length === 0) return [];
+
+        let followerUsers = [];
+        if (!db) {
+            for (const id of followerIds) {
+                const u = localUsers.get(id);
+                if (u) followerUsers.push(publicUser(u));
+            }
+        } else {
+            const snapshot = await db.collection("users").where("__name__", "in", followerIds).get();
+            snapshot.forEach((doc) => {
+                followerUsers.push(publicUser(Object.assign({ id: doc.id }, doc.data())));
+            });
+        }
+        return followerUsers;
+    },
+
+    getUserMovies: async (userId) => {
+        if (!userId) return [];
+        const { MovieModel } = require("../models/movieModel");
+        return MovieModel.getAllMovies(userId);
+    },
+
+    getUserSeries: async (userId) => {
+        if (!userId) return [];
+        const { SeriesModel } = require("../models/seriesModel");
+        return SeriesModel.getAllSeries(userId);
+    },
+
+    isFollowing: async (token, targetUserId) => {
+        const session = await readSession(token);
+        if (!session) return false;
+        let user = null;
+        if (!db) {
+            user = localUsers.get(session.userId);
+        } else {
+            const doc = await db.collection("users").doc(session.userId).get();
+            if (doc.exists) user = Object.assign({ id: doc.id }, doc.data());
+        }
+        if (!user) return false;
+        return (user.following || []).includes(targetUserId);
+    },
+
     // ---- Ayuda para desarrollo/pruebas ----
     // Crea (o reutiliza) un usuario local y una sesión sin Firebase. Solo
     // funciona en modo local: con Firestore conectado lanza NOT_LOCAL_MODE.
@@ -659,5 +875,6 @@ module.exports = {
     getUserById,
     nicknameOf,
     listStoredUsers,
-    validateTop5
+    validateTop5,
+    readSession
 };
