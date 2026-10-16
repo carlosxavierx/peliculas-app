@@ -654,7 +654,6 @@ function SiteHeader(props) {
                         userMenuOpen && h("div", { className: "user-dropdown" },
                             h("button", { className: "dropdown-item", onClick: () => go("cuenta") }, "Mi cuenta"),
                             h("button", { className: "dropdown-item", onClick: () => go("perfil") }, "Mi perfil público"),
-                            h("button", { className: "dropdown-item", onClick: () => go("buscar-usuarios") }, "Buscar Usuarios"),
                             h("button", { className: "dropdown-item", onClick: () => go("amigos") }, "Amigos"),
                             h("button", { className: "dropdown-item", onClick: () => go("configuracion") }, "Configuración"),
                             isAdmin(user) && h("hr", { className: "dropdown-divider" }),
@@ -5122,10 +5121,6 @@ function ChatAgent() {
                             h("path", { d: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" })
                         )
                     )
-                ),
-                h("p", { className: "chat-agent-hint" },
-                    h("kbd", null, "Enter"), " para enviar · ",
-                    h("kbd", null, "Shift+Enter"), " para nueva línea"
                 )
             )
         )
