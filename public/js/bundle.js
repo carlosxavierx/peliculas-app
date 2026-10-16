@@ -2850,8 +2850,9 @@ function MiCuenta(props) {
         fetch("/api/users/me/top5", { headers: authHeaders() })
             .then(r => r.json())
             .then(data => {
-                if (alive && Array.isArray(data.results)) {
-                    setTop5(data.results);
+                const list = Array.isArray(data.top5) ? data.top5 : data.results;
+                if (alive && Array.isArray(list)) {
+                    setTop5(list);
                 }
             })
             .catch(() => { /* silencioso */ });
@@ -3434,207 +3435,492 @@ function ProfileMarathons(props) {
     );
 }
 
-/* ---------- UserProfile: perfil público de otro usuario ---------- */
+/* ---------- UserProfile: perfil público de un usuario ----------
+   Se abre al pulsar a alguien en «Buscar» o en «Amistades», sea amigo o no:
+   enseña su presentación, sus 5 favoritas, sus maratones y su colección
+   guardada. El email y todo lo relacionado con la cuenta se quedan fuera de la
+   ruta pública (`socialProfile` en el backend). Los botones que aparecen salen
+   del estado real de amistad que devuelve `/api/users/:id/relationship`. */
+
+// Método de acceso, en lenguaje humano (ficha pública; nunca se muestra el email).
+function providerLabel(provider) {
+    const key = String(provider || "").trim().toLowerCase();
+    if (key === "google" || key === "google.com") return "Cuenta de Google";
+    if (key === "password" || key === "firebase") return "Cuenta de correo";
+    if (key === "local") return "Cuenta local";
+    return "";
+}
+
 function UserProfile(props) {
-    const userId = props.userId;
-    const currentUser = props.currentUser;
+    const userId = props.userId || null;
+    const currentUser = props.currentUser || null;
     const onNavigate = props.onNavigate;
+    const currentUserId = currentUser ? currentUser.id : null;
     const profileState = React.useState(null);
     const profile = profileState[0];
     const setProfile = profileState[1];
-    const moviesState = React.useState([]);
-    const movies = moviesState[0];
-    const setMovies = moviesState[1];
     const loadingState = React.useState(true);
     const loading = loadingState[0];
     const setLoading = loadingState[1];
-    const followingState = React.useState(false);
-    const isFollowing = followingState[0];
-    const setIsFollowing = followingState[1];
-    const followLoadingState = React.useState(false);
-    const followLoading = followLoadingState[0];
-    const setFollowLoading = followLoadingState[1];
-    const detailState = React.useState(null);
-    const detail = detailState[0];
-    const setDetail = detailState[1];
-    const detailLoadingState = React.useState(false);
-    const detailLoading = detailLoadingState[0];
-    const setDetailLoading = detailLoadingState[1];
+    const errorState = React.useState(null);
+    const error = errorState[0];
+    const setError = errorState[1];
+    const moviesState = React.useState([]);
+    const movies = moviesState[0];
+    const setMovies = moviesState[1];
+    const seriesState = React.useState([]);
+    const series = seriesState[0];
+    const setSeries = seriesState[1];
+    const top5State = React.useState([]);
+    const top5 = top5State[0];
+    const setTop5 = top5State[1];
     const marathonsState = React.useState(null);
     const marathonsData = marathonsState[0];
     const setMarathonsData = marathonsState[1];
+    const relationshipState = React.useState(null);
+    const relationship = relationshipState[0];
+    const setRelationship = relationshipState[1];
+    const actionBusyState = React.useState(false);
+    const actionBusy = actionBusyState[0];
+    const setActionBusy = actionBusyState[1];
+    const noticeState = React.useState(null);
+    const notice = noticeState[0];
+    const setNotice = noticeState[1];
+    const detailState = React.useState(null);
+    const detail = detailState[0];
+    const setDetail = detailState[1];
+    const detailTypeState = React.useState("movie");
+    const detailType = detailTypeState[0];
+    const setDetailType = detailTypeState[1];
+    const detailLoadingState = React.useState(false);
+    const detailLoading = detailLoadingState[0];
+    const setDetailLoading = detailLoadingState[1];
+    const reviewsDetailState = React.useState(null);
+    const reviewsDetail = reviewsDetailState[0];
+    const setReviewsDetail = reviewsDetailState[1];
+    const reviewsMediaState = React.useState("movie");
+    const reviewsMediaType = reviewsMediaState[0];
+    const setReviewsMediaType = reviewsMediaState[1];
 
+    // Ficha pública del usuario seleccionado.
     const loadProfile = async () => {
+        if (!userId) {
+            setProfile(null);
+            setError("No se ha indicado ningún usuario");
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        setError(null);
         try {
             const res = await fetch("/api/users/" + encodeURIComponent(userId));
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Usuario no encontrado");
             setProfile(data.user);
-            if (currentUser) {
-                const followRes = await fetch("/api/users/" + encodeURIComponent(userId) + "/is-following", {
-                    headers: authHeaders()
-                });
-                const followData = await followRes.json();
-                setIsFollowing(followData.following || false);
-            }
         } catch (e) {
             setProfile(null);
+            setError(e.message || "Usuario no encontrado");
         } finally {
             setLoading(false);
         }
     };
 
-    const loadMovies = async () => {
-        try {
-            const res = await fetch("/api/users/" + encodeURIComponent(userId) + "/movies");
-            const data = await res.json();
-            setMovies(Array.isArray(data.movies) ? data.movies : []);
-        } catch (e) {
-            setMovies([]);
-        }
+    // Todo lo demás se carga en paralelo y cada bloque que falle se queda vacío:
+    // un perfil no se rompe entero porque una sección no responda.
+    const loadCollections = async () => {
+        if (!userId) return;
+        const id = encodeURIComponent(userId);
+        const readJson = (url) => fetch(url).then((r) => r.json()).catch(() => ({}));
+        const [moviesRes, seriesRes, top5Res, marathonsRes] = await Promise.all([
+            readJson("/api/users/" + id + "/movies"),
+            readJson("/api/users/" + id + "/series"),
+            readJson("/api/users/" + id + "/top5"),
+            readJson("/api/users/" + id + "/marathons")
+        ]);
+        setMovies(Array.isArray(moviesRes.movies) ? moviesRes.movies : []);
+        setSeries(Array.isArray(seriesRes.series) ? seriesRes.series : []);
+        setTop5(Array.isArray(top5Res.top5) ? top5Res.top5 : []);
+        setMarathonsData(marathonsRes && Array.isArray(marathonsRes.marathons) ? marathonsRes : null);
     };
 
-    // Maratones del usuario: el mismo resumen público que sirve la API de
-    // usuarios, para que amigos y seguidores vean por dónde va.
-    const loadMarathons = async () => {
+    // Estado de amistad real entre la sesión y este perfil (decide los botones).
+    const loadRelationship = async () => {
+        if (!userId || !currentUserId) {
+            setRelationship(null);
+            return;
+        }
+        if (currentUserId === userId) {
+            setRelationship({ status: "self", requestId: null });
+            return;
+        }
         try {
-            const res = await fetch("/api/users/" + encodeURIComponent(userId) + "/marathons");
+            const res = await fetch("/api/users/" + encodeURIComponent(userId) + "/relationship", {
+                headers: authHeaders()
+            });
             const data = await res.json();
-            setMarathonsData(res.ok ? data : null);
+            setRelationship(res.ok ? data : { status: "none", requestId: null });
         } catch (e) {
-            setMarathonsData(null);
+            setRelationship({ status: "none", requestId: null });
         }
     };
 
     React.useEffect(() => {
         loadProfile();
-        loadMovies();
-        loadMarathons();
-    }, [userId]);
+        loadCollections();
+        loadRelationship();
+    }, [userId, currentUserId]);
 
-    const handleFollow = async () => {
-        if (!currentUser) {
-            onNavigate("auth");
-            return;
-        }
-        setFollowLoading(true);
+    // ---- Acciones de amistad: se confirman contra la API, nunca "a lo optimista".
+    const friendshipAction = async (request, onDone) => {
+        setActionBusy(true);
+        setNotice(null);
         try {
-            if (isFollowing) {
-                await fetch("/api/users/" + encodeURIComponent(userId) + "/follow", {
-                    method: "DELETE",
-                    headers: authHeaders()
-                });
-                setIsFollowing(false);
-            } else {
-                await fetch("/api/users/" + encodeURIComponent(userId) + "/follow", {
-                    method: "POST",
-                    headers: authHeaders()
-                });
-                setIsFollowing(true);
-            }
+            const res = await request();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "No se pudo completar la acción");
+            onDone(data);
         } catch (e) {
-            // error silencioso
+            setNotice({ type: "error", text: e.message || "No se pudo completar la acción" });
         } finally {
-            setFollowLoading(false);
+            setActionBusy(false);
         }
     };
 
-    const openDetail = async (movie) => {
-        if (movie.plot || movie.director) {
-            setDetail(movie);
+    const jsonHeaders = () => Object.assign({ "Content-Type": "application/json" }, authHeaders());
+    const requestId = relationship ? relationship.requestId : null;
+
+    const addFriend = () => friendshipAction(
+        () => fetch("/api/auth/friends/request", {
+            method: "POST",
+            headers: jsonHeaders(),
+            body: JSON.stringify({ to: userId })
+        }),
+        (data) => {
+            setRelationship({ status: "request-sent", requestId: data.request ? data.request.id : null });
+            setNotice({ type: "success", text: "Solicitud de amistad enviada." });
+        }
+    );
+
+    const cancelRequest = () => friendshipAction(
+        () => fetch("/api/auth/friends/request/" + encodeURIComponent(requestId || ""), {
+            method: "DELETE",
+            headers: authHeaders()
+        }),
+        () => {
+            setRelationship({ status: "none", requestId: null });
+            setNotice({ type: "success", text: "Solicitud cancelada." });
+        }
+    );
+
+    const acceptRequest = () => friendshipAction(
+        () => fetch("/api/auth/friends/request/accept", {
+            method: "POST",
+            headers: jsonHeaders(),
+            body: JSON.stringify({ requestId })
+        }),
+        () => {
+            setRelationship({ status: "friends", requestId });
+            setNotice({ type: "success", text: "Ya sois amigos." });
+        }
+    );
+
+    const declineRequest = () => friendshipAction(
+        () => fetch("/api/auth/friends/request/decline", {
+            method: "POST",
+            headers: jsonHeaders(),
+            body: JSON.stringify({ requestId })
+        }),
+        () => {
+            setRelationship({ status: "none", requestId: null });
+            setNotice({ type: "success", text: "Solicitud rechazada." });
+        }
+    );
+
+    const removeFriend = () => {
+        const who = (profile && (profile.nickname || profile.name)) || "este usuario";
+        if (!window.confirm("¿Eliminar a " + who + " de tus amigos?")) return;
+        friendshipAction(
+            () => fetch("/api/auth/friends/" + encodeURIComponent(userId), {
+                method: "DELETE",
+                headers: authHeaders()
+            }),
+            () => {
+                setRelationship({ status: "none", requestId: null });
+                setNotice({ type: "success", text: "Amistad eliminada." });
+            }
+        );
+    };
+
+    // Ficha completa de una obra: la guardada o, si le faltan datos, la del
+    // catálogo (películas y series tienen su propia ruta de detalle).
+    const openDetail = async (item, forcedType) => {
+        if (!item) return;
+        const media = forcedType || item.mediaType || item.type || "movie";
+        const kind = media === "series" ? "series" : "movie";
+        setDetailType(kind);
+        if (item.plot || item.director) {
+            setDetail(item);
             return;
         }
         setDetailLoading(true);
         try {
-            const url = movie.imdbID
-                ? "/api/movies/search?i=" + encodeURIComponent(movie.imdbID)
-                : "/api/movies/search?t=" + encodeURIComponent(movie.title);
+            const base = kind === "series" ? "/api/series/search" : "/api/movies/search";
+            const url = item.imdbID
+                ? base + "?i=" + encodeURIComponent(item.imdbID)
+                : base + "?t=" + encodeURIComponent(item.title || "");
             const res = await fetch(url);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo cargar el detalle");
             setDetail(data);
         } catch (err) {
-            setDetail(movie);
+            setDetail(item);
         } finally {
             setDetailLoading(false);
         }
     };
+    const openDetailMovie = (m) => openDetail(m, "movie");
+    const openDetailSeries = (s) => openDetail(s, "series");
+    const openReviews = (item, forcedType) => {
+        const media = forcedType || item.mediaType || item.type || "movie";
+        setReviewsMediaType(media === "series" ? "series" : "movie");
+        setReviewsDetail(item);
+    };
 
     if (loading) return h("div", { className: "movies-page" }, h("p", { className: "muted" }, "Cargando perfil..."));
-    if (!profile) return h("div", { className: "movies-page" }, h("p", { className: "error" }, "Usuario no encontrado"));
+    if (!profile) {
+        return h("div", { className: "movies-page" },
+            h("p", { className: "error" }, error || "Usuario no encontrado"),
+            currentUser
+                ? h("button", { className: "btn-ghost", onClick: () => onNavigate("buscar-usuarios") }, "Volver a buscar usuarios")
+                : h("button", { className: "btn-ghost", onClick: () => onNavigate("login") }, "Iniciar sesión")
+        );
+    }
 
-    const isOwnProfile = currentUser && currentUser.id === profile.id;
-    const shown = movies || [];
-    const recent = shown.slice(0, 10);
+    const isOwnProfile = !!currentUserId && String(currentUserId).toLowerCase() === String(profile.id).toLowerCase();
+    const displayName = profile.nickname || profile.name || "Usuario";
+    const handle = profile.nickname ? "@" + profile.nickname : null;
+    const fullName = profile.nickname && profile.name && profile.name !== profile.nickname ? profile.name : null;
+    const genres = Array.isArray(profile.favoriteGenres) ? profile.favoriteGenres : [];
+    const status = isOwnProfile ? "self" : (relationship ? relationship.status : "none");
+    const relationshipLoading = !isOwnProfile && !!currentUser && relationship === null;
+    const actionDisabled = actionBusy || relationshipLoading;
+    const recentMovies = movies.slice(0, 10);
+    const recentSeries = series.slice(0, 10);
+    const marathonStats = (marathonsData && marathonsData.stats) || {};
+    const unlockedAchievements = marathonsData && Array.isArray(marathonsData.achievements)
+        ? marathonsData.achievements.filter((a) => a.unlocked).length
+        : 0;
 
-    return h("div", { className: "movies-page" },
+    let actionArea;
+    if (isOwnProfile) {
+        actionArea = [
+            h("button", { key: "edit", className: "btn-primary", onClick: () => onNavigate("configuracion") }, "Editar mi perfil"),
+            h("button", { key: "cuenta", className: "btn-ghost", onClick: () => onNavigate("cuenta") }, "Mi cuenta")
+        ];
+    } else if (!currentUser) {
+        actionArea = h("button", { className: "btn-primary", onClick: () => onNavigate("login") }, "Inicia sesión para añadir como amigo");
+    } else if (status === "friends") {
+        actionArea = [
+            h("span", { key: "badge", className: "friend-badge" }, "✓ Amigos"),
+            h("button", { key: "amistades", className: "btn-ghost", onClick: () => onNavigate("amistades") }, "Ver en Amistades"),
+            h("button", {
+                key: "remove",
+                className: "btn-ghost btn-small danger",
+                onClick: removeFriend,
+                disabled: actionBusy
+            }, "Eliminar amigo")
+        ];
+    } else if (status === "request-sent") {
+        actionArea = [
+            h("span", { key: "badge", className: "friend-badge pending" }, "Solicitud enviada"),
+            h("button", {
+                key: "cancel",
+                className: "btn-ghost btn-small",
+                onClick: cancelRequest,
+                disabled: actionDisabled
+            }, "Cancelar solicitud")
+        ];
+    } else if (status === "request-received") {
+        actionArea = [
+            h("button", {
+                key: "accept",
+                className: "btn-primary",
+                onClick: acceptRequest,
+                disabled: actionDisabled
+            }, actionBusy ? "..." : "Aceptar solicitud"),
+            h("button", {
+                key: "decline",
+                className: "btn-ghost btn-small",
+                onClick: declineRequest,
+                disabled: actionDisabled
+            }, "Rechazar")
+        ];
+    } else {
+        actionArea = h("button", {
+            className: "btn-primary",
+            onClick: addFriend,
+            disabled: actionDisabled
+        }, actionBusy ? "Enviando..." : "Añadir amigo");
+    }
+
+    return h("div", { className: "movies-page profile-page" },
         h("div", { className: "profile-header" },
             h("div", { className: "profile-avatar" },
-                profile.photoURL ? h("img", { src: profile.photoURL, alt: profile.nickname || profile.name, "data-img-fallback": "avatar" }) : h("span", null, (profile.nickname || profile.name || "U")[0].toUpperCase())
+                profile.photoURL
+                    ? h("img", { src: profile.photoURL, alt: displayName, "data-img-fallback": "avatar" })
+                    : h("span", null, displayName[0].toUpperCase())
             ),
             h("div", { className: "profile-info" },
-                h("h1", null, profile.nickname || profile.name),
-                h("p", { className: "muted" }, "@" + (profile.id.split("@")[0] || profile.id)),
-                !isOwnProfile && currentUser && h("button", {
-                    className: "btn-primary" + (isFollowing ? " following" : ""),
-                    onClick: handleFollow,
-                    disabled: followLoading
-                }, followLoading ? "..." : (isFollowing ? "Dejar de seguir" : "Seguir"))
-            )
+                h("h1", null, displayName),
+                handle ? h("p", { className: "profile-handle" }, handle) : null,
+                h("p", { className: "muted" },
+                    [
+                        fullName,
+                        profile.joinedAt
+                            ? "Miembro desde " + new Date(profile.joinedAt).toLocaleDateString("es-ES")
+                            : "Perfil público de CineAIros",
+                        providerLabel(profile.provider) || null
+                    ].filter(Boolean).join(" · ")
+                ),
+                isOwnProfile ? h("p", { className: "muted" }, "Así ven tu perfil los demás usuarios.") : null,
+                genres.length > 0
+                    ? h("div", { className: "profile-chips" },
+                        genres.map((g) => h("span", { key: g, className: "chip" }, genreLabel(g))))
+                    : null,
+                notice ? h("p", { className: "profile-notice " + notice.type }, notice.text) : null
+            ),
+            h("div", { className: "profile-actions" }, actionArea)
         ),
         h("div", { className: "hero-stats account-stats" },
-            h("div", null, h("strong", null, String(shown.length)), h("span", null, "películas")),
-            h("div", null, h("strong", null, profile.prefs?.followers?.length || 0), h("span", null, "seguidores")),
-            h("div", null, h("strong", null, profile.prefs?.following?.length || 0), h("span", null, "siguiendo"))
+            h("div", null, h("strong", null, String(movies.length)), h("span", null, "películas")),
+            h("div", null, h("strong", null, String(series.length)), h("span", null, "series")),
+            h("div", null, h("strong", null, String(marathonStats.completed || 0)), h("span", null, "maratones")),
+            h("div", null, h("strong", null, String(unlockedAchievements)), h("span", null, "insignias"))
         ),
         h(ProfileMarathons, {
             data: marathonsData,
-            name: profile.nickname || profile.name,
+            name: displayName,
             isOwnProfile: isOwnProfile,
             onNavigate: onNavigate
         }),
-        detailLoading ? h("p", { className: "muted" }, "Cargando detalle...") : null,
-        h(MovieCarousel, {
-            title: "Guardadas Recientemente",
-            subtitle: "Películas de " + (profile.nickname || profile.name),
-            movies: recent,
-            onDelete: null,
-            onDetail: openDetail,
-            showDelete: false,
-            emptyText: "Aún no ha guardado películas"
-        }),
-        h("h2", null, "Todas las Películas"),
-        h("div", { className: "movies-grid" },
-            shown.map((movie) =>
-                h(MovieCard, { key: movie.id, movie: movie, onDelete: null, onDetail: openDetail, showDelete: false })
+        h("section", { id: "favoritas", className: "account-section" },
+            h("h2", null, "⭐ " + (isOwnProfile ? "Mis" : "Sus") + " 5 favoritas"),
+            top5.length === 0
+                ? h("p", { className: "muted" },
+                    isOwnProfile
+                        ? "Todavía no has elegido tus 5 favoritas."
+                        : displayName + " todavía no ha elegido sus 5 favoritas.")
+                : h("div", { className: "top5-grid" },
+                    top5.map((item, idx) => h("article", {
+                        key: (item.imdbID || item.title || "favorita") + "-" + idx,
+                        className: "top5-card",
+                        title: item.title || "",
+                        onClick: () => openDetail(item, item.type === "series" ? "series" : "movie")
+                    },
+                        h("span", { className: "top5-rank" }, String(idx + 1)),
+                        h("img", { src: item.poster || POSTER_FALLBACK, alt: item.title || "", loading: "lazy" }),
+                        h("div", { className: "top5-card-body" },
+                            h("strong", null, item.title || "Sin título"),
+                            h("span", { className: "muted" }, (item.year || "----") + " · " + (item.type === "series" ? "Serie" : "Película"))
+                        )
+                    ))
+                )
+        ),
+        h("section", { id: "peliculas-recientes", className: "account-section" },
+            h("h2", null, "🎬 Películas guardadas recientemente"),
+            detailLoading && detailType === "movie" ? h("p", { className: "muted" }, "Cargando detalle...") : null,
+            h(MovieCarousel, {
+                title: "Guardadas recientemente",
+                subtitle: "Últimas películas de " + displayName,
+                movies: recentMovies,
+                onDelete: null,
+                onDetail: openDetailMovie,
+                showDelete: false,
+                emptyText: isOwnProfile ? "Aún no has guardado películas." : displayName + " no ha guardado películas."
+            })
+        ),
+        h("section", { id: "todas-peliculas", className: "account-section" },
+            h("h2", null, "📁 Todas las películas (" + movies.length + ")"),
+            h("div", { className: "movies-grid" },
+                movies.map((movie) => h(MovieCard, {
+                    key: movie.id,
+                    movie: movie,
+                    mediaType: "movie",
+                    onDelete: null,
+                    onDetail: openDetailMovie,
+                    showDelete: false
+                }))
+            )
+        ),
+        h("section", { id: "series-recientes", className: "account-section" },
+            h("h2", null, "📺 Series guardadas recientemente"),
+            detailLoading && detailType === "series" ? h("p", { className: "muted" }, "Cargando detalle...") : null,
+            h(MovieCarousel, {
+                title: "Últimas series",
+                subtitle: "Series de " + displayName,
+                movies: recentSeries,
+                onDelete: null,
+                onDetail: openDetailSeries,
+                showDelete: false,
+                emptyText: isOwnProfile ? "Aún no has guardado series." : displayName + " no ha guardado series."
+            })
+        ),
+        h("section", { id: "todas-series", className: "account-section" },
+            h("h2", null, "📁 Todas las series (" + series.length + ")"),
+            h("div", { className: "movies-grid" },
+                series.map((serie) => h(MovieCard, {
+                    key: serie.id,
+                    movie: Object.assign({}, serie, { mediaType: "series" }),
+                    mediaType: "series",
+                    onDelete: null,
+                    onDetail: openDetailSeries,
+                    showDelete: false
+                }))
             )
         ),
         detail ? h("div", { className: "modal-backdrop", onClick: () => setDetail(null) },
             h("div", { className: "modal", onClick: (e) => e.stopPropagation() },
                 h("button", { className: "modal-close", onClick: () => setDetail(null) }, "✕"),
                 h("div", { className: "modal-content" },
-                    h("img", {
-                        src: detail.poster || POSTER_FALLBACK,
-                        alt: detail.title
-                    }),
+                    h("img", { src: detail.poster || POSTER_FALLBACK, alt: detail.title }),
                     h("div", null,
-                        h("h2", null, detail.title + " (" + detail.year + ")"),
+                        h("h2", null, detail.title + " (" + (detail.year || "----") + ")"),
+                        h("p", { className: "muted" }, detailType === "series" ? "📺 Serie" : "🎬 Película"),
                         detail.genre ? h("p", null, h("strong", null, "Género:"), " " + genresLabel(detail.genre)) : null,
+                        detail.runtime ? h("p", null, h("strong", null, "Duración:"), " " + detail.runtime) : null,
                         detail.director ? h("p", null, h("strong", null, "Director:"), " " + detail.director) : null,
                         detail.actors ? h("p", null, h("strong", null, "Actores:"), " " + detail.actors) : null,
                         detail.rating ? h("p", null, h("strong", null, "Puntuación:"), " ★ " + detail.rating) : null,
-                        detail.plot ? h("p", null, detail.plot) : null
+                        detail.plot ? h("p", null, detail.plot) : null,
+                        h("div", { className: "result-actions" },
+                            h("button", { className: "btn-ghost", type: "button", onClick: () => openReviews(detail, detailType) }, "Reseñas"),
+                            h("button", { className: "btn-ghost", type: "button", onClick: () => setDetail(null) }, "Cerrar")
+                        )
                     )
                 )
             )
-        ) : null
+        ) : null,
+        reviewsDetail
+            ? h(ReviewsModal, {
+                detail: reviewsDetail,
+                mediaType: reviewsMediaType,
+                user: currentUser,
+                onNavigate: onNavigate,
+                onClose: () => setReviewsDetail(null)
+            })
+            : null
     );
 }
 
-/* ---------- AmistadesPage: sistema unificado de amistades (amigos, solicitudes, buscar) ---------- */
+/* ---------- AmistadesPage: amigos, solicitudes y búsqueda de usuarios ----------
+   Las filas de las tres listas llevan al perfil público de esa persona
+   (/perfil?id=...), sea amigo o no: primero se conoce a la gente y después se
+   decide si se añade. La búsqueda es parcial (nombre, apodo o correo) y cada
+   resultado muestra la acción coherente con el estado real de amistad. */
 function AmistadesPage(props) {
     const currentUser = props.currentUser;
     const onNavigate = props.onNavigate;
+    const onOpenProfile = props.onOpenProfile || null;
 
     const friendsTabState = React.useState(props.initialTab || "friends");
     const friendsTab = friendsTabState[0];
@@ -3647,6 +3933,10 @@ function AmistadesPage(props) {
     const requestsState = React.useState([]);
     const requests = requestsState[0];
     const setRequests = requestsState[1];
+
+    const sentState = React.useState([]);
+    const sent = sentState[0];
+    const setSent = sentState[1];
 
     const searchQueryState = React.useState("");
     const searchQuery = searchQueryState[0];
@@ -3667,6 +3957,21 @@ function AmistadesPage(props) {
     const loadingFriendsState = React.useState(true);
     const loadingFriends = loadingFriendsState[0];
     const setLoadingFriends = loadingFriendsState[1];
+
+    const noticeState = React.useState(null);
+    const notice = noticeState[0];
+    const setNotice = noticeState[1];
+
+    const busyIdState = React.useState(null);
+    const busyId = busyIdState[0];
+    const setBusyId = busyIdState[1];
+
+    // Abrir el perfil público de una persona: es la acción principal de la página.
+    const openProfile = (userId) => {
+        if (!userId) return;
+        if (onOpenProfile) onOpenProfile(userId);
+        else onNavigate("perfil");
+    };
 
     const loadFriends = async () => {
         setLoadingFriends(true);
@@ -3693,19 +3998,36 @@ function AmistadesPage(props) {
         }
     };
 
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        const q = searchQuery.trim().toLowerCase();
-        if (!q) { setSearchError("Escribe un nickname"); return; }
-        if (q === (currentUser.nickname || "").toLowerCase()) { setSearchError("No te puedes buscar a ti mismo"); return; }
+    const loadSent = async () => {
+        try {
+            const res = await fetch("/api/auth/friends/requests/sent", { headers: authHeaders() });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error al cargar solicitudes enviadas");
+            setSent(data.requests || []);
+        } catch (err) {
+            console.error("Error loading sent requests:", err);
+        }
+    };
+
+    // Búsqueda parcial: el backend acepta nombre, apodo o correo y devuelve, por
+    // resultado, el estado de amistad para pintar la acción correcta.
+    const handleSearch = async (e, explicitTerm) => {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        const q = String(explicitTerm !== undefined ? explicitTerm : searchQuery).trim();
+        if (q.length < 2) {
+            setSearchError("Escribe al menos 2 caracteres");
+            setSearchResults([]);
+            return;
+        }
         setSearching(true);
         setSearchError(null);
+        setNotice(null);
         setSearchResults([]);
         try {
-            const res = await fetch("/api/auth/user/" + encodeURIComponent(q), { headers: authHeaders() });
+            const res = await fetch("/api/users/search?q=" + encodeURIComponent(q), { headers: authHeaders() });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Usuario no encontrado");
-            setSearchResults([data.user]);
+            if (!res.ok) throw new Error(data.error || "No se pudo buscar usuarios");
+            setSearchResults(Array.isArray(data.users) ? data.users : []);
         } catch (err) {
             setSearchError(err.message);
         } finally {
@@ -3714,29 +4036,53 @@ function AmistadesPage(props) {
     };
 
     const sendRequest = async (targetId) => {
+        setBusyId(targetId);
+        setNotice(null);
         try {
-            const target = searchResults.find(u => u.id === targetId);
-            if (!target) return;
-            if (!target.nickname) {
-                alert("Ese usuario no tiene nickname configurado");
-                return;
-            }
             const res = await fetch("/api/auth/friends/request", {
                 method: "POST",
                 headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ toNickname: target.nickname })
+                body: JSON.stringify({ to: targetId })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al enviar solicitud");
-            alert("Solicitud enviada");
-            setSearchResults([]);
-            setSearchQuery("");
+            if (!res.ok) throw new Error(data.error || "Error al enviar la solicitud");
+            setSearchResults((prev) => prev.map((u) => (u.id === targetId
+                ? Object.assign({}, u, { relationship: "request-sent", requestId: data.request ? data.request.id : null })
+                : u)));
+            setNotice({ type: "success", text: "Solicitud de amistad enviada." });
+            loadSent();
         } catch (err) {
-            alert(err.message);
+            setNotice({ type: "error", text: err.message });
+        } finally {
+            setBusyId(null);
         }
     };
 
-    const acceptRequest = async (requestId) => {
+    const cancelRequest = async (requestId, targetId) => {
+        setBusyId(targetId || requestId);
+        setNotice(null);
+        try {
+            const res = await fetch("/api/auth/friends/request/" + encodeURIComponent(requestId), {
+                method: "DELETE",
+                headers: authHeaders()
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error al cancelar la solicitud");
+            setSent((prev) => prev.filter((r) => r.request.id !== requestId));
+            setSearchResults((prev) => prev.map((u) => (u.id === targetId
+                ? Object.assign({}, u, { relationship: "none", requestId: null })
+                : u)));
+            setNotice({ type: "success", text: "Solicitud cancelada." });
+        } catch (err) {
+            setNotice({ type: "error", text: err.message });
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const acceptRequest = async (requestId, fromUser, targetId) => {
+        setBusyId(targetId || (fromUser && fromUser.id) || requestId);
+        setNotice(null);
         try {
             const res = await fetch("/api/auth/friends/request/accept", {
                 method: "POST",
@@ -3744,15 +4090,24 @@ function AmistadesPage(props) {
                 body: JSON.stringify({ requestId })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al aceptar");
-            loadRequests();
+            if (!res.ok) throw new Error(data.error || "Error al aceptar la solicitud");
+            setRequests((prev) => prev.filter((r) => r.request.id !== requestId));
+            setSearchResults((prev) => prev.map((u) => (u.id === targetId
+                ? Object.assign({}, u, { relationship: "friends", requestId })
+                : u)));
+            const name = fromUser ? (fromUser.nickname || fromUser.name) : null;
+            setNotice({ type: "success", text: name ? "Ya sois amigos: " + name : "Solicitud aceptada." });
             loadFriends();
         } catch (err) {
-            alert(err.message);
+            setNotice({ type: "error", text: err.message });
+        } finally {
+            setBusyId(null);
         }
     };
 
-    const declineRequest = async (requestId) => {
+    const declineRequest = async (requestId, targetId) => {
+        setBusyId(targetId || requestId);
+        setNotice(null);
         try {
             const res = await fetch("/api/auth/friends/request/decline", {
                 method: "POST",
@@ -3760,362 +4115,222 @@ function AmistadesPage(props) {
                 body: JSON.stringify({ requestId })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al rechazar");
-            loadRequests();
+            if (!res.ok) throw new Error(data.error || "Error al rechazar la solicitud");
+            setRequests((prev) => prev.filter((r) => r.request.id !== requestId));
+            setSearchResults((prev) => prev.map((u) => (u.id === targetId
+                ? Object.assign({}, u, { relationship: "none", requestId: null })
+                : u)));
+            setNotice({ type: "success", text: "Solicitud rechazada." });
         } catch (err) {
-            alert(err.message);
+            setNotice({ type: "error", text: err.message });
+        } finally {
+            setBusyId(null);
         }
     };
 
-    const removeFriend = async (friendId) => {
-        if (!window.confirm("¿Eliminar a este amigo?")) return;
+    const removeFriend = async (friend) => {
+        const name = friend.nickname || friend.name || "este amigo";
+        if (!window.confirm("¿Eliminar a " + name + " de tus amigos?")) return;
+        setBusyId(friend.id);
+        setNotice(null);
         try {
-            const res = await fetch("/api/auth/friends/" + encodeURIComponent(friendId), {
+            const res = await fetch("/api/auth/friends/" + encodeURIComponent(friend.id), {
                 method: "DELETE",
                 headers: authHeaders()
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al eliminar");
-            loadFriends();
+            if (!res.ok) throw new Error(data.error || "Error al eliminar al amigo");
+            setFriends((prev) => prev.filter((f) => f.id !== friend.id));
+            setNotice({ type: "success", text: name + " ya no está en tus amigos." });
         } catch (err) {
-            alert(err.message);
+            setNotice({ type: "error", text: err.message });
+        } finally {
+            setBusyId(null);
         }
     };
 
     React.useEffect(() => {
         loadFriends();
         loadRequests();
+        loadSent();
     }, []);
 
+    // Enlace compartido (?friend=apodo): se busca a esa persona al abrir la página.
     React.useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const friendParam = params.get("friend");
         if (friendParam && friendParam !== (currentUser.nickname || "").toLowerCase()) {
             setFriendsTab("search");
             setSearchQuery(friendParam);
-            handleSearch({ preventDefault: () => {} });
+            handleSearch(null, friendParam);
         }
     }, [currentUser]);
 
+    // Fila de persona: toda la fila abre su perfil público. Los botones se
+    // detienen con stopPropagation para no navegar al pulsar una acción.
+    const userRow = (user, key, actions, subtitle) => {
+        const name = user.nickname || user.name || "Usuario";
+        return h("div", {
+            key: key,
+            className: "user-item user-item--link",
+            role: "button",
+            tabIndex: 0,
+            title: "Ver el perfil de " + name,
+            onClick: () => openProfile(user.id),
+            onKeyDown: (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openProfile(user.id);
+                }
+            }
+        },
+            h("div", { className: "user-avatar" },
+                user.photoURL
+                    ? h("img", { src: user.photoURL, alt: name, "data-img-fallback": "avatar" })
+                    : h("span", null, name[0].toUpperCase())
+            ),
+            h("div", { className: "user-info" },
+                h("strong", null, name),
+                h("span", { className: "muted" }, subtitle || (user.nickname ? "@" + user.nickname : "Ver perfil"))
+            ),
+            h("div", { className: "user-actions", onClick: (e) => e.stopPropagation() }, actions)
+        );
+    };
+
+    const searchActions = (user) => {
+        const busy = busyId === user.id;
+        const buttons = [
+            h("button", { key: "profile", className: "btn-ghost btn-small", onClick: () => openProfile(user.id) }, "Ver perfil")
+        ];
+        if (user.relationship === "friends") {
+            buttons.push(h("span", { key: "badge", className: "friend-badge" }, "✓ Amigos"));
+        } else if (user.relationship === "request-sent") {
+            buttons.push(h("span", { key: "badge", className: "friend-badge pending" }, "Solicitud enviada"));
+        } else if (user.relationship === "request-received") {
+            buttons.push(h("button", {
+                key: "accept",
+                className: "btn-primary btn-small",
+                onClick: () => acceptRequest(user.requestId, user, user.id),
+                disabled: busy
+            }, busy ? "..." : "Aceptar solicitud"));
+        } else {
+            buttons.push(h("button", {
+                key: "add",
+                className: "btn-primary btn-small",
+                onClick: () => sendRequest(user.id),
+                disabled: busy
+            }, busy ? "..." : "Añadir amigo"));
+        }
+        return buttons;
+    };
+
     const renderFriendsTab = () => {
         if (loadingFriends) return h("p", { className: "muted" }, "Cargando amigos...");
-        if (friends.length === 0) return h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "Aún no tienes amigos. Busca usuarios para añadir.");
+        if (friends.length === 0) {
+            return h("p", { className: "muted empty-hint" }, "Aún no tienes amigos. Usa la pestaña Buscar para encontrar a alguien y añadirlo.");
+        }
         return h("div", { className: "user-list" },
-            friends.map((f) =>
-                h("div", { key: f.id, className: "user-item" },
-                    h("div", { className: "user-avatar" },
-                        f.photoURL ? h("img", { src: f.photoURL, alt: f.nickname || f.name }) : h("span", null, (f.nickname || f.name || "U")[0].toUpperCase())
-                    ),
-                    h("div", { className: "user-info" },
-                        h("strong", null, f.nickname || f.name),
-                        h("span", { className: "muted" }, f.since ? "Amigo desde " + new Date(f.since).toLocaleDateString("es-ES") : "@" + (f.id.split("@")[0] || f.id))
-                    ),
-                    h("button", {
-                        className: "btn-ghost btn-small danger",
-                        onClick: () => removeFriend(f.id)
-                    }, "Eliminar")
-                )
-            )
+            friends.map((f) => userRow(f, f.id, [
+                h("button", { key: "profile", className: "btn-ghost btn-small", onClick: () => openProfile(f.id) }, "Ver perfil"),
+                h("button", {
+                    key: "remove",
+                    className: "btn-ghost btn-small danger",
+                    onClick: () => removeFriend(f),
+                    disabled: busyId === f.id
+                }, "Eliminar")
+            ], f.since ? "Amigo desde " + new Date(f.since).toLocaleDateString("es-ES") : null))
         );
     };
 
     const renderRequestsTab = () => {
-        if (requests.length === 0) return h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No tienes solicitudes pendientes.");
+        if (requests.length === 0) {
+            return h("p", { className: "muted empty-hint" }, "No tienes solicitudes pendientes.");
+        }
         return h("div", { className: "user-list" },
             requests.map((r) => {
                 const fromUser = r.fromUser;
-                return h("div", { key: r.request.id, className: "user-item" },
-                    h("div", { className: "user-avatar" },
-                        fromUser?.photoURL ? h("img", { src: fromUser.photoURL, alt: fromUser.nickname || fromUser.name }) : h("span", null, (fromUser?.nickname || fromUser?.name || "U")[0].toUpperCase())
-                    ),
-                    h("div", { className: "user-info" },
-                        h("strong", null, fromUser?.nickname || fromUser?.name),
-                        h("span", { className: "muted" }, "@" + (fromUser?.id?.split("@")[0] || fromUser?.id))
-                    ),
-                    h("div", { style: { display: "flex", gap: "0.5rem" } },
-                        h("button", {
-                            className: "btn-primary btn-small",
-                            onClick: () => acceptRequest(r.request.id)
-                        }, "Aceptar"),
-                        h("button", {
-                            className: "btn-ghost btn-small",
-                            onClick: () => declineRequest(r.request.id)
-                        }, "Rechazar")
-                    )
-                );
+                if (!fromUser) return null;
+                return userRow(fromUser, r.request.id, [
+                    h("button", {
+                        key: "accept",
+                        className: "btn-primary btn-small",
+                        onClick: () => acceptRequest(r.request.id, fromUser, fromUser.id),
+                        disabled: busyId === fromUser.id
+                    }, "Aceptar"),
+                    h("button", {
+                        key: "decline",
+                        className: "btn-ghost btn-small",
+                        onClick: () => declineRequest(r.request.id, fromUser.id),
+                        disabled: busyId === fromUser.id
+                    }, "Rechazar")
+                ], "Quiere ser tu amigo");
+            })
+        );
+    };
+
+    const renderSentTab = () => {
+        if (sent.length === 0) {
+            return h("p", { className: "muted empty-hint" }, "No has enviado solicitudes pendientes.");
+        }
+        return h("div", { className: "user-list" },
+            sent.map((r) => {
+                const toUser = r.toUser;
+                if (!toUser) return null;
+                return userRow(toUser, r.request.id, [
+                    h("button", {
+                        key: "cancel",
+                        className: "btn-ghost btn-small",
+                        onClick: () => cancelRequest(r.request.id, toUser.id),
+                        disabled: busyId === toUser.id
+                    }, "Cancelar")
+                ], "Solicitud enviada · pendiente");
             })
         );
     };
 
     const renderSearchTab = () => (
         h("div", null,
-            h("form", { className: "search-form", onSubmit: handleSearch, style: { marginBottom: "1rem", display: "flex", gap: "0.5rem" } },
+            h("form", { className: "search-form", onSubmit: handleSearch },
                 h("input", {
                     type: "text",
-                    placeholder: "Buscar por nickname...",
+                    placeholder: "Busca por nombre, apodo o correo...",
                     value: searchQuery,
                     onChange: (e) => setSearchQuery(e.target.value),
                     autoFocus: true,
-                    style: { flex: 1, padding: "0.75rem", fontSize: "1rem", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--surface)", color: "var(--text)" }
+                    maxLength: 100,
+                    "aria-label": "Buscar usuarios"
                 }),
-                h("button", { type: "submit", className: "btn-primary", disabled: searching, style: { padding: "0.75rem 1.5rem" } },
+                h("button", { type: "submit", className: "btn-primary", disabled: searching },
                     searching ? "Buscando..." : "Buscar"
                 )
             ),
-            searchError && h("p", { className: "error", style: { textAlign: "center" } }, searchError),
-            !searching && searchQuery && searchResults.length === 0 && !searchError && h("p", { className: "muted", style: { textAlign: "center", padding: "1rem" } }, "Usuario no encontrado"),
-            searchResults.length > 0 && h("div", { className: "user-list" },
-                searchResults.map((u) =>
-                    h("div", { key: u.id, className: "user-item" },
-                        h("div", { className: "user-avatar" },
-                            u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
-                        ),
-                        h("div", { className: "user-info" },
-                            h("strong", null, u.nickname || u.name),
-                            h("span", { className: "muted" }, "@" + (u.id.split("@")[0] || u.id))
-                        ),
-                        u.id !== currentUser.id && h("button", {
-                            className: "btn-primary btn-small",
-                            onClick: () => sendRequest(u.id)
-                        }, "Añadir amigo")
-                    )
-                )
-            )
+            h("p", { className: "muted search-hint" }, "Escribe al menos 2 caracteres. Pulsa en una persona para ver su perfil público."),
+            searchError ? h("p", { className: "error" }, searchError) : null,
+            (!searching && !searchError && searchQuery.trim().length >= 2 && searchResults.length === 0)
+                ? h("p", { className: "muted empty-hint" }, "No se encontraron usuarios con esa búsqueda.")
+                : null,
+            searchResults.length > 0
+                ? h("div", { className: "user-list" }, searchResults.map((u) => userRow(u, u.id, searchActions(u))))
+                : null
         )
     );
 
     return h("div", { className: "movies-page" },
         h("div", { className: "page-head" },
             h("h1", null, "Amistades"),
-            h("p", { className: "muted" }, "Gestiona tus amigos, solicitudes y busca nuevos contactos")
+            h("p", { className: "muted" }, "Tus amigos, las solicitudes y la búsqueda de gente nueva. Pulsa en alguien para ver su perfil.")
         ),
+        notice ? h("p", { className: "profile-notice " + notice.type }, notice.text) : null,
         h("div", { className: "tabs", style: { marginBottom: "1.5rem" } },
             h("button", { className: "tab" + (friendsTab === "friends" ? " active" : ""), onClick: () => setFriendsTab("friends") }, "Amigos (" + friends.length + ")"),
             h("button", { className: "tab" + (friendsTab === "requests" ? " active" : ""), onClick: () => setFriendsTab("requests") }, "Solicitudes (" + requests.length + ")"),
+            h("button", { className: "tab" + (friendsTab === "sent" ? " active" : ""), onClick: () => setFriendsTab("sent") }, "Enviadas (" + sent.length + ")"),
             h("button", { className: "tab" + (friendsTab === "search" ? " active" : ""), onClick: () => setFriendsTab("search") }, "Buscar")
         ),
-        friendsTab === "friends" && renderFriendsTab(),
-        friendsTab === "requests" && renderRequestsTab(),
-        friendsTab === "search" && renderSearchTab()
-    );
-}
-
-/* ---------- UserSearch: buscar y seguir usuarios ---------- */
-function UserSearch(props) {
-    const currentUser = props.currentUser;
-    const onNavigate = props.onNavigate;
-    const queryState = React.useState("");
-    const query = queryState[0];
-    const setQuery = queryState[1];
-    const resultsState = React.useState([]);
-    const results = resultsState[0];
-    const setResults = resultsState[1];
-    const loadingState = React.useState(false);
-    const loading = loadingState[0];
-    const setLoading = loadingState[1];
-    const followingMapState = React.useState({});
-    const followingMap = followingMapState[0];
-    const setFollowingMap = followingMapState[1];
-
-    const search = async (q) => {
-        if (!q || !q.trim()) {
-            setResults([]);
-            return;
-        }
-        setLoading(true);
-        try {
-            const res = await fetch("/api/users/search?q=" + encodeURIComponent(q.trim()));
-            const data = await res.json();
-            setResults(Array.isArray(data.users) ? data.users : []);
-            // Cargar estado de seguimiento
-            if (currentUser && data.users.length > 0) {
-                const ids = data.users.map(u => u.id);
-                const followRes = await fetch("/api/users/me/following", { headers: authHeaders() });
-                const followData = await followRes.json();
-                const followingIds = (followData.users || []).map(u => u.id);
-                const map = {};
-                followingIds.forEach(id => map[id] = true);
-                setFollowingMap(map);
-            }
-        } catch (e) {
-            setResults([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    React.useEffect(() => {
-        const timer = setTimeout(() => search(query), 300);
-        return () => clearTimeout(timer);
-    }, [query]);
-
-    const handleFollow = async (targetUserId) => {
-        if (!currentUser) {
-            onNavigate("auth");
-            return;
-        }
-        const isF = followingMap[targetUserId];
-        try {
-            if (isF) {
-                await fetch("/api/users/" + encodeURIComponent(targetUserId) + "/follow", {
-                    method: "DELETE",
-                    headers: authHeaders()
-                });
-            } else {
-                await fetch("/api/users/" + encodeURIComponent(targetUserId) + "/follow", {
-                    method: "POST",
-                    headers: authHeaders()
-                });
-            }
-            setFollowingMap(prev => ({ ...prev, [targetUserId]: !isF }));
-        } catch (e) {
-            // error silencioso
-        }
-    };
-
-    return h("div", { className: "movies-page" },
-        h("div", { className: "page-head" },
-            h("h1", null, "Buscar Usuarios"),
-            h("p", { className: "muted" }, "Encuentra amigos y descubre sus colecciones")
-        ),
-        h("div", { className: "search-bar" },
-            h("input", {
-                type: "text",
-                placeholder: "Buscar por nombre, apodo o correo...",
-                value: query,
-                onChange: (e) => setQuery(e.target.value),
-                autoFocus: true
-            })
-        ),
-        loading ? h("p", { className: "muted" }, "Buscando...") : null,
-        !loading && query && results.length === 0 ? h("p", { className: "muted" }, "No se encontraron usuarios") : null,
-        h("div", { className: "user-list" },
-            results.map((u) =>
-                h("div", { key: u.id, className: "user-item" },
-                    h("div", { className: "user-avatar" },
-                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name, "data-img-fallback": "avatar" }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
-                    ),
-                    h("div", { className: "user-info" },
-                        h("strong", null, u.nickname || u.name),
-                        h("span", { className: "muted" }, "@" + (u.id.split("@")[0] || u.id))
-                    ),
-                    u.id !== currentUser?.id && h("button", {
-                        className: "btn-primary btn-small" + (followingMap[u.id] ? " following" : ""),
-                        onClick: () => handleFollow(u.id)
-                    }, followingMap[u.id] ? "Siguiendo" : "Seguir")
-                )
-            )
-        )
-    );
-}
-
-/* ---------- FriendsPage: mis amigos (following/followers) ---------- */
-function FriendsPage(props) {
-    const currentUser = props.currentUser;
-    const onNavigate = props.onNavigate;
-    const tabState = React.useState("following");
-    const tab = tabState[0];
-    const setTab = tabState[1];
-    const followingState = React.useState([]);
-    const following = followingState[0];
-    const setFollowing = followingState[1];
-    const followersState = React.useState([]);
-    const followers = followersState[0];
-    const setFollowers = followersState[1];
-    const loadingState = React.useState(true);
-    const loading = loadingState[0];
-    const setLoading = loadingState[1];
-    const followingMapState = React.useState({});
-    const followingMap = followingMapState[0];
-    const setFollowingMap = followingMapState[1];
-
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            const [followRes, followerRes] = await Promise.all([
-                fetch("/api/users/me/following", { headers: authHeaders() }),
-                fetch("/api/users/me/followers", { headers: authHeaders() })
-            ]);
-            const followData = await followRes.json();
-            const followerData = await followerRes.json();
-            setFollowing(Array.isArray(followData.users) ? followData.users : []);
-            setFollowers(Array.isArray(followerData.users) ? followerData.users : []);
-            const ids = [...(followData.users || []).map(u => u.id), ...(followerData.users || []).map(u => u.id)];
-            const uniqueIds = [...new Set(ids)];
-            const map = {};
-            uniqueIds.forEach(id => map[id] = true);
-            setFollowingMap(map);
-        } catch (e) {
-            setFollowing([]);
-            setFollowers([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    React.useEffect(() => {
-        loadData();
-    }, []);
-
-    const handleUnfollow = async (targetUserId) => {
-        try {
-            await fetch("/api/users/" + encodeURIComponent(targetUserId) + "/follow", {
-                method: "DELETE",
-                headers: authHeaders()
-            });
-            setFollowing(prev => prev.filter(u => u.id !== targetUserId));
-            setFollowers(prev => prev.filter(u => u.id !== targetUserId));
-            setFollowingMap(prev => ({ ...prev, [targetUserId]: false }));
-        } catch (e) {
-            // error silencioso
-        }
-    };
-
-    const handleFollow = async (targetUserId) => {
-        try {
-            await fetch("/api/users/" + encodeURIComponent(targetUserId) + "/follow", {
-                method: "POST",
-                headers: authHeaders()
-            });
-            setFollowingMap(prev => ({ ...prev, [targetUserId]: true }));
-            loadData();
-        } catch (e) {
-            // error silencioso
-        }
-    };
-
-    const currentList = tab === "following" ? following : followers;
-    const currentListTitle = tab === "following" ? "Siguiendo" : "Seguidores";
-
-    if (loading) return h("div", { className: "movies-page" }, h("p", { className: "muted" }, "Cargando..."));
-
-    return h("div", { className: "movies-page" },
-        h("div", { className: "page-head" },
-            h("h1", null, "Mis Amigos"),
-            h("p", { className: "muted" }, "Gestiona a quién sigues y quién te sigue")
-        ),
-        h("div", { className: "tabs" },
-            h("button", { className: "tab" + (tab === "following" ? " active" : ""), onClick: () => setTab("following") }, "Siguiendo (" + following.length + ")"),
-            h("button", { className: "tab" + (tab === "followers" ? " active" : ""), onClick: () => setTab("followers") }, "Seguidores (" + followers.length + ")")
-        ),
-        currentList.length === 0 ? h("p", { className: "muted" }, tab === "following" ? "No sigues a nadie todavía. Busca usuarios para empezar." : "Aún no tienes seguidores") : null,
-        h("div", { className: "user-list" },
-            currentList.map((u) =>
-                h("div", { key: u.id, className: "user-item" },
-                    h("div", { className: "user-avatar" },
-                        u.photoURL ? h("img", { src: u.photoURL, alt: u.nickname || u.name, "data-img-fallback": "avatar" }) : h("span", null, (u.nickname || u.name || "U")[0].toUpperCase())
-                    ),
-                    h("div", { className: "user-info" },
-                        h("strong", null, u.nickname || u.name),
-                        h("span", { className: "muted" }, "@" + (u.id.split("@")[0] || u.id))
-                    ),
-                    u.id !== currentUser.id && h("button", {
-                        className: "btn-primary btn-small" + (followingMap[u.id] ? " following" : ""),
-                        onClick: () => followingMap[u.id] ? handleUnfollow(u.id) : handleFollow(u.id)
-                    }, followingMap[u.id] ? "Dejar de seguir" : "Seguir")
-                )
-            )
-        )
+        friendsTab === "friends" ? renderFriendsTab() : null,
+        friendsTab === "requests" ? renderRequestsTab() : null,
+        friendsTab === "sent" ? renderSentTab() : null,
+        friendsTab === "search" ? renderSearchTab() : null
     );
 }
 
@@ -4154,13 +4369,18 @@ function ProfileSettings(props) {
         e.preventDefault();
         setError(null);
         setSuccess(null);
-        const cleanNickname = nickname.trim();
-        if (cleanNickname.length < 2) {
-            setError("El apodo debe tener al menos 2 caracteres");
+        const cleanNickname = nickname.trim().toLowerCase();
+        // Las mismas reglas que valida el backend, para dar el aviso al momento.
+        if (cleanNickname.length < 3) {
+            setError("El apodo debe tener al menos 3 caracteres");
             return;
         }
         if (cleanNickname.length > 30) {
             setError("El apodo no puede exceder 30 caracteres");
+            return;
+        }
+        if (!/^[a-z0-9_]+$/.test(cleanNickname)) {
+            setError("El apodo solo puede contener letras, números y guión bajo");
             return;
         }
         setLoading(true);
@@ -4204,7 +4424,7 @@ function ProfileSettings(props) {
                         maxLength: 30,
                         autoComplete: "nickname"
                     }),
-                    h("small", { className: "muted" }, "Este nombre será visible para otros usuarios. Mínimo 2, máximo 30 caracteres.")
+                    h("small", { className: "muted" }, "Es tu nombre público: aparece en tu perfil y en las búsquedas. Entre 3 y 30 caracteres (letras, números y guión bajo).")
                 )
             ),
             h("div", { className: "settings-section" },
@@ -5837,6 +6057,8 @@ function App() {
         const params = new URLSearchParams(window.location.search);
         // Ruta administrativa: /admin abre el panel (AdminRoute exige sesión + rol).
         if (window.location.pathname === "/admin") return "admin";
+        // Ruta de perfil público: /perfil?id=usuario (compartible y directa).
+        if (window.location.pathname === "/perfil") return "perfil";
         if (!params.get("oobCode")) return "home";
         if (params.get("mode") === "resetPassword") return "reset-password";
         if (params.get("mode") === "verifyEmail") return "verify-email";
@@ -5844,9 +6066,10 @@ function App() {
     });
     const page = pageState[0];
     const setPage = pageState[1];
-    // Ref para que el listener de popstate lea siempre la página actual.
-    const pageRef = React.useRef(page);
-    pageRef.current = page;
+    // Usuario cuyo perfil público se está viendo (ruta /perfil?id=...).
+    const profileUserState = useState(null);
+    const profileUserId = profileUserState[0];
+    const setProfileUserId = profileUserState[1];
     const moviesState = useState([]);
     const movies = moviesState[0];
     const setMovies = moviesState[1];
@@ -5898,12 +6121,25 @@ function App() {
         restoreSession();
     }, []);
 
-    // Sincroniza la ruta /admin con los botones atrás/adelante del navegador.
+    // Botones atrás/adelante del navegador: cada página guarda su estado en el
+    // historial, así que se vuelve al sitio exacto de donde se venía (por
+    // ejemplo, de un perfil se vuelve a los resultados de la búsqueda).
     useEffect(() => {
-        const onPop = () => {
+        const onPop = (event) => {
+            const state = event && event.state;
+            if (state && state.page) {
+                setProfileUserId(state.userId || null);
+                setPage(state.page);
+                return;
+            }
+            // Entradas antiguas o externas: manda la URL.
             if (window.location.pathname === "/admin") {
                 setPage("admin");
-            } else if (pageRef.current === "admin") {
+            } else if (window.location.pathname === "/perfil") {
+                setProfileUserId(new URLSearchParams(window.location.search).get("id"));
+                setPage("perfil");
+            } else {
+                setProfileUserId(null);
                 setPage("home");
             }
         };
@@ -5994,16 +6230,27 @@ function App() {
         }
     };
 
-    const navigate = (target) => {
+    // Las páginas con URL propia (/admin y /perfil?id=usuario) se reflejan en la
+    // barra de direcciones: se pueden compartir y funcionan atrás/adelante.
+    const navigate = (target, params) => {
         setToast(null);
         setPage(target);
-        // Ruta /admin: se refleja en la URL (compartible y compatible con back/forward).
-        if (target === "admin") {
-            if (window.location.pathname !== "/admin") {
-                window.history.pushState(null, "", "/admin");
-            }
-        } else if (window.location.pathname === "/admin") {
-            window.history.pushState(null, "", "/");
+        const askedId = params && params.userId ? String(params.userId) : null;
+        const profileTargetId = target === "perfil" ? (askedId || (user ? user.id : null)) : null;
+        setProfileUserId(profileTargetId);
+        const targetUrl = target === "admin"
+            ? "/admin"
+            : target === "perfil"
+                ? "/perfil" + (profileTargetId ? "?id=" + encodeURIComponent(profileTargetId) : "")
+                : "/";
+        const entryState = { page: target, userId: profileTargetId };
+        const here = window.location.pathname + window.location.search;
+        if (here !== targetUrl) {
+            window.history.pushState(entryState, "", targetUrl);
+        } else {
+            // Misma URL (varias páginas viven en "/"): se actualiza la entrada
+            // actual para que «atrás» vuelva a la página correcta.
+            window.history.replaceState(entryState, "", targetUrl);
         }
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -6088,12 +6335,23 @@ function App() {
                     ? h(MiCuenta, { user: user, movies: movies, series: series, loadingList: loadingList, loadingSeries: loadingSeries, onDelete: handleDelete, onDeleteSeries: handleDeleteSeries })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "perfil"
-                ? (user
-                    ? h(UserProfile, { userId: new URLSearchParams(window.location.search).get("id") || user.id, currentUser: user, onNavigate: navigate, onDetail: (m) => { /* handled by parent */ } })
-                    : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
+                ? h(UserProfile, {
+                    userId: profileUserId
+                        || new URLSearchParams(window.location.search).get("id")
+                        || (user ? user.id : null),
+                    currentUser: user,
+                    onNavigate: navigate,
+                    onOpenProfile: (id) => navigate("perfil", { userId: id })
+                })
                 : (page === "amistades" || page === "amigos" || page === "buscar-usuarios")
                 ? (user
-                    ? h(AmistadesPage, { key: page, currentUser: user, onNavigate: navigate, initialTab: page === "buscar-usuarios" ? "search" : "friends" })
+                    ? h(AmistadesPage, {
+                        key: page,
+                        currentUser: user,
+                        onNavigate: navigate,
+                        onOpenProfile: (id) => navigate("perfil", { userId: id }),
+                        initialTab: page === "buscar-usuarios" ? "search" : "friends"
+                    })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "configuracion"
                 ? (user

@@ -77,6 +77,9 @@ function isAdminUser(user) {
 // los exponemos también aquí para que el merge no rompa nada.
 const USER_ROLES = { USER: "user", ADMIN: "admin" };
 
+// Temas de color disponibles en Configuración de perfil.
+const USER_THEMES = ["default", "vibrant", "neon", "pastel"];
+
 function hasRole(user, role) {
     return roleOfUser(user) === normalizeRole(role);
 }
@@ -96,16 +99,36 @@ function publicUser(user) {
     };
 }
 
-// Tarjeta pública mínima de otro usuario (la usan las rutas de amistades).
+// Tarjeta pública mínima de otro usuario (la usan las rutas de amistades y el
+// buscador). Incluye el apodo público porque es el nombre que se muestra en la
+// interfaz; nunca incluye contraseña ni sesiones.
 function cardUser(user) {
     if (!user) return null;
     return {
         id: user.id,
         name: user.name,
         email: user.email,
+        nickname: (user.prefs && user.prefs.nickname) || user.nickname || null,
         photoURL: user.photoURL || null,
         provider: user.provider || null,
         role: normalizeRole(user.role)
+    };
+}
+
+// Ficha pública de otro usuario para el perfil social (página /perfil).
+// Deja fuera el email, el rol y cualquier dato de sesión: lo que se enseña de
+// alguien que no es tu amigo es su presentación, nunca su cuenta.
+function socialProfile(user) {
+    if (!user) return null;
+    const prefs = user.prefs || {};
+    return {
+        id: user.id,
+        name: user.name || null,
+        nickname: nicknameOf(user) || null,
+        photoURL: user.photoURL || null,
+        provider: user.provider || null,
+        favoriteGenres: Array.isArray(prefs.favoriteGenres) ? prefs.favoriteGenres.slice(0, 3) : [],
+        joinedAt: user.createdAt || null
     };
 }
 
@@ -312,6 +335,21 @@ async function deleteSession(token) {
     }
 }
 
+// Guarda el objeto completo de preferencias sin perder lo que ya había.
+// (updateUserPrefs sustituye el objeto entero y está pensado para el cuestionario.)
+async function saveUserPrefs(userId, prefs) {
+    if (!db) {
+        const user = localUsers.get(userId);
+        if (user) {
+            user.prefs = prefs;
+            localUsers.set(userId, user);
+        }
+        return prefs;
+    }
+    await db.collection("users").doc(String(userId)).set({ prefs }, { merge: true });
+    return prefs;
+}
+
 async function updateUserPrefs(userId, prefs) {
     const merged = { ...defaultPrefs(), ...prefs };
     if (!db) {
@@ -437,20 +475,47 @@ const authService = {
         return merged;
     },
 
+    // Actualiza el perfil público: apodo único y tema de color. Lo usa la
+    // pantalla de Configuración de perfil; antes la ruta llamaba a un método
+    // inexistente, así que ni el apodo ni el tema llegaban a guardarse.
+    updateProfile: async (token, { nickname, colorTheme } = {}) => {
+        const session = await readSession(token);
+        if (!session) return null;
+        const cleanTheme = String(colorTheme || "").trim().toLowerCase();
+        if (cleanTheme && USER_THEMES.indexOf(cleanTheme) === -1) {
+            const err = new Error("Tema de color inválido");
+            err.code = "INVALID_THEME";
+            throw err;
+        }
+        const cleanNickname = String(nickname || "").trim();
+        // El apodo tiene su propia validación (único, minúsculas y 3-30 caracteres).
+        if (cleanNickname) await setUserNickname(session.userId, cleanNickname);
+
+        const user = await authService.getById(session.userId);
+        const prefs = { ...defaultPrefs(), ...((user && user.prefs) || {}) };
+        if (cleanNickname) prefs.nickname = nicknameOf(user) || null;
+        if (cleanTheme) prefs.colorTheme = cleanTheme;
+        await saveUserPrefs(session.userId, prefs);
+        return {
+            nickname: prefs.nickname || null,
+            colorTheme: prefs.colorTheme || "default"
+        };
+    },
+
     // ---- Usuarios (amistades, Top 5 y administración) ----
 
     getById: async (id) => storedUserById(id),
 
-    // Perfil público (página /perfil). Devuelve los mismos campos que
-    // `publicUser`, así que no expone ni el hash de contraseña ni las sesiones.
-    // Lo usan las rutas de perfil, que antes llamaban a un método inexistente y
-    // respondían 500: por eso el perfil público no cargaba.
+    // Perfil público (página /perfil): presentación del usuario, sin email ni
+    // datos de sesión. Lo usan las rutas de perfil, que antes llamaban a un
+    // método inexistente y respondían 500: por eso el perfil público no cargaba.
     getPublicProfile: async (id) => {
         const user = await authService.getById(id);
-        return user ? publicUser(user) : null;
+        return socialProfile(user);
     },
 
-    // Busca usuarios por nombre o email (para añadir amigos).
+    // Busca usuarios por nombre, apodo o email (para encontrar amigos y abrir su
+    // perfil). Devuelve la tarjeta pública (`cardUser`) con el apodo incluido.
     searchUsers: async (query, { excludeId, limit } = {}) => {
         const q = String(query || "").trim().toLowerCase();
         const max = Math.min(Math.max(Number.parseInt(limit, 10) || 10, 1), 50);
@@ -462,6 +527,7 @@ const authService = {
             .filter((user) => {
                 if (!q) return true;
                 return String(user.name || "").toLowerCase().includes(q)
+                    || nicknameOf(user).includes(q)
                     || String(user.email || "").toLowerCase().includes(q)
                     || String(user.id).toLowerCase().includes(q);
             })
@@ -583,6 +649,7 @@ const authService = {
 module.exports = {
     authService,
     cardUser,
+    socialProfile,
     isAdminUser,
     isAdmin,
     hasRole,

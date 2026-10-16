@@ -310,6 +310,34 @@ const FriendshipModel = {
         return !!(reverse && reverse.status === "accepted");
     },
 
+    // Estado de la relación entre dos usuarios, tal y como lo necesita el perfil
+    // público para pintar la acción correcta:
+    //   "self"              -> es mi propio perfil
+    //   "friends"           -> amistad aceptada
+    //   "request-sent"      -> yo le envié una solicitud pendiente
+    //   "request-received"  -> esa persona me envió una solicitud pendiente
+    //   "none"              -> no hay nada entre ambos
+    // Devuelve también `requestId` para aceptar/cancelar/rechazar sin búsquedas extra.
+    getRelationship: async (me, other) => {
+        const first = normalizeUserId(me);
+        const second = normalizeUserId(other);
+        if (!first || !second) throw codedError("BAD_REQUEST", "Falta el usuario");
+        if (first === second) return { status: "self", requestId: null };
+        try {
+            const direct = await getDocById(requestId(first, second));
+            if (direct && direct.status === "accepted") return { status: "friends", requestId: direct.id };
+            if (direct && direct.status === "pending") return { status: "request-sent", requestId: direct.id };
+            const reverse = await getDocById(requestId(second, first));
+            if (reverse && reverse.status === "accepted") return { status: "friends", requestId: reverse.id };
+            if (reverse && reverse.status === "pending") return { status: "request-received", requestId: reverse.id };
+            return { status: "none", requestId: null };
+        } catch (error) {
+            if (error.code) throw error;
+            console.error("Error al leer la relación de amistad:", error.message || error);
+            throw new Error("No se pudo comprobar la amistad");
+        }
+    },
+
     // Lista de amistades aceptadas con el id del otro usuario y la fecha.
     getFriends: async (userId) => {
         const me = normalizeUserId(userId);

@@ -68,22 +68,9 @@ async function assertFriendAccess(me, otherId) {
     return other;
 }
 
-// GET /api/users/search?q=ana — busca usuarios para añadir amigos.
-router.get("/users/search", async (req, res) => {
-    try {
-        const user = await authUser(req);
-        if (!user) {
-            return res.status(401).json({ error: "Requiere iniciar sesión" });
-        }
-        const results = await authService.searchUsers(req.query.q, {
-            excludeId: user.id,
-            limit: req.query.limit
-        });
-        res.json({ results, totalResults: results.length });
-    } catch (error) {
-        sendError(res, error);
-    }
-});
+// El buscador de usuarios vive en authRoutes ("GET /api/users/search"), que se
+// monta antes que este router y es el que responde de verdad. Aquí se eliminó la
+// copia duplicada para no tener dos respuestas distintas para la misma ruta.
 
 // POST /api/friends/requests { to: "otro@correo.com" } — enviar solicitud.
 router.post("/friends/requests", async (req, res) => {
@@ -204,19 +191,8 @@ router.get("/friends", async (req, res) => {
     }
 });
 
-// GET /api/users/me/top5 — Top 5 propio.
-router.get("/users/me/top5", async (req, res) => {
-    try {
-        const user = await authUser(req);
-        if (!user) {
-            return res.status(401).json({ error: "Requiere iniciar sesión" });
-        }
-        const top5 = await authService.getTop5(user.id);
-        res.json({ results: top5, totalResults: top5.length });
-    } catch (error) {
-        sendError(res, error);
-    }
-});
+// El Top 5 se lee por "GET /api/users/:id/top5" (authRoutes), que también
+// responde para "me". Aquí sólo queda la escritura.
 
 // PUT /api/users/me/top5 { top5: [...] } — guarda hasta 5 favoritas.
 // Cada item reutiliza referencias existentes: { movieId?, imdbID?, title, year?, poster?, type? }.

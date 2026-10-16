@@ -2352,3 +2352,117 @@ a.footer-link:hover, button.footer-link:hover { color: var(--sky-bright); }
     .profile-marathons-head .btn-primary { margin-left: 0; }
 }
 
+/* ============================================================
+   Perfil público (UserProfile) y listas de amistades
+   ============================================================ */
+.profile-page .account-section { margin-bottom: 2.25rem; }
+.profile-page .account-section > h2 { margin-bottom: 0.75rem; }
+.profile-header { flex-wrap: wrap; }
+.profile-handle {
+    margin: 0 0 0.25rem;
+    color: var(--sky-bright);
+    font-size: 1rem;
+    font-weight: 600;
+}
+.profile-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.profile-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+.profile-actions .btn-primary,
+.profile-actions .btn-ghost { margin-top: 0; }
+.profile-notice {
+    margin: 0.6rem 0 0;
+    padding: 0.45rem 0.8rem;
+    border-radius: var(--radius);
+    font-size: 0.88rem;
+}
+.profile-notice.success {
+    color: #7bd88f;
+    background: rgba(93, 216, 138, 0.1);
+    border: 1px solid rgba(93, 216, 138, 0.35);
+}
+.profile-notice.error {
+    color: #ff8ba0;
+    background: rgba(233, 69, 96, 0.12);
+    border: 1px solid rgba(233, 69, 96, 0.4);
+}
+.friend-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #7bd88f;
+    background: rgba(93, 216, 138, 0.1);
+    border: 1px solid rgba(93, 216, 138, 0.4);
+    white-space: nowrap;
+}
+.friend-badge.pending {
+    color: var(--bronze-bright);
+    background: rgba(201, 162, 39, 0.1);
+    border-color: rgba(201, 162, 39, 0.4);
+}
+
+/* Top 5 de un perfil: póster con su puesto */
+.top5-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.9rem;
+}
+.top5-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.top5-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+.top5-card img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; display: block; }
+.top5-card-body { padding: 0.6rem 0.7rem 0.75rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.top5-card-body strong { font-size: 0.92rem; line-height: 1.3; }
+.top5-card-body .muted { margin: 0; font-size: 0.78rem; }
+.top5-rank {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(13, 18, 25, 0.85);
+    border: 1px solid var(--bronze);
+    color: var(--bronze-bright);
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+/* Listas de personas: toda la fila abre el perfil público */
+.user-item--link { cursor: pointer; }
+.user-item--link .user-info { min-width: 7rem; }
+.user-item--link:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(179, 18, 46, 0.35);
+}
+.user-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-left: auto; }
+.empty-hint, .search-hint { text-align: center; padding: 1rem 0.5rem; }
+.search-hint { font-size: 0.85rem; }
+
+@media (max-width: 640px) {
+    .profile-actions { margin-left: 0; width: 100%; }
+    .profile-actions .btn-primary,
+    .profile-actions .btn-ghost { flex: 1 1 auto; justify-content: center; }
+    /* Con dos botones la fila no cabe: las acciones bajan a su propia línea. */
+    .user-item--link { flex-wrap: wrap; }
+    .user-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+}
+

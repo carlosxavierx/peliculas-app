@@ -4,6 +4,7 @@ const { authService, findUserByNickname, setUserNickname, isAdmin, cardUser } = 
 const { FriendshipModel } = require("../models/friendshipModel");
 const { MarathonModel } = require("../models/marathonModel");
 const { MovieModel } = require("../models/movieModel");
+const { SeriesModel } = require("../models/seriesModel");
 const firebaseConn = require("../models/firebase");
 const ActivityModel = require("../models/activityModel");
 const db = firebaseConn.getDb();
@@ -88,6 +89,8 @@ router.put("/auth/prefs", async (req, res) => {
 });
 
 // PUT /api/auth/profile { nickname, colorTheme }
+// Cambia la ficha pública: apodo único (el que sale en el perfil y en la
+// búsqueda) y tema de color.
 router.put("/auth/profile", async (req, res) => {
     try {
         const token = tokenFromHeader(req);
@@ -95,36 +98,49 @@ router.put("/auth/profile", async (req, res) => {
         if (typeof body !== "object") {
             return res.status(400).json({ error: "Cuerpo de petición inválido" });
         }
-        const prefs = await authService.updateProfile(token, {
+        const profile = await authService.updateProfile(token, {
             nickname: body.nickname,
             colorTheme: body.colorTheme
         });
-        if (!prefs) {
+        if (!profile) {
             return res.status(401).json({ error: "Sesión no válida" });
         }
-        res.json({ ok: true, prefs });
+        res.json({ ok: true, profile });
     } catch (error) {
+        if (error && error.code === "NICKNAME_TAKEN") {
+            return res.status(409).json({ error: error.message });
+        }
         res.status(400).json({ error: error.message || "No se pudo actualizar el perfil" });
     }
 });
 
-// GET /api/users/search?q=texto — Buscar usuarios
+// GET /api/users/search?q=texto — Buscar usuarios para ver su perfil o añadirlos.
 // IMPORTANTE: va ANTES de "/users/:id". Express resuelve en orden de registro
 // y "/users/:id" también encaja con "/users/search", así que declararlo después
 // dejaba la búsqueda tapada (respondía con el perfil de "search").
+// Cada resultado incluye su `relationship` (none | request-sent |
+// request-received | friends | self) para que la lista pinte la acción correcta.
 router.get("/users/search", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        let currentUserId = null;
-        if (token) {
-            const me = await authService.me(token);
-            if (me) currentUserId = me.id;
+        // Buscar personas es una acción con sesión: la lista nunca expone el
+        // catálogo de usuarios a quien no ha entrado.
+        const me = await authUserFromReq(req);
+        if (!me) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const users = await authService.searchUsers(req.query.q || "", {
+            excludeId: me.id,
+            limit: req.query.limit
+        });
+        const results = [];
+        for (const card of users) {
+            const relationship = await FriendshipModel.getRelationship(me.id, card.id);
+            results.push(Object.assign({}, card, {
+                relationship: relationship.status,
+                requestId: relationship.requestId
+            }));
         }
-        const q = req.query.q || "";
-        const users = await authService.searchUsers(q, { excludeId: currentUserId });
-        res.json({ users });
+        res.json({ users: results, totalResults: results.length });
     } catch (error) {
-        res.status(500).json({ error: "No se pudo buscar usuarios" });
+        sendError(res, error);
     }
 });
 
@@ -165,80 +181,66 @@ router.get("/users/:id/marathons", async (req, res) => {
     }
 });
 
-// POST /api/users/:id/follow — Seguir a un usuario
-router.post("/users/:id/follow", async (req, res) => {
+// GET /api/users/:id/series — Series guardadas de un usuario (público, igual
+// que sus películas): alimenta el perfil público de amigos y de no amigos.
+router.get("/users/:id/series", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        if (!token) return res.status(401).json({ error: "Requiere iniciar sesión" });
-        const result = await authService.followUser(token, req.params.id);
-        if (!result) return res.status(401).json({ error: "Sesión no válida" });
-        res.json(result);
+        const series = await SeriesModel.getAllSeries(String(req.params.id || "").trim().toLowerCase());
+        res.json({ series: Array.isArray(series) ? series : [] });
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo seguir al usuario" });
+        res.status(500).json({ error: "No se pudieron obtener las series" });
     }
 });
 
-// DELETE /api/users/:id/follow — Dejar de seguir a un usuario
-router.delete("/users/:id/follow", async (req, res) => {
+// GET /api/users/:id/top5 — Top 5 público. Con "me" resuelve al usuario de la
+// sesión, de forma que "Mis 5 favoritas" y el perfil público usan la misma ruta.
+router.get("/users/:id/top5", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        if (!token) return res.status(401).json({ error: "Requiere iniciar sesión" });
-        const result = await authService.unfollowUser(token, req.params.id);
-        if (!result) return res.status(401).json({ error: "Sesión no válida" });
-        res.json(result);
+        const raw = String(req.params.id || "").trim().toLowerCase();
+        let targetId = raw;
+        if (raw === "me") {
+            const me = await authService.me(tokenFromHeader(req));
+            if (!me) return res.status(401).json({ error: "Requiere iniciar sesión" });
+            targetId = me.id;
+        }
+        const user = await authService.getById(targetId);
+        if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+        const top5 = await authService.getTop5(targetId).catch(() => []);
+        res.json({ top5 });
     } catch (error) {
-        res.status(400).json({ error: error.message || "No se pudo dejar de seguir" });
+        res.status(500).json({ error: "No se pudo obtener el Top 5" });
     }
 });
 
-// GET /api/users/me/following — Usuarios que sigo
-router.get("/users/me/following", async (req, res) => {
+// GET /api/users/:id/relationship — Estado de amistad con ese usuario
+// (self | friends | request-sent | request-received | none + requestId).
+// Es lo que decide la acción del perfil: añadir, aceptar o eliminar amistad.
+// Sustituye al antiguo sistema de "seguir", retirado al unificar las amistades.
+router.get("/users/:id/relationship", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        if (!token) return res.status(401).json({ error: "Requiere iniciar sesión" });
-        const following = await authService.getFollowing(token);
-        if (following === null) return res.status(401).json({ error: "Sesión no válida" });
-        res.json({ users: following });
+        const me = await authUserFromReq(req);
+        if (!me) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const targetId = String(req.params.id || "").trim().toLowerCase();
+        if (!targetId) return res.status(400).json({ error: "Falta el usuario" });
+        const relationship = await FriendshipModel.getRelationship(me.id, targetId);
+        res.json(relationship);
     } catch (error) {
-        res.status(500).json({ error: "No se pudo obtener seguidos" });
-    }
-});
-
-// GET /api/users/me/followers — Mis seguidores
-router.get("/users/me/followers", async (req, res) => {
-    try {
-        const token = tokenFromHeader(req);
-        if (!token) return res.status(401).json({ error: "Requiere iniciar sesión" });
-        const followers = await authService.getFollowers(token);
-        if (followers === null) return res.status(401).json({ error: "Sesión no válida" });
-        res.json({ users: followers });
-    } catch (error) {
-        res.status(500).json({ error: "No se pudo obtener seguidores" });
-    }
-});
-
-// GET /api/users/:id/is-following — Comprobar si sigo a un usuario
-router.get("/users/:id/is-following", async (req, res) => {
-    try {
-        const token = tokenFromHeader(req);
-        if (!token) return res.status(401).json({ error: "Requiere iniciar sesión" });
-        const following = await authService.isFollowing(token, req.params.id);
-        res.json({ following });
-    } catch (error) {
-        res.status(500).json({ error: "No se pudo comprobar" });
+        sendError(res, error);
     }
 });
 
 // POST /api/auth/nickname { nickname } — establece/actualiza el nickname único
+// La sesión se resuelve con el mismo helper que el resto de rutas privadas:
+// antes se llamaba a authService.readSession, que no existe, así que el apodo
+// nunca llegaba a guardarse (y el buscador no encontraba a nadie por apodo).
 router.post("/auth/nickname", async (req, res) => {
     try {
-        const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
+        const me = await authUserFromReq(req);
+        if (!me) return res.status(401).json({ error: "Sesión no válida" });
         const body = req.body || {};
         const nickname = (body.nickname || "").trim();
         if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
-        const saved = await setUserNickname(session.userId, nickname);
+        const saved = await setUserNickname(me.id, nickname);
         res.json({ ok: true, nickname: saved });
     } catch (error) {
         if (error.code === "NICKNAME_TAKEN") return res.status(409).json({ error: error.message });
@@ -331,20 +333,59 @@ router.get("/auth/friends/requests", async (req, res) => {
     }
 });
 
-// POST /api/auth/friends/request { toNickname } — envía solicitud por nickname
+// GET /api/auth/friends/requests/sent — solicitudes pendientes enviadas.
+router.get("/auth/friends/requests/sent", async (req, res) => {
+    try {
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const requests = await FriendshipModel.getSentRequests(user.id);
+        const enriched = [];
+        for (const r of requests) {
+            enriched.push({ request: r, toUser: await cardOrNull(r.to) });
+        }
+        res.json({ requests: enriched });
+    } catch (error) {
+        sendError(res, error);
+    }
+});
+
+// POST /api/auth/friends/request { to } | { toNickname } — envía solicitud.
+// `to` es el id del usuario (su email, el que usa el perfil público);
+// `toNickname` se mantiene para los enlaces compartidos por apodo.
 router.post("/auth/friends/request", async (req, res) => {
     try {
         const user = await authUserFromReq(req);
         if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
         const body = req.body || {};
-        const toNickname = (body.toNickname || "").trim().toLowerCase();
-        if (!toNickname) return res.status(400).json({ error: "Apodo del destino requerido" });
-        if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
-        const target = await findUserByNickname(toNickname);
+        const toId = String(body.to || "").trim().toLowerCase();
+        const toNickname = String(body.toNickname || "").trim().toLowerCase();
+        if (!toId && !toNickname) {
+            return res.status(400).json({ error: "Falta el destinatario ('to' o 'toNickname')" });
+        }
+        let target = null;
+        if (toId) {
+            target = await authService.getById(toId);
+        } else {
+            if (!db) return res.status(503).json({ error: "Función no disponible en modo local" });
+            target = await findUserByNickname(toNickname);
+        }
         if (!target) return res.status(404).json({ error: "Usuario no encontrado" });
         if (target.id === user.id) return res.status(400).json({ error: "No te puedes agregar a ti mismo" });
         const request = await FriendshipModel.sendRequest({ from: user.id, to: target.id });
         res.status(201).json({ ok: true, request });
+    } catch (error) {
+        sendError(res, error);
+    }
+});
+
+// DELETE /api/auth/friends/request/:requestId — cancela una solicitud enviada
+// (el perfil la ofrece mientras está pendiente para poder retirarla).
+router.delete("/auth/friends/request/:requestId", async (req, res) => {
+    try {
+        const user = await authUserFromReq(req);
+        if (!user) return res.status(401).json({ error: "Requiere iniciar sesión" });
+        const result = await FriendshipModel.cancelRequest(req.params.requestId, user.id);
+        res.json(result);
     } catch (error) {
         sendError(res, error);
     }

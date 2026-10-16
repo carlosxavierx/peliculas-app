@@ -238,32 +238,41 @@ usuario solo se devuelve si existe una amistad aceptada (o es el propio usuario)
 
 | Método | Ruta | Función |
 |---|---|---|
-| `GET` | `/api/users/search?q=...` | Busca usuarios por nombre o email para añadir amigos. |
-| `POST` | `/api/friends/requests` | Envía una solicitud (`{ to: "email" }`). |
-| `GET` | `/api/friends/requests/received` | Solicitudes pendientes recibidas. |
-| `GET` | `/api/friends/requests/sent` | Solicitudes pendientes enviadas. |
-| `POST` | `/api/friends/requests/:id/accept` | Acepta una solicitud (solo el destinatario). |
-| `POST` | `/api/friends/requests/:id/reject` | Rechaza una solicitud (solo el destinatario). |
-| `DELETE` | `/api/friends/requests/:id` | Cancela una solicitud enviada. |
-| `GET` | `/api/friends` | Lista de amigos del usuario autenticado. |
-| `DELETE` | `/api/friends/:friendId` | Elimina a un amigo. |
-| `GET` | `/api/friends/:friendId/profile` | Perfil visible para amigos, con Top 5 y contadores. |
-| `GET` | `/api/friends/:friendId/full-profile` | Perfil completo: usuario + Top 5 + películas y series guardadas. |
-| `GET` | `/api/friends/:friendId/movies` | Películas guardadas del amigo. |
-| `GET` | `/api/friends/:friendId/series` | Series guardadas del amigo. |
-| `GET` | `/api/users/me/top5` | Top 5 propio. |
-| `PUT` | `/api/users/me/top5` | Guarda el Top 5 (`{ top5: [...] }`, máx. 5 referencias). |
+| `GET` | `/api/users/search?q=...` | Busca personas por nombre, apodo o email (mín. 2 caracteres). Cada resultado trae su `relationship` y su `requestId`. |
+| `POST` | `/api/auth/friends/request` | Envía una solicitud (`{ to: "email" }`; también acepta `{ toNickname }`). |
+| `GET` | `/api/auth/friends/requests` | Solicitudes pendientes recibidas (`{ request, fromUser }`). |
+| `GET` | `/api/auth/friends/requests/sent` | Solicitudes pendientes enviadas (`{ request, toUser }`). |
+| `POST` | `/api/auth/friends/request/accept` | Acepta una solicitud (`{ requestId }`, solo el destinatario). |
+| `POST` | `/api/auth/friends/request/decline` | Rechaza una solicitud (`{ requestId }`, solo el destinatario). |
+| `DELETE` | `/api/auth/friends/request/:requestId` | Cancela una solicitud enviada. |
+| `GET` | `/api/auth/friends` | Lista de amigos del usuario autenticado. |
+| `DELETE` | `/api/auth/friends/:friendId` | Elimina a un amigo. |
+| `PUT` | `/api/users/me/top5` | Guarda el Top 5 propio (`{ top5: [...] }`, máx. 5 referencias). |
+
+El apodo público se cambia con `PUT /api/auth/profile` (`{ nickname, colorTheme }`)
+o `POST /api/auth/nickname`; es único, en minúsculas y de 3 a 30 caracteres.
+
+`friendsRoutes` mantiene una familia paralela de compatibilidad
+(`/api/friends/...`, con `{ results, totalResults }`) para el perfil de amigo con
+Top 5 y contadores (`/api/friends/:friendId/profile`, `/api/friends/:friendId/full-profile`).
+El buscador y el Top 5 propios viven solo en las rutas de arriba (las copias
+duplicadas se eliminaron para no tener dos respuestas para la misma URL).
 
 ### Perfil público
 
-Sin sesión (igual que el catálogo). Nunca devuelven datos sensibles: el perfil
-sale de `publicUser()`, sin hash de contraseña ni sesiones.
+Sin sesión (igual que el catálogo). Nunca devuelven datos sensibles: la ficha
+sale de `socialProfile()`, sin email, rol, hash de contraseña ni sesiones.
+La web abre este perfil al pulsar a alguien en **Buscar** o **Amistades**
+(también en enlaces directos `/perfil?id=usuario`).
 
 | Método | Ruta | Función |
 |---|---|---|
 | `GET` | `/api/users/:id` | Perfil público de un usuario (`404` si no existe). |
 | `GET` | `/api/users/:id/movies` | Películas guardadas de un usuario. |
+| `GET` | `/api/users/:id/series` | Series guardadas de un usuario. |
+| `GET` | `/api/users/:id/top5` | Top 5 del usuario (`me` = el de la sesión). |
 | `GET` | `/api/users/:id/marathons` | Maratones empezadas/completadas, logros y última obra vista. |
+| `GET` | `/api/users/:id/relationship` | Estado de amistad con esa persona, para pintar el botón del perfil (`self`, `friends`, `request-sent`, `request-received`, `none` + `requestId`). Requiere sesión. |
 
 ### Chat
 
@@ -386,7 +395,19 @@ Logros disponibles: `primer-paso`, `doble-sesion`, `maratonista`, `triple-sesion
 
 ### En el perfil público (social)
 
-El perfil de un usuario muestra un bloque **Maratones** con las que ha empezado o
+El perfil (`/perfil?id=usuario`) es la ficha que se abre al pulsar a cualquier
+persona, sea amigo o no: avatar, nombre y apodo, miembro desde, géneros
+favoritos, contadores, sus **5 favoritas**, sus **películas** y **series**
+guardadas (con ficha de detalle y reseñas) y sus **maratones**.
+
+Arriba a la derecha vive la acción de amistad, siempre según el estado real:
+**Añadir amigo**, **Solicitud enviada** (con «Cancelar»), **Aceptar solicitud** /
+**Rechazar** o **✓ Amigos** (con «Eliminar amigo»). Si el perfil es el tuyo,
+aparecen los accesos a Configuración y Mi cuenta. Cada acción se confirma
+contra la API antes de pintar el nuevo estado y el resultado (éxito o error) se
+avisa en el propio perfil.
+
+El perfil de un usuario muestra además un bloque **Maratones** con las que ha empezado o
 completado, ordenadas por última actividad, indicando su **última obra vista**, la
 siguiente pendiente, la barra de progreso y las insignias conseguidas. Las
 tarjetas no son interactivas: el progreso de otro se mira, no se toca (si el
