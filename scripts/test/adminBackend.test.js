@@ -391,11 +391,12 @@ test("el nickname se guarda, se puede comprobar y no se puede repetir", async ()
     assert.equal(set.status, 200);
     assert.equal(set.body.nickname, "hector_test");
 
-    // El perfil devuelve el nickname (campo propio y dentro de prefs).
+    // El perfil devuelve el nickname en un ÚNICO campo: user.nickname.
+    // Ya no se duplica dentro de prefs (era el bug de los dos campos).
     const me = await api("GET", "/api/auth/me", { token: normalUser.token });
     assert.equal(me.status, 200);
     assert.equal(me.body.user.nickname, "hector_test");
-    assert.equal(me.body.user.prefs.nickname, "hector_test");
+    assert.equal(me.body.user.prefs.nickname, undefined, "el apodo no debe duplicarse en prefs");
 
     const taken = await api("GET", "/api/auth/nickname/check/hector_test");
     assert.equal(taken.status, 200);
@@ -420,6 +421,49 @@ test("el nickname se guarda, se puede comprobar y no se puede repetir", async ()
 
     const withoutSession = await api("POST", "/api/auth/nickname", { body: { nickname: "sin_sesion" } });
     assert.equal(withoutSession.status, 401);
+});
+
+test("Mi Cuenta no confunde el apodo con el nombre completo", async () => {
+    // Un usuario recién registrado aún no tiene apodo: el perfil debe devolver
+    // null (no el nombre) para que el front no pinte "@Nombre Apellido".
+    const fresh = await authService.seedLocalUser({ email: "sin.apodo@example.com", name: "Nombre Completo" });
+    const me = await api("GET", "/api/auth/me", { token: fresh.token });
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user.name, "Nombre Completo");
+    assert.equal(me.body.user.nickname, null);
+    assert.equal(me.body.user.prefs.nickname, undefined);
+});
+
+test("el apodo también se guarda desde Configuración (PUT /api/auth/profile)", async () => {
+    const res = await api("PUT", "/api/auth/profile", {
+        token: normalUser.token,
+        body: { nickname: "apodo_config", colorTheme: "neon" }
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.prefs.colorTheme, "neon");
+
+    const me = await api("GET", "/api/auth/me", { token: normalUser.token });
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user.nickname, "apodo_config");
+    assert.equal(me.body.user.colorTheme, "neon");
+    assert.equal(me.body.user.prefs.nickname, undefined);
+});
+
+test("el cuestionario de onboarding no borra ni duplica el apodo", async () => {
+    // Este era el segundo bug: el cuestionario reescribía prefs con los valores
+    // por defecto (nickname: null) y dejaba el documento con dos campos de apodo.
+    const res = await api("PUT", "/api/auth/prefs", {
+        token: normalUser.token,
+        body: { favoriteGenres: ["Action", "Crime", "Fantasy"], likesMovies: true, onboardingDone: true }
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.prefs.nickname, undefined, "prefs no debe contener el apodo");
+
+    const me = await api("GET", "/api/auth/me", { token: normalUser.token });
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user.nickname, "apodo_config", "el apodo debe sobrevivir al cuestionario");
+    assert.equal(me.body.user.prefs.nickname, undefined);
+    assert.equal(me.body.user.prefs.onboardingDone, true);
 });
 
 // ---- Generador de dataset (tarea 13) ----

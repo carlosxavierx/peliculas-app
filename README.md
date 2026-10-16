@@ -298,6 +298,15 @@ node scripts/migrateDatabase.js
 
 Completa preferencias de usuarios antiguos y normaliza documentos de películas que no tengan `type` o `title`. No crea usuarios en Firebase Authentication.
 
+### Unificar el campo del apodo
+
+```powershell
+node scripts/migrateNicknameField.js
+node scripts/migrateNicknameField.js --confirm
+```
+
+Deja un único campo `nickname` en cada usuario: recupera el apodo que solo estuviera en `prefs.nickname` y elimina esa copia duplicada. Sin `--confirm` es una simulación que no escribe nada.
+
 ### Vaciar películas
 
 Simulación:
@@ -380,6 +389,7 @@ Con `SEASON_ENRICH_ENABLED=false` se desactiva por completo.
 id
 name
 email
+nickname                # apodo público único (solo aquí, nunca dentro de prefs)
 provider
 firebaseUid
 photoURL
@@ -387,6 +397,7 @@ emailVerified
 prefs.favoriteGenres[]
 prefs.likesMovies
 prefs.onboardingDone
+prefs.colorTheme
 createdAt
 ```
 

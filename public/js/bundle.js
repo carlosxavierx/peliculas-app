@@ -1362,8 +1362,8 @@ function RegisterPage(props) {
             setNicknameError("El apodo no puede superar 30 caracteres");
             return;
         }
-        if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
-            setNicknameError("Solo letras, números y guión bajo");
+        if (!/^[a-zA-Z0-9_.-]+$/.test(clean)) {
+            setNicknameError("Solo letras, números, guión bajo (_), guion (-) y punto (.)");
             return;
         }
         setCheckingNickname(true);
@@ -1438,6 +1438,19 @@ function RegisterPage(props) {
                 throw new Error("El correo todavía no aparece como verificado. Abre el enlace recibido y vuelve a intentarlo.");
             }
             const data = await firebaseSessionWithBackend(currentUser, currentUser.displayName || name.trim());
+            // Guardar nickname después de tener token de sesión
+            const cleanNickname = nickname.trim().toLowerCase();
+            if (cleanNickname.length >= 3) {
+                const nicknameRes = await fetch("/api/auth/nickname", {
+                    method: "POST",
+                    headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+                    body: JSON.stringify({ nickname: cleanNickname })
+                });
+                if (!nicknameRes.ok) {
+                    const errData = await nicknameRes.json();
+                    throw new Error(errData.error || "No se pudo guardar el apodo");
+                }
+            }
             setVerificationSent(false);
             afterFirebaseSession(data, false);
         } catch (err) {
@@ -1458,7 +1471,7 @@ function RegisterPage(props) {
         if (password !== password2) { setError("Las contraseñas no coinciden."); return; }
         if (cleanNickname.length < 3) { setError("El apodo debe tener al menos 3 caracteres."); return; }
         if (cleanNickname.length > 30) { setError("El apodo no puede superar 30 caracteres."); return; }
-        if (!/^[a-zA-Z0-9_]+$/.test(cleanNickname)) { setError("El apodo solo puede contener letras, números y guión bajo."); return; }
+        if (!/^[a-zA-Z0-9_.-]+$/.test(cleanNickname)) { setError("El apodo solo puede contener letras, números, guión bajo (_), guion (-) y punto (.)."); return; }
 
         setLoading(true);
         setError(null);
@@ -1469,21 +1482,6 @@ function RegisterPage(props) {
                 await cred.user.updateProfile({ displayName: cleanName });
             } catch (updErr) { /* nombre opcional */ }
             await cred.user.sendEmailVerification(firebaseActionSettings("verifyEmail"));
-            // Set nickname after verification
-            const token = getStoredToken();
-            if (token) {
-                const nicknameRes = await fetch("/api/auth/nickname", {
-                    method: "POST",
-                    headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                    body: JSON.stringify({ nickname: cleanNickname })
-                });
-                if (!nicknameRes.ok) {
-                    const data = await nicknameRes.json();
-                    setError(data.error || "No se pudo guardar el apodo");
-                    setLoading(false);
-                    return;
-                }
-            }
             setVerificationSent(true);
             setStep(2);
         } catch (err) {
@@ -1603,16 +1601,17 @@ function RegisterPage(props) {
                     h("input", {
                         type: "text", value: nickname,
                         onChange: (e) => {
-                            const v = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                            const v = e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, '');
                             setNickname(v);
                             if (v.length >= 3) checkNickname(v);
                             else setNicknameError(null);
                         },
-                        placeholder: "min. 3 chars, letras, números, _", autoComplete: "username", maxLength: 30
+                        placeholder: "Apodo", autoComplete: "username", maxLength: 30
                     }),
                     checkingNickname ? h("span", { className: "nickname-checking" }, "⟳") : null
                 ),
                 nicknameError ? h("p", { className: "error hint" }, nicknameError) : null,
+                h("p", { className: "hint", style: { fontSize: "1rem", color: "var(--muted)", marginTop: "0.35rem" } }, "min. 3 chars, letras, números, _, -, ."),
                 h("p", { className: "hint" }, "Tu identidad única para que te encuentren tus amigos")
             ),
             h("button", { className: "btn-primary", type: "submit", disabled: loading || googleLoading },
@@ -2794,6 +2793,7 @@ function MiCuenta(props) {
     const loadingSeries = props.loadingSeries;
     const onDelete = props.onDelete;
     const onDeleteSeries = props.onDeleteSeries || null;
+    const onNavigate = props.onNavigate || null;
     const detailState = React.useState(null);
     const detail = detailState[0];
     const setDetail = detailState[1];
@@ -3134,7 +3134,14 @@ function MiCuenta(props) {
         h("div", { className: "page-head" },
             h("h1", null, "Hola, " + user.name),
             h("p", { className: "muted" }, user.email),
-            user.nickname ? h("p", { className: "muted" }, "Apodo: @" + user.nickname) : null
+            user.nickname
+                ? h("p", { className: "muted" }, "Apodo: @" + user.nickname)
+                : h("p", { className: "muted" },
+                    "Apodo: sin definir ",
+                    onNavigate
+                        ? h("button", { className: "btn-ghost btn-small", type: "button", onClick: () => onNavigate("configuracion") }, "Elegir apodo")
+                        : null
+                )
         ),
 
         /* ----- Índice / Tabla de contenidos ----- */
@@ -4020,7 +4027,9 @@ function FriendsPage(props) {
 function ProfileSettings(props) {
     const currentUser = props.currentUser;
     const onNavigate = props.onNavigate;
-    const nicknameState = React.useState(currentUser?.nickname || currentUser?.name || "");
+    // El campo es el apodo, no el nombre: si aún no hay apodo se deja vacío para
+    // no precargar el nombre completo (que no es un apodo válido).
+    const nicknameState = React.useState(currentUser?.nickname || "");
     const nickname = nicknameState[0];
     const setNickname = nicknameState[1];
     const themeState = React.useState(currentUser?.colorTheme || "default");
@@ -4038,7 +4047,7 @@ function ProfileSettings(props) {
 
     React.useEffect(() => {
         if (currentUser) {
-            setNickname(currentUser.nickname || currentUser.name || "");
+            setNickname(currentUser.nickname || "");
             setTheme(currentUser.colorTheme || "default");
         }
     }, [currentUser]);
@@ -4052,12 +4061,16 @@ function ProfileSettings(props) {
         setError(null);
         setSuccess(null);
         const cleanNickname = nickname.trim();
-        if (cleanNickname.length < 2) {
-            setError("El apodo debe tener al menos 2 caracteres");
+        if (cleanNickname.length < 3) {
+            setError("El apodo debe tener al menos 3 caracteres");
             return;
         }
         if (cleanNickname.length > 30) {
             setError("El apodo no puede exceder 30 caracteres");
+            return;
+        }
+        if (!/^[a-zA-Z0-9_.-]+$/.test(cleanNickname)) {
+            setError("El apodo solo puede contener letras, números, guión bajo (_), guion (-) y punto (.).");
             return;
         }
         setLoading(true);
@@ -4065,14 +4078,18 @@ function ProfileSettings(props) {
             const res = await fetch("/api/auth/profile", {
                 method: "PUT",
                 headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ nickname: cleanNickname, colorTheme: theme })
+                body: JSON.stringify({ nickname: cleanNickname.toLowerCase(), colorTheme: theme })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "No se pudo actualizar");
+            // El backend normaliza el apodo (minúsculas); usamos ese valor.
+            const savedNickname = cleanNickname.toLowerCase();
+            setNickname(savedNickname);
             setSuccess("Perfil actualizado correctamente");
-            // Actualizar usuario en estado global
+            // Actualizar usuario en estado global. El apodo es un campo único
+            // (user.nickname) y no se guarda dentro de prefs.
             if (props.onUpdateUser) {
-                props.onUpdateUser({ ...currentUser, nickname: cleanNickname, colorTheme: theme, prefs: { ...currentUser.prefs, nickname: cleanNickname, colorTheme: theme } });
+                props.onUpdateUser({ ...currentUser, nickname: savedNickname, colorTheme: theme, prefs: { ...currentUser.prefs, colorTheme: theme } });
             }
         } catch (e) {
             setError(e.message);
@@ -4101,7 +4118,7 @@ function ProfileSettings(props) {
                         maxLength: 30,
                         autoComplete: "nickname"
                     }),
-                    h("small", { className: "muted" }, "Este nombre será visible para otros usuarios. Mínimo 2, máximo 30 caracteres.")
+                    h("small", { className: "muted" }, "Este nombre será visible para otros usuarios. Mínimo 3, máximo 30 caracteres (letras, números, _, - y .).")
                 )
             ),
             h("div", { className: "settings-section" },
@@ -5552,7 +5569,7 @@ function App() {
                 ? h(RegisterPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), questionnaireOnly: true })
                 : page === "cuenta"
                 ? (user
-                    ? h(MiCuenta, { user: user, movies: movies, series: series, loadingList: loadingList, loadingSeries: loadingSeries, onDelete: handleDelete, onDeleteSeries: handleDeleteSeries })
+                    ? h(MiCuenta, { user: user, movies: movies, series: series, loadingList: loadingList, loadingSeries: loadingSeries, onDelete: handleDelete, onDeleteSeries: handleDeleteSeries, onNavigate: navigate })
                     : h(LoginPage, { onAuth: handleAuth, onSwitch: () => navigate("auth"), onForgot: () => navigate("recuperar") }))
                 : page === "perfil"
                 ? (user
