@@ -246,12 +246,15 @@ router.get("/users/:id/is-following", async (req, res) => {
 router.post("/auth/nickname", async (req, res) => {
     try {
         const token = tokenFromHeader(req);
-        const session = await authService.readSession ? await authService.readSession(token) : null;
-        if (!session) return res.status(401).json({ error: "Sesión no válida" });
+        // `readSession` se exporta suelto, no dentro de authService: antes esta
+        // línea comparaba `await authService.readSession` (undefined) y la ruta
+        // devolvía siempre 401, así que el apodo nunca llegaba a guardarse.
+        const me = await authService.me(token);
+        if (!me) return res.status(401).json({ error: "Sesión no válida" });
         const body = req.body || {};
         const nickname = (body.nickname || "").trim();
         if (!nickname) return res.status(400).json({ error: "Apodo requerido" });
-        const saved = await setUserNickname(session.userId, nickname);
+        const saved = await setUserNickname(me.id, nickname);
         res.json({ ok: true, nickname: saved });
     } catch (error) {
         if (error.code === "NICKNAME_TAKEN") return res.status(409).json({ error: error.message });

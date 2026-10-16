@@ -4,6 +4,7 @@ const crypto = require("crypto");
 
 // Conexión centralizada a Firestore (ver ../models/firebase.js).
 const firebaseConn = require("../models/firebase");
+const { FieldValue } = require("firebase-admin/firestore");
 const db = firebaseConn.getDb();
 if (!firebaseConn.isFirestoreConnected()) {
     console.warn("[auth] Sin Firestore. La autenticación Firebase no estará disponible.");
@@ -21,14 +22,26 @@ function sessionExpiry() {
     return Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
 }
 
+// Preferencias del cuestionario/perfil.
+// OJO: el apodo NO va aquí. Vive en un único campo `users/{email}.nickname`
+// (ver setUserNickname). Antes se duplicaba también en `prefs.nickname`, y como
+// el cuestionario reescribe `prefs` con estos valores por defecto, dejaba el
+// campo de prefs a null y el documento acababa con DOS campos de apodo.
 function defaultPrefs() {
     return {
         favoriteGenres: [],      // máx 3, strings (ej: ["Action", "Drama", "Sci-Fi"])
         likesMovies: null,       // true | false | null
         onboardingDone: false,   // true cuando completó el cuestionario
-        nickname: null,          // apodo visible público
         colorTheme: "default"    // default, vibrant, neon, pastel
     };
+}
+
+// Mismos temas que el front (COLOR_THEMES de public/js/bundle.js).
+const COLOR_THEMES = ["default", "vibrant", "neon", "pastel"];
+
+function cleanColorTheme(raw) {
+    const clean = String(raw || "").trim().toLowerCase();
+    return COLOR_THEMES.includes(clean) ? clean : null;
 }
 
 // ---- Roles (tarea 1: sistema de roles Admin/User) ----
@@ -81,8 +94,17 @@ function hasRole(user, role) {
     return roleOfUser(user) === normalizeRole(role);
 }
 
+// El apodo es la identidad pública y es OPCIONAL: no debe confundirse con el
+// nombre completo. Antes se devolvía `user.name` como apodo cuando no existía,
+// y el front lo pintaba como "@Nombre Apellido" (apodo falso). Ahora, sin apodo
+// se devuelve null y cada pantalla decide su texto de reserva.
 function publicUser(user) {
     const role = roleOfUser(user);
+    const prefs = { ...defaultPrefs(), ...(user.prefs || {}) };
+    // Campo único: `users/{email}.nickname`. Se sigue leyendo `prefs.nickname`
+    // de documentos antiguos, pero nunca se devuelve dentro de prefs.
+    const nickname = String(user.nickname || prefs.nickname || "").trim() || null;
+    delete prefs.nickname;
     return {
         id: user.id,
         name: user.name,
@@ -91,8 +113,9 @@ function publicUser(user) {
         provider: user.provider || (user.passHash ? "password" : "firebase"),
         role,
         isAdmin: role === "admin",
-        nickname: (user.prefs && user.prefs.nickname) || user.nickname || user.name || null,
-        prefs: user.prefs || defaultPrefs()
+        nickname,
+        colorTheme: prefs.colorTheme || "default",
+        prefs
     };
 }
 
@@ -258,8 +281,7 @@ async function setUserNickname(userId, nickname) {
     const clean = String(nickname || "").trim().toLowerCase();
     if (clean.length < 3) throw nicknameError("El apodo debe tener al menos 3 caracteres", "INVALID_NICKNAME");
     if (clean.length > 30) throw nicknameError("El apodo no puede superar 30 caracteres", "INVALID_NICKNAME");
-    if (!/^[a-z0-9_]+$/.test(clean)) throw nicknameError("El apodo solo puede contener letras, números y guión bajo", "INVALID_NICKNAME");
-
+    if (!/^[a-z0-9_.-]+$/.test(clean)) throw nicknameError("El apodo solo puede contener letras, números, guión bajo (_), guion (-) y punto (.)", "INVALID_NICKNAME");
     const owner = String(userId || "").trim().toLowerCase();
     const existing = await findUserByNickname(clean);
     if (existing && String(existing.id || "").toLowerCase() !== owner) {
@@ -267,16 +289,15 @@ async function setUserNickname(userId, nickname) {
     }
 
     const user = await storedUserById(userId);
-    const prefs = { ...defaultPrefs(), ...(user && user.prefs), nickname: clean };
     if (!db) {
         if (user) {
             user.nickname = clean;
-            user.prefs = prefs;
             localUsers.set(String(user.email || owner).toLowerCase(), user);
         }
         return clean;
     }
-    await db.collection("users").doc(String(userId)).set({ nickname: clean, prefs }, { merge: true });
+    // Un único campo: `users/{email}.nickname`. `prefs` ya no guarda el apodo.
+    await db.collection("users").doc(String(userId)).set({ nickname: clean }, { merge: true });
     return clean;
 }
 
@@ -323,6 +344,9 @@ async function deleteSession(token) {
 
 async function updateUserPrefs(userId, prefs) {
     const merged = { ...defaultPrefs(), ...prefs };
+    // Defensa: el apodo nunca se guarda en prefs. Así el cuestionario (que
+    // reescribe prefs entero) no puede borrarlo ni recrear el campo duplicado.
+    delete merged.nickname;
     if (!db) {
         const u = localUsers.get(userId);
         if (u) {
@@ -331,7 +355,10 @@ async function updateUserPrefs(userId, prefs) {
         }
         return merged;
     }
-    await db.collection("users").doc(userId).set({ prefs: merged }, { merge: true });
+    await db.collection("users").doc(userId).set(
+        { prefs: merged, "prefs.nickname": FieldValue.delete() },
+        { merge: true }
+    );
     return merged;
 }
 
@@ -444,6 +471,28 @@ const authService = {
         if (!session) return null;
         const merged = await updateUserPrefs(session.userId, prefs);
         return merged;
+    },
+
+    // ---- Perfil público: apodo único + tema (PUT /api/auth/profile) ----
+    // El apodo se valida y se reserva con setUserNickname (único y normalizado);
+    // el tema se guarda en prefs. Devuelve las prefs resultantes.
+    updateProfile: async (token, { nickname, colorTheme } = {}) => {
+        const session = await readSession(token);
+        if (!session) return null;
+
+        let savedNickname = null;
+        if (nickname !== undefined && nickname !== null && String(nickname).trim() !== "") {
+            savedNickname = await setUserNickname(session.userId, nickname);
+        }
+
+        const user = await storedUserById(session.userId);
+        const prefs = { ...defaultPrefs(), ...(user && user.prefs) };
+        // El apodo solo vive en `users/{email}.nickname`: no se copia a prefs.
+        delete prefs.nickname;
+        const theme = cleanColorTheme(colorTheme);
+        if (theme) prefs.colorTheme = theme;
+
+        return updateUserPrefs(session.userId, prefs);
     },
 
     // ---- Usuarios (amistades, Top 5 y administración) ----
@@ -829,5 +878,6 @@ module.exports = {
     getUserById,
     nicknameOf,
     listStoredUsers,
-    validateTop5
+    validateTop5,
+    readSession
 };
