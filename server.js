@@ -109,6 +109,7 @@ app.use("/api/series/search", (req, res, next) => {
 
 app.use("/api", movieRoutes);
 app.use("/api", seriesRoutes);
+app.use("/api", chatAgentRoutes);
 
 // Anti fuerza bruta en login/registro: 20 intentos por IP y minuto.
 const authHits = new Map();

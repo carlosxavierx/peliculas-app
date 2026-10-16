@@ -98,14 +98,14 @@ router.put("/auth/profile", async (req, res) => {
         if (typeof body !== "object") {
             return res.status(400).json({ error: "Cuerpo de petición inválido" });
         }
-        const profile = await authService.updateProfile(token, {
+        const prefs = await authService.updateProfile(token, {
             nickname: body.nickname,
             colorTheme: body.colorTheme
         });
-        if (!profile) {
+        if (!prefs) {
             return res.status(401).json({ error: "Sesión no válida" });
         }
-        res.json({ ok: true, profile });
+        res.json({ ok: true, prefs });
     } catch (error) {
         if (error && error.code === "NICKNAME_TAKEN") {
             return res.status(409).json({ error: error.message });

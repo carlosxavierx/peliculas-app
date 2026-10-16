@@ -9,11 +9,11 @@
 "use strict";
 
 const API_KEY = (process.env.GEMINI_API_KEY || "").trim();
-// Modelo preferente para clasificación: GEMINI_MODEL > CHAT_MODEL > gemini-3.8-flash.
+// Modelo preferente para clasificación: GEMINI_MODEL > CHAT_MODEL > gemini-3.5-flash.
 const MODEL =
     (process.env.GEMINI_MODEL || "").trim() ||
     (process.env.CHAT_MODEL || "").trim() ||
-    "gemini-3.8-flash";
+    "gemini-3.5-flash";
 
 // Modelo para traducir sinopsis: GEMINI_TRANSLATE_MODEL > gemini-3.5-flash-lite.
 // Se usa un modelo "lite" porque es un trabajo masivo (todo el catálogo) y su
