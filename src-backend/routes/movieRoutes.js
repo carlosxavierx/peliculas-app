@@ -102,6 +102,16 @@ router.get("/movies/genre/:genre", async (req, res) => {
     }
 });
 
+// Top 5 por guardados: las más guardadas por los usuarios (cambia solo).
+router.get("/movies/top5", async (req, res) => {
+    try {
+        const top = await MovieModel.getMostSavedFromDb({ limit: 5 });
+        res.json({ results: top, totalResults: top.length, source: "firebase" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.post("/movies", async (req, res) => {
     try {
         const user = await authUser(req);

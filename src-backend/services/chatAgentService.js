@@ -422,7 +422,7 @@ async function processChat(messages, userId) {
     }
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
-        const model = process.env.CHAT_MODEL || "gemini-flash-latest";
+        const model = process.env.CHAT_MODEL || "gemini-3.5-flash";
         return processChatGemini(messages, userId, geminiKey, model);
     }
     return NO_KEY_MSG;

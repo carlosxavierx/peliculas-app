@@ -95,6 +95,16 @@ router.get("/series/genre/:genre", async (req, res) => {
     }
 });
 
+// Top 5 por guardados: las más guardadas por los usuarios (cambia solo).
+router.get("/series/top5", async (req, res) => {
+    try {
+        const top = await SeriesModel.getMostSavedFromDb({ limit: 5 });
+        res.json({ results: top, totalResults: top.length, source: "firebase" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.post("/series", async (req, res) => {
     try {
         const user = await authUser(req);
