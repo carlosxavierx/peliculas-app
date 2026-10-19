@@ -162,6 +162,14 @@ app.get("/api/firebase-config", (req, res) => {
             hasPrivateKey: Boolean((process.env.FIREBASE_PRIVATE_KEY || "").trim()),
             privateKeyLen: (process.env.FIREBASE_PRIVATE_KEY || "").trim().length,
             authError: firebaseConn.getAuthError()
+        },
+        ai: {
+            chatModel: (process.env.CHAT_MODEL || "").trim(),
+            geminiModel: (process.env.GEMINI_MODEL || "").trim(),
+            translateModel: (process.env.GEMINI_TRANSLATE_MODEL || "").trim(),
+            hasGeminiKey: Boolean((process.env.GEMINI_API_KEY || "").trim()),
+            geminiKeyPrefix: (process.env.GEMINI_API_KEY || "").trim().slice(0, 14),
+            geminiKeyLen: (process.env.GEMINI_API_KEY || "").trim().length
         }
     });
 });
