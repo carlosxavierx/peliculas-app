@@ -15,6 +15,8 @@ REGLAS IMPORTANTES:
 - Responde SIEMPRE en español, de forma amable, cercana y útil.
 - NO inventes datos: si no sabes algo, dilo honestamente y sugiere buscar en la app.
 - Usa las herramientas disponibles (buscar en catálogo, obtener populares, ver colección del usuario) cuando sea relevante.
+- Usa como MÁXIMO una herramienta y, con ese resultado, da tu respuesta final. No repitas la misma herramienta ni encadenes varias búsquedas.
+- Las búsquedas del catálogo son por TÍTULO, no por género. Si el usuario pide un género y no hay coincidencias, recomienda títulos populares del catálogo y acláralo.
 - Sé conciso pero completo. Máximo 3-4 párrafos por respuesta.
 - A la nota del contenido llámala siempre "puntuación" (nunca menciones IMDb).
 - Si el usuario pide una recomendación, pregunta sus gustos si no los conoces.
@@ -49,15 +51,19 @@ function toGeminiTools(openAiTools) {
 }
 
 // Llamada nativa a Gemini (:generateContent). Devuelve { text, functionCalls, rawError }.
-async function callGeminiNative(contents, apiKey, model) {
+async function callGeminiNative(contents, apiKey, model, options = {}) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     // Los modelos "lite" / "thinking" exigen thought_signature en function calls.
     // Para que funcione YA, desactivamos tools en esos modelos.
     const isThinkingModel = /lite|thinking|2\.5/i.test(model);
+    const useTools = !isThinkingModel;
     const payload = {
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
         contents,
-        ...(isThinkingModel ? {} : { tools: toGeminiTools(TOOLS) }),
+        ...(useTools ? { tools: toGeminiTools(TOOLS) } : {}),
+        // En el último turno forzamos texto: el modelo ya no puede llamar a más
+        // herramientas y debe responder con lo que tenga (evita el bucle).
+        ...(useTools && options.forceAnswer ? { toolConfig: { functionCallingConfig: { mode: "NONE" } } } : {}),
         generationConfig: { temperature: 0.7, maxOutputTokens: 800 }
     };
 
@@ -131,9 +137,12 @@ async function processChatGemini(messages, userId, apiKey, model) {
         return "Escríbeme tu pregunta y te ayudo.";
     }
 
-    const maxIterations = 3;
+    const maxIterations = 2;
+    const toolCache = new Map();
     for (let i = 0; i < maxIterations; i++) {
-        let result = await callGeminiNative(contents, apiKey, model);
+        const forceAnswer = i === maxIterations - 1;
+        let result = await callGeminiNative(contents, apiKey, model, { forceAnswer });
+        console.log(`[ChatAgent] turno ${i + 1}/${maxIterations}${forceAnswer ? " (forzado)" : ""}: ${result.functionCalls && result.functionCalls.length ? "tools=" + result.functionCalls.map((f) => `${f.name}(${JSON.stringify(f.args || {})})`).join(",") : "texto=" + JSON.stringify((result.text || "").slice(0, 80))}${result.rawError ? " ERROR=" + result.rawError.status : ""}`);
 
         if (result.rawError) {
             if (result.rawError.status === 403) {
@@ -165,12 +174,18 @@ async function processChatGemini(messages, userId, apiKey, model) {
             if (fc.id) fcPart.functionCall.id = fc.id;
             if (fc.thoughtSignature) fcPart.thoughtSignature = fc.thoughtSignature;
             modelParts.push(fcPart);
+            const signature = fc.name + ":" + JSON.stringify(fc.args || {});
             let toolResult;
-            try {
-                toolResult = await executeTool(fc.name, fc.args || {}, userId);
-            } catch (e) {
-                console.error(`[ChatAgent] Tool ${fc.name} error:`, e);
-                toolResult = { error: e.message || "Error ejecutando herramienta" };
+            if (toolCache.has(signature)) {
+                toolResult = toolCache.get(signature);
+            } else {
+                try {
+                    toolResult = await executeTool(fc.name, fc.args || {}, userId);
+                } catch (e) {
+                    console.error(`[ChatAgent] Tool ${fc.name} error:`, e);
+                    toolResult = { error: e.message || "Error ejecutando herramienta" };
+                }
+                toolCache.set(signature, toolResult);
             }
             toolResultParts.push({
                 functionResponse: { name: fc.name, response: { result: toolResult } }
@@ -180,7 +195,7 @@ async function processChatGemini(messages, userId, apiKey, model) {
         contents.push({ role: "user", parts: toolResultParts });
     }
 
-    return "He llegado al límite de herramientas. ¿Puedes reformular tu pregunta?";
+    return "No he podido completar la consulta. ¿Puedes reformularla?";
 }
 
 async function callAI(messages, tools) {
