@@ -43,6 +43,7 @@ const chatAgentRoutes = require("./src-backend/routes/chatAgentRoutes");
 const marathonRoutes = require("./src-backend/routes/marathonRoutes");
 const adminRoutes = require("./src-backend/routes/adminRoutes");
 const { startDailyEnrichment } = require("./src-backend/services/seasonEnrichmentService");
+const firebaseConn = require("./src-backend/models/firebase");
 
 const app = express();
 const PORT = Number.parseInt(process.env.PORT, 10) || 8080;
@@ -152,7 +153,15 @@ app.get("/api/firebase-config", (req, res) => {
         projectId: projectId,
         storageBucket: (process.env.FIREBASE_STORAGE_BUCKET || (projectId + ".appspot.com")).trim(),
         messagingSenderId: (process.env.FIREBASE_MESSAGING_SENDER_ID || "").trim(),
-        appId: (process.env.FIREBASE_APP_ID || "").trim()
+        appId: (process.env.FIREBASE_APP_ID || "").trim(),
+        admin: {
+            connected: firebaseConn.isAuthConnected(),
+            mode: firebaseConn.getMode(),
+            hasProjectId: Boolean((process.env.FIREBASE_PROJECT_ID || "").trim()),
+            hasClientEmail: Boolean((process.env.FIREBASE_CLIENT_EMAIL || "").trim()),
+            hasPrivateKey: Boolean((process.env.FIREBASE_PRIVATE_KEY || "").trim()),
+            privateKeyLen: (process.env.FIREBASE_PRIVATE_KEY || "").trim().length
+        }
     });
 });
 
