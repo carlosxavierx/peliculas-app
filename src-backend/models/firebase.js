@@ -6,6 +6,7 @@ const fs = require("fs");
 let db = null;
 let adminAuth = null;
 let mode = "local";
+let authError = null;
 
 function loadEnvIfNeeded() {
     // server.js ya carga el .env, esto es solo para usos directos (scripts).
@@ -71,6 +72,7 @@ try {
         getAuthFn = require("firebase-admin/auth").getAuth;
     } catch (e) {
         getAuthFn = null;
+        authError = "require('firebase-admin/auth') falló: " + (e && e.message ? e.message : String(e));
     }
 
     const fromEnv = serviceAccountFromEnv();
@@ -87,11 +89,17 @@ try {
         }
         db = typeof getFirestore === "function" ? getFirestore() : admin.firestore();
         try {
-            adminAuth = typeof getAuthFn === "function"
-                ? getAuthFn()
-                : (typeof admin.auth === "function" ? admin.auth() : null);
+            if (typeof getAuthFn === "function") {
+                adminAuth = getAuthFn();
+            } else if (typeof admin.auth === "function") {
+                adminAuth = admin.auth();
+            } else if (!authError) {
+                authError = "firebase-admin/auth no expone getAuth y admin.auth no es funcion";
+            }
+            if (!adminAuth && !authError) authError = "getAuth() devolvio null";
         } catch (e) {
-            console.warn("Firebase Auth (admin) no disponible. Detalle:", e.message);
+            authError = e && e.message ? e.message : String(e);
+            console.warn("Firebase Auth (admin) no disponible. Detalle:", authError);
             adminAuth = null;
         }
         mode = fromEnv ? "firestore-env" : "firestore-file";
@@ -103,6 +111,7 @@ try {
         console.warn("Sin credenciales Firebase (ni .env ni firebase-key.json). Modo local (memoria).");
     }
 } catch (e) {
+    authError = authError || (e && e.message ? e.message : String(e));
     console.warn("Firestore no disponible. Modo local (memoria). Detalle:", e.message);
 }
 
@@ -111,5 +120,6 @@ module.exports = {
     getAuth: () => adminAuth,
     isFirestoreConnected: () => db !== null,
     isAuthConnected: () => adminAuth !== null,
-    getMode: () => mode
+    getMode: () => mode,
+    getAuthError: () => authError
 };

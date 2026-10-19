@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "App de películas con Express + React (CDN)",
   "main": "server.js",
-  "engines": { "node": ">=18" },
+  "engines": { "node": "22.x" },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",

@@ -160,7 +160,8 @@ app.get("/api/firebase-config", (req, res) => {
             hasProjectId: Boolean((process.env.FIREBASE_PROJECT_ID || "").trim()),
             hasClientEmail: Boolean((process.env.FIREBASE_CLIENT_EMAIL || "").trim()),
             hasPrivateKey: Boolean((process.env.FIREBASE_PRIVATE_KEY || "").trim()),
-            privateKeyLen: (process.env.FIREBASE_PRIVATE_KEY || "").trim().length
+            privateKeyLen: (process.env.FIREBASE_PRIVATE_KEY || "").trim().length,
+            authError: firebaseConn.getAuthError()
         }
     });
 });
