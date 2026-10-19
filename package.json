@@ -4,6 +4,9 @@
   "description": "App de películas con Express + React (CDN)",
   "main": "server.js",
   "engines": { "node": "22.x" },
+  "overrides": {
+    "jose": "^4.15.9"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
