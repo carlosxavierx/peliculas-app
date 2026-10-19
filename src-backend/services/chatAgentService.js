@@ -98,7 +98,14 @@ async function callGeminiNative(contents, apiKey, model) {
             const functionCalls = [];
             for (const p of parts) {
                 if (typeof p.text === "string") text += p.text;
-                if (p.functionCall) functionCalls.push(p.functionCall);
+                if (p.functionCall) {
+                    functionCalls.push({
+                        name: p.functionCall.name,
+                        args: p.functionCall.args || {},
+                        id: p.functionCall.id,
+                        thoughtSignature: p.thoughtSignature
+                    });
+                }
             }
             return { text, functionCalls };
         } catch (error) {
@@ -132,7 +139,7 @@ async function processChatGemini(messages, userId, apiKey, model) {
             if (result.rawError.status === 403) {
                 const errMsg = JSON.stringify(result.rawError.body || {});
                 if (errMsg.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED")) {
-                    return "Tu clave AQ no funciona con este endpoint. Activa facturación en Google Cloud o usa una clave AIza antigua. O añade OPENAI_API_KEY/GROQ_API_KEY al .env.";
+                    return "Tu clave de Gemini no tiene acceso a este endpoint (error 403). Genera una clave nueva en https://aistudio.google.com/apikey y actualiza GEMINI_API_KEY en el .env.";
                 }
                 return "Mi clave de IA no tiene acceso (error 403). Activa facturación en Google Cloud Console o genera una clave nueva en https://aistudio.google.com/apikey y actualiza GEMINI_API_KEY en el .env";
             }
@@ -154,7 +161,10 @@ async function processChatGemini(messages, userId, apiKey, model) {
         if (result.text) modelParts.push({ text: result.text });
         const toolResultParts = [];
         for (const fc of result.functionCalls) {
-            modelParts.push({ functionCall: { name: fc.name, args: fc.args || {} } });
+            const fcPart = { functionCall: { name: fc.name, args: fc.args || {} } };
+            if (fc.id) fcPart.functionCall.id = fc.id;
+            if (fc.thoughtSignature) fcPart.thoughtSignature = fc.thoughtSignature;
+            modelParts.push(fcPart);
             let toolResult;
             try {
                 toolResult = await executeTool(fc.name, fc.args || {}, userId);
