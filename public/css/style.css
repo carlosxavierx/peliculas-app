@@ -233,15 +233,27 @@ button { font-family: inherit; }
     border-radius: 6px;
     padding: 0.7rem 1.5rem; font-size: 0.95rem; font-weight: 700; cursor: pointer;
     box-shadow: 0 8px 24px rgba(156, 13, 56, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-.btn-primary:hover { background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary)); transform: translateY(-1px); }
+.btn-primary:hover { 
+    background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary)); 
+    transform: translateY(-1px); 
+    box-shadow: 0 12px 30px rgba(156, 13, 56, 0.5); 
+}
 .btn-big { font-size: 1.05rem; padding: 0.85rem 2rem; border-radius: 8px; }
 .btn-ghost {
     border: 1px solid rgba(127, 176, 216, 0.4); color: var(--sky-bright); border-radius: 6px;
     padding: 0.7rem 1.4rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; text-decoration: none;
     background: transparent; display: inline-block;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.btn-ghost:hover { background: var(--sky-dark); border-color: var(--sky-dark); color: #fff; }
+.btn-ghost:hover { 
+    background: var(--color-secondary); 
+    border-color: var(--color-secondary); 
+    color: var(--color-white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(119, 174, 209, 0.4);
+}
 .hero-stats { display: flex; gap: 2rem; }
 .hero-stats div { display: flex; flex-direction: column; }
 .hero-stats strong { font-size: 1.25rem; color: #fff; }
@@ -356,16 +368,28 @@ button { font-family: inherit; }
 .result-info p strong { color: var(--steel-bright); font-weight: 700; }
 .result-actions { display: flex; gap: 0.6rem; margin-top: 0.9rem; flex-wrap: wrap; }
 .result-actions button {
-    padding: 0.7rem 1.4rem; border: 1px solid rgba(74, 107, 138, 0.45); border-radius: 6px; cursor: pointer;
+    padding: 0.7rem 1.4rem; border: 1px solid var(--color-secondary); border-radius: 6px; cursor: pointer;
     background: linear-gradient(180deg, var(--color-primary), var(--accent-hover)); color: var(--color-white); font-size: 0.95rem; font-weight: 700;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-.result-actions button:hover { background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary)); }
-.result-actions button:disabled { background: #3a3f4a; border-color: transparent; color: #bbb; cursor: not-allowed; }
+.result-actions button:hover { 
+    background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary)); 
+    transform: translateY(-1px); 
+    box-shadow: 0 12px 30px rgba(156, 13, 56, 0.5); 
+}
+.result-actions button:disabled { background: #3a3f4a; border-color: transparent; color: #bbb; cursor: not-allowed; transform: none; box-shadow: none; }
 .result-actions .btn-ghost {
     background: transparent; border: 1px solid rgba(127, 176, 216, 0.4);
     color: var(--sky-bright); font-weight: 600;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.result-actions .btn-ghost:hover { background: var(--sky-dark); border-color: var(--sky-dark); color: #fff; }
+.result-actions .btn-ghost:hover { 
+    background: var(--color-secondary); 
+    border-color: var(--color-secondary); 
+    color: var(--color-white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(119, 174, 209, 0.4);
+}
 
 /* ---------- Carrusel (títulos con barra mezcla + ›) ---------- */
 .carousel-section { margin: 2rem 0; }
@@ -1064,157 +1088,6 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     --color-success: #22d3ee;
     --color-error: #f87171;
 }
-
-[data-theme="pastel"] {
-    --color-primary: #b83a6a;
-    --color-primary-hover: #962c55;
-    --color-primary-light: #fbe4ec;
-    --color-accent: #be185d;
-    --color-background: #faf7f9;
-    --color-surface: #ffffff;
-    --color-text: #413252;
-    --color-text-muted: #6f5f86;
-    --color-border: #e5d5e0;
-    --color-success: #4ade80;
-    --color-error: #fca5a5;
-}
-
-/* ---------- Tema claro (pastel): adaptaciones de contraste ---------- */
-[data-theme="pastel"] {
-    --steel-bright: #3d5a76;      /* texto acero sobre fondo claro */
-    --bronze-bright: #8a6d1f;     /* dorado oscuro legible sobre blanco */
-    --muted: #5b4d7a;
-    --muted-dim: #7e69a3;
-    --text: var(--color-text);     /* el texto base sigue al tema claro */
-    --surface: #ffffff;            /* tarjetas y modales en blanco */
-    --surface-2: #f1eef5;         /* franjas secundarias en gris lavanda */
-    --card: #ffffff;
-}
-/* Títulos blancos que en pastel caen sobre superficie clara */
-[data-theme="pastel"] .hero h1,
-[data-theme="pastel"] .hero-stats strong,
-[data-theme="pastel"] .feature h3,
-[data-theme="pastel"] .cta-band h2,
-[data-theme="pastel"] .carousel-section h2,
-[data-theme="pastel"] .movies-page > h2,
-[data-theme="pastel"] .result-info h2,
-[data-theme="pastel"] .modal-content h2,
-[data-theme="pastel"] .movie-card h3,
-[data-theme="pastel"] .auth-card h1,
-[data-theme="pastel"] .settings-section h2,
-[data-theme="pastel"] .top5-section h2,
-[data-theme="pastel"] .question legend,
-[data-theme="pastel"] .admin-confirm-content h2,
-[data-theme="pastel"] .modal-close,
-[data-theme="pastel"] .carousel-controls button,
-[data-theme="pastel"] .theme-option strong,
-[data-theme="pastel"] .footer-title,
-[data-theme="pastel"] .share-link-box h3,
-[data-theme="pastel"] .page-head h1 {
-    color: var(--color-text);
-}
-/* Insignias de puntuación: pastilla oscura también en claro */
-[data-theme="pastel"] .rating-badge,
-[data-theme="pastel"] .badge {
-    background: rgba(0, 0, 0, 0.78) !important;
-}
-/* Texto de campos sobre caja clara */
-[data-theme="pastel"] .search-bar input,
-[data-theme="pastel"] .filter input,
-[data-theme="pastel"] .filter select,
-[data-theme="pastel"] .top5-search-input,
-[data-theme="pastel"] .chat-agent-input {
-    color: var(--color-text);
-}
-/* Azules de texto demasiado claros para fondo blanco */
-[data-theme="pastel"] .btn-ghost {
-    color: #2f6d9e;
-    border-color: rgba(47, 109, 158, 0.55);
-}
-[data-theme="pastel"] .btn-ghost:hover,
-[data-theme="pastel"] .result-actions .btn-ghost:hover {
-    background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
-    border-color: var(--color-primary);
-    color: #fff;
-}
-[data-theme="pastel"] .result-actions .btn-ghost {
-    color: #2f6d9e;
-    border-color: rgba(47, 109, 158, 0.55);
-}
-[data-theme="pastel"] .season-chip,
-[data-theme="pastel"] .auth-switch button,
-[data-theme="pastel"] .auth-switch button:hover,
-[data-theme="pastel"] .profile-toc a,
-[data-theme="pastel"] .admin-content-genre,
-[data-theme="pastel"] .friend-nickname,
-[data-theme="pastel"] .auth-prompt button,
-[data-theme="pastel"] .footer-link,
-[data-theme="pastel"] .admin-card.stat-positive .admin-card-value,
-[data-theme="pastel"] .admin-review-sent-positive,
-[data-theme="pastel"] .modal-content p strong:not(.meta-gold),
-[data-theme="pastel"] .nickname-checking {
-    color: #2f6d9e;
-}
-[data-theme="pastel"] .tab:hover,
-[data-theme="pastel"] .tab-btn:hover {
-    color: var(--color-text);
-}
-[data-theme="pastel"] .user-info strong,
-[data-theme="pastel"] .yn-btn {
-    color: var(--color-text);
-}
-[data-theme="pastel"] .chat-agent-close {
-    color: #8aa0b8;
-}
-/* Estos viven sobre superficies oscuras fijas: se quedan claros */
-[data-theme="pastel"] .admin-selected-noimg {
-    color: #8aa0b8;
-}
-/* Hovers y avisos legibles sobre claro */
-[data-theme="pastel"] .top5-available .top5-item-available:hover {
-    background: #fff;
-}
-[data-theme="pastel"] .dropdown-item:hover {
-    background: #fbe4ec;
-}
-[data-theme="pastel"] .genre-chip {
-    color: var(--color-text);
-}
-[data-theme="pastel"] .toast.error {
-    color: #be185d;
-}
-[data-theme="pastel"] .toast.success {
-    color: #15803d;
-}
-/* Cabecera clara en pastel: navegación en oscuro (la palabra CineAIros no cambia) */
-[data-theme="pastel"] .nav-link,
-[data-theme="pastel"] .nav-link:hover {
-    color: var(--color-text);
-}
-[data-theme="pastel"] .logo-text .brand-letter:nth-child(-n+4),
-[data-theme="pastel"] .footer-logo .brand-letter:nth-child(-n+4) {
-    background: none;
-    color: #000;
-}
-[data-theme="pastel"] .logo-text .brand-letter:nth-child(n+5):nth-child(-n+6),
-[data-theme="pastel"] .footer-logo .brand-letter:nth-child(n+5):nth-child(-n+6) {
-    background: none;
-    color: #0f4c81;
-}
-[data-theme="pastel"] .nav-link.active {
-    color: #7c3aed;
-    background: rgba(124, 58, 237, 0.12);
-}
-[data-theme="pastel"] .user-chip,
-[data-theme="pastel"] .user-chip:hover {
-    color: #2f6d9e;
-}
-[data-theme="pastel"] .badge {
-    background: var(--color-primary);
-}
-[data-theme="pastel"] .logo-img {
-    border: 1px solid var(--color-border);
-}
 /* Cabecera clara en vibrant: navegación en granate (la palabra CineAIros no cambia) */
 [data-theme="vibrant"] .logo-text .brand-letter:nth-child(-n+4) {
     background: none;
@@ -1309,17 +1182,14 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
 }
 
 /* Apply theme colors to existing components */
-[data-theme="vibrant"] .site-header,
-[data-theme="pastel"] .site-header {
+[data-theme="vibrant"] .site-header {
     background: rgba(255, 255, 255, 0.95);
     border-bottom-color: var(--color-border);
 }
-[data-theme="vibrant"] body,
-[data-theme="pastel"] body {
+[data-theme="vibrant"] body {
     background: var(--color-background);
 }
-[data-theme="vibrant"] .main,
-[data-theme="pastel"] .main {
+[data-theme="vibrant"] .main {
     background: transparent;
 }
 [data-theme="neon"] .site-header {
@@ -2224,7 +2094,27 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
 .admin-placeholder h2 { font-size: 1.2rem; margin: 0; }
 .admin-placeholder .btn-primary { margin-top: 0.8rem; }
 
-.admin-back { margin-top: 1.5rem; }
+.admin-back { margin-top: 1.5rem; margin-bottom: 1.25rem; }
+
+/* Selector de rol (admin) con estilo de botón de la web */
+.role-select {
+    width: 150px;
+    padding: 0.65rem 2.2rem 0.65rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    font-weight: 600;
+    background: var(--color-background) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2372b8ee' d='M6 9.4l-3-3.1 0.7-0.7 2.3 2.4 2.3-2.4 0.7 0.7z'/%3E%3C/svg%3E") no-repeat right 0.8rem center;
+    background-size: 12px 12px;
+    color: var(--color-white);
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    appearance: none;
+}
+.role-select:hover { border-color: var(--color-secondary); box-shadow: 0 0 0 3px rgba(114, 184, 238, 0.12); background-color: rgba(255,255,255,0.05); }
+.role-select:focus { outline: none; border-color: var(--color-secondary); box-shadow: 0 0 0 3px rgba(114, 184, 238, 0.25); }
+.role-select option { background: var(--surface); color: var(--color-white); padding: 0.6rem; }
 
 @media (max-width: 900px) {
     .admin-cards { grid-template-columns: repeat(2, 1fr); }
@@ -2366,8 +2256,15 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     background: transparent;
     border: 1px solid var(--color-primary);
     color: var(--color-primary);
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
-.btn-danger:hover { background: var(--color-primary); color: var(--color-white); }
+.btn-danger:hover { 
+    background: var(--color-primary); 
+    border-color: var(--color-primary); 
+    color: var(--color-white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(156, 13, 56, 0.5);
+}
 
 /* Cabecera del contenido en la vista de reviews */
 .admin-reviews-media {
@@ -2423,6 +2320,33 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
     padding: 0.75rem 1rem;
 }
 .admin-confirm-actions { display: flex; gap: 0.6rem; margin-top: 0.35rem; }
+
+/* Botones del modal de confirmación de rol */
+.admin-confirm-modal .btn-ghost {
+    border-color: var(--color-secondary);
+    color: var(--sky-bright);
+    background: transparent;
+}
+.admin-confirm-modal .btn-ghost:hover {
+    background: var(--color-secondary);
+    border-color: var(--color-secondary);
+    color: var(--color-white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(119, 174, 209, 0.4);
+}
+
+.admin-confirm-modal .btn-danger {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-white);
+}
+.admin-confirm-modal .btn-danger:hover {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+    color: var(--color-white);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(156, 13, 56, 0.5);
+}
 
 @media (max-width: 480px) {
     .admin-reviews-media { flex-wrap: wrap; }
@@ -2685,7 +2609,7 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
    de otra persona: no se puede tocar, así que se anulan el cursor y el hover. */
 .profile-marathons { margin: 1.75rem 0 2rem; }
 .profile-marathons-head {
-    display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem;
     margin-bottom: 1rem;
 }
 .profile-marathons-head h2 { margin: 0; }

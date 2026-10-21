@@ -176,17 +176,11 @@ function cleanTop5Item(item) {
 
 function isAdmin(user) {
     if (!user) return false;
-    // 1. Rol canónico: campo "role" del documento (lo que escribe el panel admin)
+    // ÚNICA fuente de verdad: el rol canónico del documento (lo que escribe el
+    // panel de administración). Se eliminan los fallbacks inseguros de email y
+    // apodo que mantenían permisos después de rebajar un rol.
     const canonRole = user.role && String(user.role).trim().toLowerCase();
-    if (canonRole === USER_ROLES.ADMIN) return true;
-    // 2. Compatibilidad: role guardado en prefs (configurable en Firestore)
-    const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
-    if (prefRole === "admin") return true;
-    // 3. Revisar email dominios comunes de pruebas (ej. admin@dominio.com)
-    const adminEmails = ["admin@test.com", "admin@example.com"];
-    if (adminEmails.includes(user.email)) return true;
-    // 4. Fallback: si el apodo contiene "admin"
-    if (user.nickname && user.nickname.toString().toLowerCase().includes("admin")) return true;
+    if (canonRole) return canonRole === USER_ROLES.ADMIN;
     return false;
 }
 

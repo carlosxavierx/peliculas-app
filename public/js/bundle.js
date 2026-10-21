@@ -58,21 +58,6 @@ const COLOR_THEMES = {
         success: "#22d3ee",
         error: "#f87171",
         primaryRgb: "230, 57, 95"
-    },
-    pastel: {
-        name: "Pastel",
-        primary: "#b83a6a",
-        primaryHover: "#962c55",
-        primaryLight: "#fbe4ec",
-        accent: "#be185d",
-        background: "#faf7f9",
-        surface: "#ffffff",
-        text: "#413252",
-        textMuted: "#6f5f86",
-        border: "#e5d5e0",
-        success: "#4ade80",
-        error: "#fca5a5",
-        primaryRgb: "184, 58, 106"
     }
 };
 
@@ -98,14 +83,9 @@ const USER_ROLES = {
 
 function isAdmin(user) {
     if (!user) return false;
-    // Misma regla que el backend (authService.js): rol canónico en "role",
-    // compatibilidad con "prefs.role", correos de prueba y apodo con "admin".
-    if (user.role && String(user.role).trim().toLowerCase() === USER_ROLES.ADMIN) return true;
-    const prefRole = user.prefs && user.prefs.role && String(user.prefs.role).trim().toLowerCase();
-    if (prefRole === "admin") return true;
-    const adminEmails = ["admin@test.com", "admin@example.com"];
-    if (adminEmails.includes(user.email)) return true;
-    if (user.nickname && String(user.nickname).toLowerCase().includes("admin")) return true;
+    // El rol canónico en "role" es la única fuente de verdad.
+    const canonRole = user.role && String(user.role).trim().toLowerCase();
+    if (canonRole) return canonRole === USER_ROLES.ADMIN;
     return false;
 }
 
@@ -699,6 +679,8 @@ function SiteFooter(props) {
                 h("p", { className: "footer-title" }, "Navegación"),
                 h("button", { className: "footer-link", onClick: () => onNavigate("home") }, "Inicio"),
                 h("button", { className: "footer-link", onClick: () => onNavigate("peliculas") }, "Películas"),
+                h("button", { className: "footer-link", onClick: () => onNavigate("series") }, "Series"),
+                h("button", { className: "footer-link", onClick: () => onNavigate("maratones") }, "Maratones"),
             ),
             h("div", { className: "footer-col" },
                 h("p", { className: "footer-title" }, "Empieza Ahora"),
@@ -2306,7 +2288,7 @@ function MediaPage(props) {
                 })
             ),
             h("label", { className: "filter" },
-                h("span", null, "Nota mínima"),
+                h("span", null, "Puntuación"),
                 h("select", {
                     value: String(minRating),
                     onChange: (e) => setMinRating(Number(e.target.value))
@@ -2940,7 +2922,7 @@ function SeriesPage(props) {
                 })
             ),
             h("label", { className: "filter" },
-                h("span", null, "Nota mínima"),
+                h("span", null, "Puntuación"),
                 h("select", {
                     value: String(minRating),
                     onChange: (e) => setMinRating(Number(e.target.value))
@@ -3664,12 +3646,6 @@ function ProfileMarathons(props) {
             list.length > 0
                 ? h("span", { className: "muted" },
                     (stats.completed || 0) + " completadas · " + (stats.totalWatched || 0) + " obras vistas")
-                : null,
-            isOwn
-                ? h("button", {
-                    className: "btn-primary",
-                    onClick: () => props.onNavigate("maratones")
-                }, "Ir a mis maratones")
                 : null
         ),
         list.length === 0
@@ -5453,6 +5429,10 @@ function AdminDashboard(props) {
     const reviewsLoadingMoreState = React.useState(false);
     const reviewsLoadingMore = reviewsLoadingMoreState[0];
     const setReviewsLoadingMore = reviewsLoadingMoreState[1];
+    // Confirmación de cambio de rol de usuario (gestión de usuarios).
+    const roleConfirmState = React.useState(null);
+    const roleConfirm = roleConfirmState[0];
+    const setRoleConfirm = roleConfirmState[1];
 
     const loadStats = async () => {
         try {
@@ -5573,20 +5553,37 @@ function AdminDashboard(props) {
     };
 
     const changeUserRole = async (userId, newRole) => {
+        const res = await fetch("/api/admin/users/" + encodeURIComponent(userId) + "/role", {
+            method: "PUT",
+            headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+            body: JSON.stringify({ role: newRole })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al cambiar rol");
+        setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+        // Refresca la actividad reciente para que la promoción aparezca ya.
+        loadStats();
+    };
+
+    const requestRoleChange = (userId, name, newRole) => {
+        const u = users.find(x => x.id === userId);
+        setRoleConfirm({ userId, name: name || u.name || u.nickname || "usuario", oldRole: u.role || "user", newRole });
+    };
+
+    const confirmRoleChange = async () => {
+        if (!roleConfirm) return;
+        const { userId, newRole } = roleConfirm;
         try {
-            const res = await fetch("/api/admin/users/" + encodeURIComponent(userId) + "/role", {
-                method: "PUT",
-                headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-                body: JSON.stringify({ role: newRole })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al cambiar rol");
-            setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
-            // Refresca la actividad reciente para que la promoción aparezca ya.
-            loadStats();
+            await changeUserRole(userId, newRole);
         } catch (e) {
             alert(e.message);
+        } finally {
+            setRoleConfirm(null);
         }
+    };
+
+    const cancelRoleChange = () => {
+        setRoleConfirm(null);
     };
 
     if (loading && section === "users") {
@@ -5725,6 +5722,23 @@ function AdminDashboard(props) {
                     h("div", { className: "admin-confirm-actions" },
                         h("button", { className: "btn-ghost btn-small", onClick: closeDeleteReview }, "Cancelar"),
                         h("button", { className: "btn-danger btn-small", onClick: confirmDeleteReview }, "Confirmar")
+                    )
+                )
+            )
+        )
+        : null;
+
+    // Diálogo de confirmación de cambio de rol de usuario.
+    const roleConfirmDialog = roleConfirm
+        ? h("div", { className: "modal-backdrop", onClick: cancelRoleChange },
+            h("div", { className: "modal admin-confirm-modal admin-confirm-attention", onClick: (e) => e.stopPropagation() },
+                h("button", { className: "modal-close", onClick: cancelRoleChange }, "✕"),
+                h("div", { className: "admin-confirm-content" },
+                    h("h2", null, "Cambiar Rol de Usuario"),
+                    h("p", { className: "muted" }, "¿Deseas cambiar el rol de '" + roleConfirm.name + "' a '" + (roleConfirm.newRole === "admin" ? "Administrador" : "Usuario") + "'?"),
+                    h("div", { className: "admin-confirm-actions" },
+                        h("button", { className: "btn-ghost btn-small", onClick: cancelRoleChange }, "Cancelar"),
+                        h("button", { className: "btn-danger btn-small", onClick: confirmRoleChange }, "Confirmar")
                     )
                 )
             )
@@ -6008,7 +6022,7 @@ function AdminDashboard(props) {
                                 h("div", { className: "result-actions", style: { marginTop: "1rem" } },
                                     h("select", {
                                         value: u.role || "user",
-                                        onChange: (e) => changeUserRole(u.id, e.target.value),
+                                        onChange: (e) => requestRoleChange(u.id, u.name || u.nickname || "Sin nombre", e.target.value),
                                         className: "role-select"
                                     },
                                         h("option", { value: "user" }, "Usuario"),
@@ -6019,7 +6033,8 @@ function AdminDashboard(props) {
                         )
                     )
                 ),
-                users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados")
+                users.length === 0 && h("p", { className: "muted", style: { textAlign: "center", padding: "2rem" } }, "No hay usuarios registrados"),
+                roleConfirmDialog
             ),
         ]),
         search: h("div", { className: "admin-main" }, [
