@@ -4131,7 +4131,7 @@ function ChatAgent() {
                                     h("path", { d: "M12 6v6l4 2" })
                                 )
                         ),
-                        h("div", { className: "chat-message-bubble" }, msg.content),
+                        h("div", { className: "chat-message-bubble", dangerouslySetInnerHTML: { __html: (window.marked ? window.marked.parse(msg.content) : msg.content) } }),
                         h("div", { className: "chat-message-time" }, msg.time)
                     )
                 ),
