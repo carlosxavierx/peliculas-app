@@ -1618,11 +1618,11 @@ function RegisterPage(props) {
             ),
             h("div", { className: "auth-field" },
                 h("label", null, "Confirmar contraseña"),
-                h("input", {
-                    type: "password", value: password2,
-                    onChange: (e) => setPassword2(e.target.value),
-                    placeholder: "volver a escribir contraseña", autoComplete: "new-password"
-                })
+h("input", {
+                        type: "password", value: password2,
+                        onChange: (e) => setPassword2(e.target.value),
+                        placeholder: "Volver a escribir contraseña", autoComplete: "new-password"
+                    })
             ),
             h("div", { className: "auth-field" },
                 h("label", null, "Apodo (único)"),
@@ -1641,8 +1641,7 @@ function RegisterPage(props) {
                     checkingNickname ? h("span", { className: "nickname-checking" }, "⟳") : null
                 ),
                 nicknameError ? h("p", { className: "error hint" }, nicknameError) : null,
-                h("p", { className: "hint", style: { fontSize: "1rem", color: "var(--muted)", marginTop: "0.35rem" } }, "min. 3 chars, letras, números, _, -, ."),
-                h("p", { className: "hint" }, "Tu identidad única para que te encuentren tus amigos")
+                h("p", { className: "hint", style: { fontSize: "1rem", color: "var(--muted)", marginTop: "0.35rem", marginLeft: "1.9rem" } }, "Mín. 3 caracteres: letras, números, _ , -, ...")
             ),
             h("button", { className: "btn-primary", type: "submit", disabled: loading || googleLoading },
                 loading ? "Creando cuenta..." : "Continuar"

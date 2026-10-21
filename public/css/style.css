@@ -1257,13 +1257,13 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
 }
 /* ---------- Nickname field in registration ---------- */
 .nickname-field {
-    position: relative; display: flex; align-items: center;
+    position: relative; display: flex; align-items: center; width: 100%;
 }
 .nickname-prefix {
     position: absolute; left: 0.9rem; color: var(--muted); font-weight: 600; pointer-events: none;
 }
 .nickname-field input {
-    padding-left: 2rem !important;
+    padding-left: 2rem !important; width: 100%;
 }
 .nickname-checking {
     position: absolute; right: 0.9rem; color: var(--sky); font-size: 1.1rem;
@@ -1271,6 +1271,9 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
 }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .nickname-field .error.hint { margin-top: 0.35rem; font-size: 0.8rem; }
+/* Hint debajo del input de apodo, alineado con el texto (donde está la @) */
+.auth-field .hint + .hint,
+.auth-field > .hint:last-child { margin-left: 1.9rem; margin-top: 0.35rem; font-size: 1rem; color: var(--muted); }
 
 /* ---------- Reviews Modal ---------- */
 .modal-reviews {
