@@ -1143,7 +1143,7 @@ function PasswordResetPage(props) {
                         })
                     ),
                     h("div", { className: "auth-field" },
-                        h("label", null, "Repite la contraseña"),
+                        h("label", null, "Confirmar contraseña"),
                         h("input", {
                             type: "password", value: password2,
                             onChange: (e) => setPassword2(e.target.value),
@@ -1617,11 +1617,11 @@ function RegisterPage(props) {
                 })
             ),
             h("div", { className: "auth-field" },
-                h("label", null, "Repite la contraseña"),
+                h("label", null, "Confirmar contraseña"),
                 h("input", {
                     type: "password", value: password2,
                     onChange: (e) => setPassword2(e.target.value),
-                    placeholder: "Otra vez", autoComplete: "new-password"
+                    placeholder: "volver a escribir contraseña", autoComplete: "new-password"
                 })
             ),
             h("div", { className: "auth-field" },
