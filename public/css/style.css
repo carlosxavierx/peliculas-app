@@ -2358,7 +2358,7 @@ a.footer-link:hover, button.footer-link:hover { color: var(--color-primary); }
    ============================================================ */
 .admin-card.stat-positive .admin-card-value { color: var(--color-secondary); }
 .admin-card.stat-negative .admin-card-value { color: var(--color-primary); }
-.admin-card.stat-neutral .admin-card-value { color: var(--steel-bright); }
+.admin-card.stat-neutral .admin-card-value { color: var(--color-white); }
 .admin-stats-note { margin: 0.6rem 0 0; font-size: 0.8rem; max-width: 720px; }
 .admin-content-empty .btn-ghost { flex-shrink: 0; }
 .admin-reviews-more { margin-top: 1rem; text-align: center; }
