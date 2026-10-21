@@ -5296,7 +5296,7 @@ function ChatAgent() {
                                 )
                                 : h("img", { src: "/img/logo.png?v=3", alt: "CineBot", className: "chat-message-logo" })
                         ),
-                        h("div", { className: "chat-message-bubble" }, msg.content),
+                        h("div", { className: "chat-message-bubble", dangerouslySetInnerHTML: { __html: (window.marked ? window.marked.parse(msg.content) : msg.content) } }),
                         h("div", { className: "chat-message-time" }, msg.time)
                     )
                 ),
