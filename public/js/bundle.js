@@ -5768,27 +5768,29 @@ function AdminDashboard(props) {
             { key: "neg", label: "Negativas", cls: "sent-negative", value: neg }
         ].filter((seg) => seg.value > 0);
         if (segs.length === 0) return null;
+        let acc = 0;
+        const sectors = segs.map((seg) => {
+            const start = (acc / total) * 100;
+            acc += seg.value;
+            return "var(--" + seg.cls + ") " + start + "% " + (acc / total) * 100 + "%";
+        }).join(", ");
+        const chartSummary = segs
+            .map((seg) => seg.label + ": " + seg.value + " (" + chartPct(seg.value, total) + "%)")
+            .join(" · ");
         return h("div", { className: "admin-chart" },
             h("div", {
-                className: "admin-chart-bar", role: "img",
-                "aria-label": "Distribución del tono de las reseñas"
-            },
-                segs.map((seg) =>
-                    h("span", {
-                        key: seg.key,
-                        className: "admin-chart-seg " + seg.cls,
-                        style: { width: (seg.value / total) * 100 + "%" },
-                        title: seg.label + ": " + seg.value + " (" + chartPct(seg.value, total) + "%)"
-                    })
-                )
-            ),
+                className: "admin-chart-pie", role: "img",
+                "aria-label": "Distribución del tono de las reseñas. " + chartSummary,
+                title: chartSummary,
+                style: { background: "conic-gradient(" + sectors + ")" }
+            }),
             h("div", { className: "admin-chart-legend" },
                 segs.map((seg) =>
                     h("span", { key: seg.key, className: "admin-chart-legend-item" },
                         h("span", { className: "admin-chart-dot " + seg.cls }),
                         h("span", null, seg.label),
                         h("strong", null, String(seg.value)),
-                        h("span", { className: "muted" }, "(" + chartPct(seg.value, total) + "%)")
+                        h("span", { className: "admin-chart-legend-pct" }, "(" + chartPct(seg.value, total) + "%)")
                     )
                 )
             )
